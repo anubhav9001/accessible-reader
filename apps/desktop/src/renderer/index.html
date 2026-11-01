@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' reader: data:; media-src reader:; connect-src reader:; font-src 'self' reader: data:"
+    />
+    <title>Reader</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="renderer.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#ui-text">Skip to book text</a>
+    <header class="ui-header">
+      <div>
+        <h1 id="ui-title">No book open</h1>
+        <p id="ui-meta">Press Control O to open an EPUB or DAISY book.</p>
+      </div>
+      <div class="ui-controls" role="group" aria-label="Reading controls">
+        <button id="ui-open" type="button" aria-keyshortcuts="Control+O">Open book</button>
+        <button id="ui-play" type="button" aria-keyshortcuts="Control+Space">Play</button>
+        <button id="ui-prev-heading" type="button" aria-keyshortcuts="Alt+ArrowUp">Previous heading</button>
+        <button id="ui-prev-phrase" type="button" aria-keyshortcuts="Alt+ArrowLeft">Previous phrase</button>
+        <button id="ui-next-phrase" type="button" aria-keyshortcuts="Alt+ArrowRight">Next phrase</button>
+        <button id="ui-next-heading" type="button" aria-keyshortcuts="Alt+ArrowDown">Next heading</button>
+        <button id="ui-goto" type="button" aria-keyshortcuts="Control+G">Go to page</button>
+        <label>Speed <select id="ui-speed"></select></label>
+      </div>
+      <fieldset id="ui-modes" class="ui-modes">
+        <legend>Reading mode</legend>
+        <label><input type="radio" name="mode" value="text" /> Text only</label>
+        <label><input type="radio" name="mode" value="audio" /> Audio only</label>
+        <label><input type="radio" name="mode" value="textAudio" /> Text and audio</label>
+      </fieldset>
+    </header>
+    <div class="ui-layout">
+      <nav id="ui-toc" aria-labelledby="ui-toc-heading" tabindex="-1">
+        <h2 id="ui-toc-heading">Contents</h2>
+        <div id="ui-toc-tree"></div>
+      </nav>
+      <main>
+        <section class="ui-now" aria-labelledby="ui-now-label">
+          <h2 id="ui-now-label" class="visually-hidden">Now reading</h2>
+          <p><span id="ui-now-heading-text"></span> <span id="ui-now-page"></span></p>
+          <p id="ui-now-time"></p>
+        </section>
+        <article id="ui-text" tabindex="-1" aria-label="Book text"></article>
+        <div id="ui-audio-only" class="ui-audio-only" hidden>
+          <p>Audio only mode: the text is hidden. Use the Playback menu or its shortcuts to move through the book.</p>
+        </div>
+      </main>
+    </div>
+    <div id="ui-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    <dialog id="ui-goto-dialog" aria-labelledby="ui-goto-title">
+      <form method="dialog">
+        <h2 id="ui-goto-title">Go to page</h2>
+        <label for="ui-goto-input">Page number</label>
+        <input id="ui-goto-input" autocomplete="off" />
+        <div class="ui-dialog-buttons">
+          <button value="go">Go</button>
+          <button value="cancel" formnovalidate>Cancel</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

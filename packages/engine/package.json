@@ -1,0 +1,36 @@
+{
+  "name": "@accessible-reader/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared DAISY 2.02 / DAISY 3 / EPUB 3 reading engine for the desktop and mobile apps",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/platform/browser.d.ts",
+      "default": "./dist/platform/browser.js"
+    },
+    "./xmldom": {
+      "types": "./dist/platform/xmldom.d.ts",
+      "default": "./dist/platform/xmldom.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
