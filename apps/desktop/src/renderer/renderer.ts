@@ -582,6 +582,9 @@ function handle(command: Command): void {
 
 // ---- wiring -------------------------------------------------------------------------
 
+// The page carries a warning for when it is opened outside the app (e.g. in a plain browser).
+document.getElementById('ui-not-app')?.remove();
+
 for (const r of RATES) ui.speed.add(new Option(`${r}×`, String(r), r === 1, r === 1));
 ui.speed.addEventListener('change', () => setRate(Number(ui.speed.value)));
 ui.open.addEventListener('click', () => handle('open'));

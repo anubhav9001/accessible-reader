@@ -162,7 +162,7 @@ function createWindow(): void {
   // Links inside books must never replace the reader page or open new windows.
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  if (smoke) window.webContents.setAudioMuted(true);
+  if (smoke || process.env.READER_MUTE === '1') window.webContents.setAudioMuted(true);
   window.loadURL('reader://app/index.html');
 }
 
