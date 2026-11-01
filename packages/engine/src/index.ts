@@ -1,5 +1,5 @@
 export * from './model.js';
-export { BaseContainer, MemoryContainer, ZipContainer, decodeText, type Container } from './container.js';
+export { BaseContainer, HttpContainer, MemoryContainer, ZipContainer, decodeText, type Container } from './container.js';
 export type { XmlPlatform } from './xml.js';
 export { detectFormat, openPublication } from './open.js';
 export { parseEpub } from './epub.js';

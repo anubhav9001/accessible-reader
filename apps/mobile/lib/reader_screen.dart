@@ -1,0 +1,566 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+import 'book_server.dart';
+import 'book_store.dart';
+import 'models.dart';
+import 'players.dart';
+import 'reader_bridge.dart';
+
+const _rates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+
+class ReaderScreen extends StatefulWidget {
+  const ReaderScreen({super.key, required this.store, required this.server, required this.book});
+
+  final BookStore store;
+  final BookServer server;
+  final StoredBook book;
+
+  @override
+  State<ReaderScreen> createState() => _ReaderScreenState();
+}
+
+class _ReaderScreenState extends State<ReaderScreen> {
+  late final ReaderBridge _bridge = ReaderBridge(onLink: (target) => _goToText(target));
+  late final SpeechReader _speech =
+      SpeechReader(onBlock: _onBlock, onState: _onPlayState, onFinished: _onSpeechFinished);
+  RecordedPlayer? _recorded;
+  OpenedBook? _book;
+  String? _error;
+
+  ReadingMode _mode = ReadingMode.text;
+  int _clipIndex = 0;
+  TextDoc? _doc;
+  int _headingLevel = 0;
+  double _rate = 1;
+  bool _playing = false;
+  String _heading = '';
+  String _page = '';
+  String _time = '';
+  Timer? _saveTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _open();
+  }
+
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    _save();
+    _recorded?.dispose();
+    _speech.dispose();
+    super.dispose();
+  }
+
+  // ---- opening ----------------------------------------------------------------------
+
+  Future<void> _open() async {
+    try {
+      final files = await widget.store.listFiles(widget.book.id);
+      final byLower = {for (final f in files) f.toLowerCase(): f};
+      final dir = widget.store.folder(widget.book.id).path;
+      await _bridge.load(widget.server.readerUrl);
+      final opened = await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files]);
+      final book = OpenedBook.fromJson(opened!);
+
+      _recorded = RecordedPlayer(
+        clips: book.narration,
+        filePath: (path) => p.joinAll([dir, ...(byLower[path.toLowerCase()] ?? path).split('/')]),
+        onClip: _onClip,
+        onState: _onPlayState,
+        onEnded: () => _announce('End of book'),
+      );
+
+      // Keep the library entry's title and authors in step with the book itself.
+      if (book.title.isNotEmpty && book.title != widget.book.title) {
+        widget.book
+          ..title = book.title
+          ..authors = book.authors;
+        await widget.store.save();
+      }
+
+      final saved = await _loadPosition();
+      _clipIndex = (saved?['clipIndex'] as int?) ?? 0;
+      final savedMode = ReadingMode.values.asNameMap()[saved?['mode']];
+      setState(() => _book = book);
+      await _setMode(savedMode != null && book.option(savedMode).available ? savedMode : book.defaultMode,
+          quiet: true, savedBlockPath: saved?['docPath'] as String?, savedBlock: saved?['block'] as int?);
+      _announce('${book.title}. ${_mode.label} mode.');
+    } catch (e) {
+      setState(() => _error = 'Could not open this book: $e');
+    }
+  }
+
+  // ---- helpers ----------------------------------------------------------------------
+
+  String get _source => _book?.option(_mode).audioSource ?? 'none';
+
+  /// Recorded-audio books move clip by clip; device-voice reading moves block by block.
+  bool get _usesClips => _source == 'recorded' || !(_book?.hasText ?? false);
+
+  bool get _isPlaying => (_recorded?.playing ?? false) || _speech.playing;
+
+  void _announce(String message) {
+    if (!mounted) return;
+    SemanticsService.sendAnnouncement(View.of(context), message, TextDirection.ltr);
+  }
+
+  String _formatTime(double seconds) {
+    final s = seconds.floor();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return s >= 3600 ? '${s ~/ 3600}:${two(s % 3600 ~/ 60)}:${two(s % 60)}' : '${s ~/ 60}:${two(s % 60)}';
+  }
+
+  Future<void> _pauseAll() async {
+    await _recorded?.pause();
+    await _speech.pause();
+  }
+
+  // ---- position -----------------------------------------------------------------------
+
+  String get _positionKey => 'position:${widget.book.id}';
+
+  Future<Map<String, dynamic>?> _loadPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_positionKey);
+    return raw == null ? null : jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  void _scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 1), _save);
+  }
+
+  Future<void> _save() async {
+    if (_book == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        _positionKey, jsonEncode({'mode': _mode.name, 'clipIndex': _clipIndex, 'docPath': _doc?.path, 'block': _doc?.index}));
+  }
+
+  // ---- modes --------------------------------------------------------------------------
+
+  Future<void> _setMode(ReadingMode next, {bool quiet = false, String? savedBlockPath, int? savedBlock}) async {
+    final book = _book;
+    if (book == null) return;
+    final option = book.option(next);
+    if (!option.available) {
+      _announce(option.reason ?? '${next.label} is not available for this book.');
+      return;
+    }
+    final wasPlaying = _isPlaying;
+    await _pauseAll();
+
+    // Carry the place across from block-by-block reading to a clip.
+    if (!_usesClips && _doc != null) {
+      final clip = await _bridge.call<int>('clipForBlock', [_doc!.index]);
+      if (clip != null) _clipIndex = clip;
+    }
+    setState(() => _mode = next);
+
+    if (!_usesClips) {
+      final ref = savedBlockPath != null ? TextRef(savedBlockPath) : null;
+      await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [ref?.toJson(), _clipIndex]));
+      if (savedBlock != null && _doc != null && savedBlockPath == _doc!.path) _speech.jump(savedBlock);
+    } else if (_mode == ReadingMode.textAudio) {
+      await _bridge.call('showClip', [_clipIndex, false]);
+    }
+    await _updateLocation();
+    if (!quiet) _announce('${_mode.label} mode');
+    if (wasPlaying) await _play();
+  }
+
+  Future<void> _loadDoc(Map<String, dynamic>? json) async {
+    if (json == null) return;
+    final doc = TextDoc.fromJson(json);
+    _doc = doc;
+    await _speech.load(doc);
+    await _bridge.call('highlightBlock', [doc.index, false]);
+  }
+
+  // ---- playback -----------------------------------------------------------------------
+
+  Future<void> _play() async {
+    if (_source == 'recorded') {
+      await _recorded?.play(_clipIndex);
+    } else if (_source == 'tts') {
+      _speech.play();
+    } else {
+      _announce('There is nothing to play in this mode.');
+    }
+  }
+
+  Future<void> _togglePlay() async {
+    if (_isPlaying) {
+      await _pauseAll();
+    } else {
+      await _play();
+    }
+  }
+
+  void _onPlayState(bool playing) {
+    if (mounted) setState(() => _playing = _isPlaying);
+  }
+
+  void _onClip(int index) {
+    _clipIndex = index;
+    if (_mode == ReadingMode.textAudio) _bridge.call('showClip', [index, false]);
+    _updateLocation();
+    _scheduleSave();
+  }
+
+  void _onBlock(int index) {
+    _doc?.index = index;
+    // Stepping by hand moves TalkBack/VoiceOver to the new phrase; reading aloud never does.
+    _bridge.call('highlightBlock', [index, !_speech.playing]);
+    _updateLocation();
+    _scheduleSave();
+  }
+
+  Future<void> _onSpeechFinished() async {
+    final next = await _bridge.call<Map<String, dynamic>>('textDocument', [1]);
+    if (next == null) {
+      await _speech.pause();
+      _announce('End of book');
+      return;
+    }
+    await _loadDoc(next);
+    _speech.play();
+  }
+
+  // ---- navigation ---------------------------------------------------------------------
+
+  Future<void> _goTo({int? clipIndex, TextRef? target, required String label}) async {
+    if (_usesClips && clipIndex != null) {
+      _recorded?.seek(clipIndex);
+      if (!_isPlaying) _announce(label);
+      return;
+    }
+    if (target != null || clipIndex != null) await _goToText(target, clipIndex: clipIndex);
+    if (!_isPlaying) _announce(label);
+  }
+
+  Future<void> _goToText(TextRef? target, {int? clipIndex}) async {
+    if (_usesClips) return;
+    final wasPlaying = _speech.playing;
+    await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [target?.toJson(), clipIndex]));
+    if (wasPlaying) {
+      _speech.play();
+    } else {
+      _onBlock(_doc!.index);
+    }
+  }
+
+  Future<void> _stepPhrase(int direction) async {
+    if (_usesClips) {
+      final next = _recorded?.nextAudible(_clipIndex, direction);
+      if (next == null) return _announce(direction > 0 ? 'End of book' : 'Start of book');
+      _recorded!.seek(next);
+      return;
+    }
+    final doc = _doc;
+    if (doc == null) return;
+    final target = doc.index + direction;
+    if (target >= 0 && target < doc.blocks.length) return _speech.jump(target);
+    await _changeDoc(direction);
+  }
+
+  Future<void> _changeDoc(int direction) async {
+    final next = await _bridge.call<Map<String, dynamic>>('textDocument', [direction]);
+    if (next == null) return _announce(direction > 0 ? 'End of book' : 'Start of book');
+    final wasPlaying = _speech.playing;
+    await _loadDoc(next);
+    if (wasPlaying) {
+      _speech.play();
+    } else {
+      _onBlock(_doc!.index);
+    }
+  }
+
+  Future<void> _stepHeading(int direction) async {
+    if (_usesClips) {
+      final r = await _bridge.call<Map<String, dynamic>>('clipNav', ['heading', direction, _clipIndex, _headingLevel]);
+      if (r == null) return _announce(direction > 0 ? 'No next heading' : 'No previous heading');
+      return _goTo(clipIndex: r['clipIndex'] as int, label: r['label'] as String);
+    }
+    final doc = _doc;
+    if (doc == null) return;
+    for (var i = doc.index + direction; i >= 0 && i < doc.blocks.length; i += direction) {
+      final level = doc.blocks[i].heading;
+      if (level != null && (_headingLevel == 0 || level <= _headingLevel)) {
+        _speech.jump(i);
+        if (_speech.playing) _announce(doc.blocks[i].text);
+        return;
+      }
+    }
+    if (direction > 0) return _changeDoc(1);
+    _announce('No previous heading in this section');
+  }
+
+  Future<void> _stepPage(int direction) async {
+    if (_usesClips) {
+      final r = await _bridge.call<Map<String, dynamic>>('clipNav', ['page', direction, _clipIndex, 0]);
+      if (r == null) return _announce(direction > 0 ? 'No next page' : 'No previous page');
+      return _goTo(clipIndex: r['clipIndex'] as int, label: r['label'] as String);
+    }
+    final r = await _bridge.call<Map<String, dynamic>>('pageInText', [direction, _doc?.index ?? 0]);
+    if (r == null) return _announce(direction > 0 ? 'No next page in this section' : 'No previous page in this section');
+    _speech.jump(r['index'] as int);
+    _announce(r['label'] as String);
+  }
+
+  Future<void> _goToPage() async {
+    if (!(_book?.hasPages ?? false)) return _announce('This book has no page numbers.');
+    final controller = TextEditingController();
+    final label = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Go to page'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Page number'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Go')),
+        ],
+      ),
+    );
+    if (label == null || label.trim().isEmpty) return;
+    final r = await _bridge.call<Map<String, dynamic>>('findPage', [label]);
+    if (r == null) return _announce('Page $label not found');
+    await _goTo(
+      clipIndex: r['clipIndex'] as int?,
+      target: r['target'] == null ? null : TextRef.fromJson(r['target'] as Map<String, dynamic>),
+      label: r['label'] as String,
+    );
+  }
+
+  Future<void> _showContents() async {
+    final entries = [for (final e in _book?.toc ?? const <NavEntry>[]) ...e.flatten()];
+    final chosen = await showModalBottomSheet<NavEntry>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        builder: (context, scroll) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Contents', style: Theme.of(context).textTheme.titleLarge, semanticsLabel: 'Contents'),
+            ),
+            Expanded(
+              child: entries.isEmpty
+                  ? const Center(child: Text('This book has no table of contents.'))
+                  : ListView.builder(
+                      controller: scroll,
+                      itemCount: entries.length,
+                      itemBuilder: (context, i) {
+                        final e = entries[i];
+                        return ListTile(
+                          contentPadding: EdgeInsets.only(left: 16.0 * e.level, right: 16),
+                          title: Text(e.label, semanticsLabel: '${e.label}, level ${e.level}'),
+                          onTap: () => Navigator.pop(context, e),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null) await _goTo(clipIndex: chosen.clipIndex, target: chosen.target, label: chosen.label);
+  }
+
+  Future<void> _chooseSpeed() async {
+    final rate = await showDialog<double>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Reading speed'),
+        children: [
+          for (final r in _rates)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, r),
+              child: Text('$r×${r == _rate ? ' (current)' : ''}'),
+            ),
+        ],
+      ),
+    );
+    if (rate == null) return;
+    _rate = rate;
+    await _recorded?.setRate(rate);
+    await _speech.setRate(rate);
+    _announce('Speed $rate');
+  }
+
+  Future<void> _chooseHeadingLevel() async {
+    final level = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Move by headings of'),
+        children: [
+          for (var l = 0; l <= 6; l++)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, l),
+              child: Text('${l == 0 ? 'All levels' : 'Level $l and above'}${l == _headingLevel ? ' (current)' : ''}'),
+            ),
+        ],
+      ),
+    );
+    if (level != null) setState(() => _headingLevel = level);
+  }
+
+  // ---- location -----------------------------------------------------------------------
+
+  Future<void> _updateLocation() async {
+    final book = _book;
+    if (book == null) return;
+    String heading = '', page = '', time = '';
+    if (_usesClips) {
+      final loc = await _bridge.call<Map<String, dynamic>>('location', [_clipIndex]);
+      heading = (loc?['heading'] as String?) ?? '';
+      page = (loc?['page'] as String?) ?? '';
+      if (book.duration > 0 && _clipIndex < book.clipStarts.length) {
+        time = '${_formatTime(book.clipStarts[_clipIndex])} of ${_formatTime(book.duration)}';
+      }
+    } else if (_doc != null) {
+      for (var i = _doc!.index; i >= 0; i--) {
+        if (_doc!.blocks[i].heading != null) {
+          heading = _doc!.blocks[i].text;
+          break;
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _heading = heading;
+      _page = page;
+      _time = time;
+    });
+  }
+
+  // ---- UI -----------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final book = _book;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(book?.title ?? widget.book.title, overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(tooltip: 'Contents', icon: const Icon(Icons.toc), onPressed: book == null ? null : _showContents),
+          PopupMenuButton<String>(
+            tooltip: 'More reading options',
+            enabled: book != null,
+            onSelected: (choice) => switch (choice) {
+              'page' => _goToPage(),
+              'next-page' => _stepPage(1),
+              'prev-page' => _stepPage(-1),
+              'speed' => _chooseSpeed(),
+              'level' => _chooseHeadingLevel(),
+              _ => null,
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'page', child: Text('Go to page')),
+              PopupMenuItem(value: 'next-page', child: Text('Next page')),
+              PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
+              PopupMenuItem(value: 'speed', child: Text('Reading speed')),
+              PopupMenuItem(value: 'level', child: Text('Heading level')),
+            ],
+          ),
+        ],
+      ),
+      body: _error != null
+          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
+          : Column(
+              children: [
+                if (book != null) _modeSelector(book),
+                if (book != null) _locationBar(),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // Kept alive in audio-only mode, but hidden from the screen and the screen reader.
+                      Visibility(
+                        visible: _mode != ReadingMode.audio,
+                        maintainState: true,
+                        child: WebViewWidget(controller: _bridge.controller),
+                      ),
+                      if (book == null) const Center(child: CircularProgressIndicator(semanticsLabel: 'Opening book')),
+                      if (book != null && _mode == ReadingMode.audio)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text('Audio only mode. The text is hidden. Use the buttons below to move through the book.',
+                                textAlign: TextAlign.center),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (book != null) _controls(),
+              ],
+            ),
+    );
+  }
+
+  Widget _modeSelector(OpenedBook book) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: SegmentedButton<ReadingMode>(
+          showSelectedIcon: false,
+          segments: [
+            for (final m in ReadingMode.values)
+              ButtonSegment(
+                value: m,
+                enabled: book.option(m).available,
+                tooltip: m.label,
+                label: Text(m.shortLabel, semanticsLabel: m.label),
+              ),
+          ],
+          selected: {_mode},
+          onSelectionChanged: (s) => _setMode(s.first),
+        ),
+      );
+
+  Widget _locationBar() {
+    final text = [_heading, _page, _time].where((s) => s.isNotEmpty).join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+    );
+  }
+
+  Widget _controls() => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                  tooltip: 'Previous heading', icon: const Icon(Icons.keyboard_double_arrow_up), onPressed: () => _stepHeading(-1)),
+              IconButton(tooltip: 'Previous phrase', icon: const Icon(Icons.skip_previous), onPressed: () => _stepPhrase(-1)),
+              IconButton.filled(
+                tooltip: _playing ? 'Pause' : 'Play',
+                iconSize: 36,
+                icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
+                onPressed: _togglePlay,
+              ),
+              IconButton(tooltip: 'Next phrase', icon: const Icon(Icons.skip_next), onPressed: () => _stepPhrase(1)),
+              IconButton(
+                  tooltip: 'Next heading', icon: const Icon(Icons.keyboard_double_arrow_down), onPressed: () => _stepHeading(1)),
+            ],
+          ),
+        ),
+      );
+}
