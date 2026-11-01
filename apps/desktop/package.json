@@ -12,7 +12,8 @@
     "smoke": "npm run build && electron . --smoke samples/sample-daisy202.zip"
   },
   "dependencies": {
-    "@accessible-reader/engine": "*"
+    "@accessible-reader/engine": "*",
+    "@accessible-reader/web-view": "*"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

@@ -1,0 +1,44 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --highlight-bg: #ffe066;
+  --highlight-fg: #000000;
+  --font-scale: 1;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --fg: #f0f0f0;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+#text {
+  padding: 16px 18px 48px;
+  font: calc(19px * var(--font-scale)) / 1.7 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+#text:focus {
+  outline: none;
+}
+
+#text img {
+  max-width: 100%;
+  height: auto;
+}
+
+#text .current-phrase {
+  background: var(--highlight-bg);
+  color: var(--highlight-fg);
+  outline: 2px solid var(--highlight-bg);
+  border-radius: 2px;
+}

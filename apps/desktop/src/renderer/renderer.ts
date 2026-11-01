@@ -18,7 +18,7 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
-import { DocumentView } from './document-view';
+import { DocumentView } from '@accessible-reader/web-view';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
 

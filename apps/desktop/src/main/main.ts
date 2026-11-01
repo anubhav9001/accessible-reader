@@ -1,7 +1,9 @@
 import { openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, type MenuItemConstructorOptions } from 'electron';
+import { mkdtempSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { BookInfo, Command, ModeState } from '../shared/api';
 import { FileCache, mimeType, openContainer } from './book-files';
@@ -16,6 +18,9 @@ const rendererDir = path.join(__dirname, 'renderer');
 const smokeIndex = process.argv.indexOf('--smoke');
 const smoke = smokeIndex >= 0;
 const initialPath = smoke ? process.argv[smokeIndex + 1] : process.argv.slice(app.isPackaged ? 1 : 2).find((a) => !a.startsWith('-'));
+
+// The smoke test starts from a fresh profile, so no remembered reading position skews it.
+if (smoke) app.setPath('userData', mkdtempSync(path.join(tmpdir(), 'reader-smoke-')));
 
 let window: BrowserWindow | undefined;
 let container: Container | undefined;

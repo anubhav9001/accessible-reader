@@ -4,3 +4,6 @@ dist/
 .env
 config.local.json
 samples/
+
+# Built by apps/mobile/web (npm run build)
+apps/mobile/assets/web/

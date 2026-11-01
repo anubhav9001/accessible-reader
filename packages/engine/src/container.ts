@@ -91,6 +91,30 @@ export class ZipContainer extends BaseContainer {
 }
 
 /**
+ * A book served over HTTP, e.g. by the mobile app's local server. The host supplies
+ * the file list, since a web server cannot be asked for a directory listing.
+ */
+export class HttpContainer extends BaseContainer {
+  constructor(
+    private readonly baseUrl: string,
+    paths: readonly string[],
+  ) {
+    super(paths);
+  }
+
+  /** The URL of a stored file, with each path segment encoded. */
+  url(path: string): string {
+    return this.baseUrl.replace(/\/?$/, '/') + path.split('/').map(encodeURIComponent).join('/');
+  }
+
+  protected async readStored(path: string): Promise<Uint8Array> {
+    const response = await fetch(this.url(path));
+    if (!response.ok) throw new Error(`Could not load ${path} (HTTP ${response.status})`);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+}
+
+/**
  * Decodes a text file, honouring a BOM or a declared encoding. Older DAISY 2.02 books
  * are often windows-1252 or ISO-8859-1, sometimes without saying so.
  */

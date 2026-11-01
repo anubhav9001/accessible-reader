@@ -1,0 +1,14 @@
+{
+  "name": "@accessible-reader/mobile-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reader page loaded in the mobile app's WebView",
+  "scripts": {
+    "build": "npm run build -w @accessible-reader/engine && node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@accessible-reader/engine": "*",
+    "@accessible-reader/web-view": "*"
+  }
+}
