@@ -1,0 +1,23 @@
+{
+  "name": "@accessible-reader/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop reader (Electron)",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "npm run build -w @accessible-reader/engine && node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "start": "npm run build && electron .",
+    "samples": "node scripts/make-samples.mjs",
+    "smoke": "npm run build && electron . --smoke samples/sample-daisy202.zip"
+  },
+  "dependencies": {
+    "@accessible-reader/engine": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "electron": "^45.2.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

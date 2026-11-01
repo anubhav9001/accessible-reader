@@ -1,0 +1,15 @@
+{
+  "name": "accessible-reader",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/desktop"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
