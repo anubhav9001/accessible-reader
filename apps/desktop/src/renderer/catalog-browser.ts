@@ -70,7 +70,13 @@ export class CatalogBrowser {
       this.current = url;
       this.render(feed);
     } catch (err) {
-      this.setStatus(`Could not load the library: ${err instanceof Error ? err.message : String(err)}`);
+      this.setStatus(errorMessage(err));
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.textContent = 'Try again';
+      retry.addEventListener('click', () => void this.load(url, remember));
+      this.el.results.replaceChildren(retry);
+      retry.focus();
     }
     this.el.back.disabled = this.history.length === 0;
   }
@@ -141,13 +147,19 @@ export class CatalogBrowser {
         this.el.dialog.close();
         await this.onBook(info);
       } catch (err) {
-        this.setStatus(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
+        this.setStatus(`Download failed. ${errorMessage(err)}`);
         button.disabled = false;
       }
     });
     details.append(button);
     this.el.results.append(details);
   }
+}
+
+/** The main process's message, without the "Error invoking remote method …" wrapper Electron adds. */
+function errorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 
 function paragraph(text: string): HTMLParagraphElement {
