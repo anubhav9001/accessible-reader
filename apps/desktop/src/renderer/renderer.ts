@@ -159,6 +159,8 @@ interface SavedPosition {
   clipIndex: number;
   docPath?: string;
   fragment?: string;
+  /** The paragraph (block) within docPath: works for text without ids, and follows the screen reader. */
+  block?: number;
 }
 
 function positionKey(): string {
@@ -177,7 +179,13 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined;
 function savePosition(): void {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const position: SavedPosition = { mode, clipIndex, docPath: view.currentPath, fragment: view.current?.id || undefined };
+    const position: SavedPosition = {
+      mode,
+      clipIndex,
+      docPath: view.currentPath,
+      fragment: view.current?.id || undefined,
+      block: place ? docBlocks().indexOf(place) : undefined,
+    };
     try {
       localStorage.setItem(positionKey(), JSON.stringify(position));
     } catch {
@@ -221,6 +229,11 @@ async function openBook(info: BookInfo): Promise<void> {
   await setMode(savedOk ? saved.mode : defaultReadingMode(info), true);
   if (saved?.docPath && textResource(saved.docPath) && !usesClips()) {
     await showText({ path: saved.docPath, fragment: saved.fragment }, false);
+    const el = saved.block === undefined ? undefined : docBlocks()[saved.block];
+    if (el) {
+      view.highlightElement(el);
+      setPlace(el);
+    }
   }
   updateNow();
   announce(`Opened ${ui.title.textContent}. ${MODE_LABELS[mode]} mode. Press Control Space to play.`);
@@ -302,9 +315,81 @@ async function showText(ref: TextRef, focus: boolean): Promise<HTMLElement | und
   await view.show(resource.path, resource.mediaType);
   const el = ref.fragment ? view.highlight(ref.fragment) : undefined;
   if (!ref.fragment) view.highlightElement(undefined);
+  setPlace(blockOf(el) ?? docBlocks()[0]);
   if (focus) view.focus(el);
   return el;
 }
+
+// ---- the reader's place -------------------------------------------------------------
+
+// The paragraph the reader is at. The app's own reading moves it, and so does a screen
+// reader reading the text by itself, which the app learns from focus and scrolling. It is
+// the one Tab stop in the text, so tabbing in (or Control E) lands there, and Play starts there.
+let place: HTMLElement | undefined;
+let blocksCache: { path: string; blocks: HTMLElement[] } | undefined;
+
+function docBlocks(): HTMLElement[] {
+  if (!view.currentPath) return [];
+  if (blocksCache?.path !== view.currentPath) blocksCache = { path: view.currentPath, blocks: view.blocks() };
+  return blocksCache.blocks;
+}
+
+function blockOf(el: Element | undefined): HTMLElement | undefined {
+  const blocks = docBlocks();
+  return el && blocks.length ? blocks[blockIndexFor(blocks, el)] : undefined;
+}
+
+function setPlace(el: HTMLElement | undefined): void {
+  if (el === place) return;
+  if (place?.isConnected) place.tabIndex = -1;
+  place = el;
+  if (el) el.tabIndex = 0;
+  savePosition();
+}
+
+function focusPlace(): void {
+  if (place?.isConnected) place.focus();
+  else view.focus();
+}
+
+function isOnScreen(el: HTMLElement): boolean {
+  const box = el.getBoundingClientRect();
+  const area = ui.text.getBoundingClientRect();
+  return box.bottom > area.top && box.top < area.bottom;
+}
+
+let tabbing = false;
+document.addEventListener('keydown', (event) => (tabbing = event.key === 'Tab'), true);
+document.addEventListener('mousedown', () => (tabbing = false), true);
+
+ui.text.addEventListener('focusin', (event) => {
+  const target = event.target as HTMLElement;
+  const from = event.relatedTarget as Node | null;
+  // Tabbing in from outside goes to the place, not to the first link in the chapter.
+  if (tabbing && !(from && ui.text.contains(from)) && place?.isConnected && target !== place) {
+    tabbing = false;
+    place.focus();
+    return;
+  }
+  if (target !== ui.text && !isPlaying()) setPlace(blockOf(target));
+});
+
+// NVDA and JAWS scroll the text to keep their reading cursor in view. Once the place has
+// left the screen, the first paragraph still on screen becomes the place: the reader may
+// hear a few lines again, but never misses any.
+let scrollTimer: ReturnType<typeof setTimeout> | undefined;
+ui.text.addEventListener(
+  'scroll',
+  () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      if (isPlaying() || (place?.isConnected && isOnScreen(place))) return;
+      const first = docBlocks().find(isOnScreen);
+      if (first) setPlace(first);
+    }, 250);
+  },
+  { passive: true },
+);
 
 /** Index of the block holding (or following) an element. */
 function blockIndexFor(blocks: readonly HTMLElement[], el: Element | undefined): number {
@@ -347,7 +432,8 @@ async function play(): Promise<void> {
   } else if (source === 'tts') {
     if (!view.currentPath) await showText({ path: book.readingOrder[0]!.path }, false);
     syncSpeech();
-    speech.jump(blockIndexFor(speech.elements, view.current));
+    // Start where the reader is, which may be where the screen reader got to.
+    speech.jump(blockIndexFor(speech.elements, place ?? view.current));
     speech.play();
   } else {
     announce('There is nothing to play in this mode.');
@@ -379,6 +465,7 @@ function onClip(index: number): void {
 
 function onSpeechBlock(_index: number, el: HTMLElement): void {
   view.highlightElement(el);
+  setPlace(el);
   // When stepping by hand, move the screen reader to the new phrase; never while reading aloud.
   if (!speech.isPlaying) view.focus(el);
   updateNow();
@@ -612,7 +699,7 @@ function handle(command: Command): void {
     case 'focus-toc':
       return focusToc();
     case 'focus-text':
-      return mode === 'audio' ? announce('The text is hidden in audio only mode.') : view.focus();
+      return mode === 'audio' ? announce('The text is hidden in audio only mode.') : focusPlace();
     case 'where-am-i':
       return whereAmI();
   }
