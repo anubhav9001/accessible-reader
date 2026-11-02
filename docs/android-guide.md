@@ -1,0 +1,53 @@
+# Getting started on Android
+
+Reader works on Android 7 or later, with or without TalkBack.
+
+## Install
+
+1. Download `Reader-<version>.apk` from the link you were sent, and open it.
+2. If asked, allow your browser or Files app to install unknown apps.
+3. If Play Protect says the app is unrecognised, choose **More details**, then **Install anyway**.
+4. Open **Reader**. The version is shown at the bottom of **My books**.
+
+If you have Samsung's **Dual App** turned on for Reader, use the normal Reader icon. The Dual App copy can't use the phone's reading voice.
+
+## Add books
+
+**My books** is the first screen. It lists every book you have added.
+
+- **Add book** opens an EPUB file or a zipped DAISY book (DAISY 2.02 or DAISY 3) stored on your phone.
+- **Online libraries** lets you search or browse Project Gutenberg. Choose a book, then **Download and open**.
+- To remove a book, use its **More options** menu and choose **Remove from phone**.
+
+## Read and listen
+
+At the top of the reader, choose a reading mode:
+
+| Mode | What it does |
+|---|---|
+| Text | Shows the book text. **Play** reads it aloud with the phone's voice. |
+| Audio | Plays the book's recorded narration, or the phone's voice if it has none. The text is hidden. |
+| Both | Plays the narration and highlights each phrase in the text as it is read. |
+
+A mode the book can't support is dimmed, for example Text for a book with audio only.
+
+The buttons at the bottom are **Previous heading**, **Previous phrase**, **Play or Pause**, **Next phrase** and **Next heading**. When you step by phrase or heading, TalkBack stays on the button and reads the new text, so you can press it again.
+
+The **Contents** button at the top lists chapters and sections. The **More reading options** menu has:
+
+- **Go to page** and **Next page** / **Previous page**, for books with printed page numbers
+- **Reading speed**, from half speed to three times normal
+- **Heading level**, to choose which headings Next and Previous heading stop at, such as chapters only
+- **Help: reading commands**, a list of every command
+
+## Reading with TalkBack
+
+You can also read the text with TalkBack itself, swiping through it as on any page. Reader follows along and remembers the paragraph TalkBack reached. When you open the book again, TalkBack starts at that paragraph, and **Play** carries on from there.
+
+While the app is reading aloud, touching the screen makes TalkBack speak too. Pause first if you want to explore.
+
+## Things to know
+
+- Reading stops when the screen locks or you switch to another app. Background listening is planned.
+- Text size and colours can't be changed yet.
+- Messages such as "End of book" appear in a short status line below the location line, which TalkBack reads out.
