@@ -41,6 +41,7 @@ All commands are in the menu bar with their shortcuts:
 | Action | Shortcut |
 |---|---|
 | Open book | Ctrl+O |
+| Online libraries (Project Gutenberg) | Ctrl+L |
 | Play / pause | Ctrl+Space |
 | Next / previous phrase | Alt+Right / Alt+Left |
 | Next / previous heading | Alt+Down / Alt+Up |
@@ -69,3 +70,13 @@ cd apps/mobile && flutter run         # on a connected Android phone (USB debugg
 Books are added from the phone's files ("Add book": an `.epub` or a zipped DAISY book) and
 unpacked into app storage. Not yet done: background playback and lock-screen controls,
 Sugamya sign-in and downloads, display settings.
+
+## Online libraries (OPDS)
+
+Both apps can browse, search and download free books from online catalogues that publish
+OPDS feeds. Project Gutenberg is built in (`BUILT_IN_CATALOGS` in `packages/engine/src/opds.ts`,
+`builtInCatalogs` in `apps/mobile/lib/opds.dart`); other OPDS catalogues can be added there.
+The reader picks EPUB 3 with images when offered, since it keeps image descriptions.
+
+Catalogue requests are HTTPS only and are made only when the user searches, browses or
+downloads; the apps never crawl or pre-fetch (Gutenberg's site is meant for human visitors).

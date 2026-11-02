@@ -4,8 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' reader: data:; media-src reader:; connect-src reader:; font-src 'self' reader: data:"
-    />
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' reader: data:; media-src reader:; connect-src reader:; font-src 'self' reader: data:"    />
     <title>Reader</title>
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="renderer.js"></script>
@@ -22,6 +21,7 @@
       </div>
       <div class="ui-controls" role="group" aria-label="Reading controls">
         <button id="ui-open" type="button" aria-keyshortcuts="Control+O">Open book</button>
+        <button id="ui-catalogs" type="button" aria-keyshortcuts="Control+L">Online libraries</button>
         <button id="ui-play" type="button" aria-keyshortcuts="Control+Space">Play</button>
         <button id="ui-prev-heading" type="button" aria-keyshortcuts="Alt+ArrowUp">Previous heading</button>
         <button id="ui-prev-phrase" type="button" aria-keyshortcuts="Alt+ArrowLeft">Previous phrase</button>
@@ -55,6 +55,21 @@
       </main>
     </div>
     <div id="ui-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    <dialog id="ui-catalog" class="ui-catalog" aria-labelledby="ui-catalog-heading">
+      <div class="ui-catalog-bar">
+        <button id="ui-catalog-back" type="button" disabled>Back</button>
+        <button id="ui-catalog-start" type="button">Start page</button>
+        <form method="dialog" class="ui-catalog-close"><button value="close">Close</button></form>
+      </div>
+      <form id="ui-catalog-search" class="ui-catalog-search" role="search">
+        <label id="ui-catalog-search-label" for="ui-catalog-input">Search</label>
+        <input id="ui-catalog-input" type="search" autocomplete="off" />
+        <button type="submit">Search</button>
+      </form>
+      <p id="ui-catalog-status" class="ui-catalog-status" role="status"></p>
+      <h2 id="ui-catalog-heading" tabindex="-1">Online library</h2>
+      <div id="ui-catalog-results"></div>
+    </dialog>
     <dialog id="ui-goto-dialog" aria-labelledby="ui-goto-title">
       <form method="dialog">
         <h2 id="ui-goto-title">Go to page</h2>

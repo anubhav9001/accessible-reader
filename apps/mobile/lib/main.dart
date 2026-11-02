@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'book_server.dart';
 import 'book_store.dart';
+import 'catalog_screen.dart';
+import 'opds.dart';
 import 'reader_screen.dart';
 
 Future<void> main() async {
@@ -50,7 +52,27 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  final _catalogClient = CatalogClient();
   bool _importing = false;
+
+  @override
+  void dispose() {
+    _catalogClient.close();
+    super.dispose();
+  }
+
+  void _browseOnline() {
+    final catalog = builtInCatalogs.first;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => CatalogScreen(
+        catalog: catalog,
+        url: catalog.url,
+        client: _catalogClient,
+        store: widget.store,
+        onBook: _open,
+      ),
+    ));
+  }
 
   Future<void> _addBook() async {
     final file = await FilePicker.pickFile(dialogTitle: 'Choose an EPUB or zipped DAISY book');
@@ -97,12 +119,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     final books = widget.store.books;
     return Scaffold(
-      appBar: AppBar(title: const Text('My books')),
+      appBar: AppBar(
+        title: const Text('My books'),
+        actions: [
+          IconButton(tooltip: 'Online libraries', icon: const Icon(Icons.travel_explore), onPressed: _browseOnline),
+        ],
+      ),
       body: books.isEmpty
           ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('No books yet. Use "Add book" to open an EPUB or zipped DAISY book from this phone.',
+                child: Text(
+                    'No books yet. Use "Add book" to open an EPUB or zipped DAISY book from this phone, '
+                    'or "Online libraries" to find free books.',
                     textAlign: TextAlign.center),
               ),
             )

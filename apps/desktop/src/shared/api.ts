@@ -6,6 +6,7 @@ export type BookInfo = PublicationData;
 /** Commands sent from the application menu (and its keyboard shortcuts) to the reader window. */
 export const COMMANDS = [
   'open',
+  'catalogs',
   'toggle-play',
   'next-phrase',
   'prev-phrase',
@@ -40,6 +41,10 @@ export interface ModeState {
 /** The API the preload script exposes to the reader window as `window.reader`. */
 export interface ReaderApi {
   openBookDialog(): Promise<BookInfo | null>;
+  /** Fetches an online catalogue feed (OPDS) as text. */
+  fetchCatalog(url: string): Promise<string>;
+  /** Downloads a book from a catalogue into the app's books folder and opens it. */
+  downloadBook(url: string, title: string): Promise<BookInfo>;
   /** The book passed on the command line, if any. */
   initialBook(): Promise<BookInfo | null>;
   onCommand(listener: (command: Command) => void): void;

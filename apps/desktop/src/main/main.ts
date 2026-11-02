@@ -1,8 +1,8 @@
 import { openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, type MenuItemConstructorOptions } from 'electron';
 import { mkdtempSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { BookInfo, Command, ModeState } from '../shared/api';
@@ -34,6 +34,34 @@ async function loadBook(file: string): Promise<BookInfo> {
   window?.setTitle(`${info.metadata.title || path.basename(file)} – Reader`);
   return info;
 }
+
+// ---- online catalogues (OPDS) ----
+
+const USER_AGENT = `AccessibleReader/${app.getVersion()} (desktop)`;
+
+/** Catalogue traffic is HTTPS only and happens only when the reader asks for it. */
+async function catalogFetch(url: string, accept: string): Promise<globalThis.Response> {
+  if (new URL(url).protocol !== 'https:') throw new Error('Only secure (HTTPS) catalogues can be used.');
+  const response = await net.fetch(url, { headers: { 'user-agent': USER_AGENT, accept } });
+  if (!response.ok) throw new Error(`The library answered with an error (${response.status}).`);
+  return response;
+}
+
+ipcMain.handle('catalog-fetch', async (_event, url: string) =>
+  (await catalogFetch(url, 'application/atom+xml, application/xml;q=0.9, */*;q=0.5')).text(),
+);
+
+ipcMain.handle('catalog-download', async (_event, url: string, title: string) => {
+  const response = await catalogFetch(url, 'application/epub+zip, application/zip;q=0.9, */*;q=0.5');
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const ext = /epub/i.test(response.headers.get('content-type') ?? '') || /epub/i.test(url) ? '.epub' : '.zip';
+  const dir = path.join(app.getPath('userData'), 'books');
+  await mkdir(dir, { recursive: true });
+  const safeTitle = title.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().slice(0, 80) || 'book';
+  const file = path.join(dir, `${safeTitle} ${Date.now()}${ext}`);
+  await writeFile(file, bytes);
+  return loadBook(file);
+});
 
 function bytesResponse(bytes: Uint8Array, type: string, range: string | null): Response {
   const headers: Record<string, string> = {
@@ -101,7 +129,12 @@ function buildMenu(): void {
   const template: MenuItemConstructorOptions[] = [
     {
       label: '&File',
-      submenu: [item('&Open book…', 'open', 'CmdOrCtrl+O'), { type: 'separator' }, { role: 'quit', label: 'E&xit' }],
+      submenu: [
+        item('&Open book…', 'open', 'CmdOrCtrl+O'),
+        item('Online &libraries…', 'catalogs', 'CmdOrCtrl+L'),
+        { type: 'separator' },
+        { role: 'quit', label: 'E&xit' },
+      ],
     },
     {
       label: '&Reading',
