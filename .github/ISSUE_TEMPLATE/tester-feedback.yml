@@ -37,7 +37,7 @@ body:
         - JAWS
         - Narrator
         - Other
-        - None
+        - No screen reader
     validations:
       required: true
   - type: input
