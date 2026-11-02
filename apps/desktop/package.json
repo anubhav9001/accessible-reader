@@ -7,7 +7,7 @@
   "scripts": {
     "build": "npm run build -w @accessible-reader/engine && node build.mjs",
     "typecheck": "tsc --noEmit",
-    "start": "npm run build && electron .",
+    "start": "node scripts/launch.mjs",
     "samples": "node scripts/make-samples.mjs",
     "smoke": "npm run build && electron . --smoke samples/sample-daisy202.zip"
   },

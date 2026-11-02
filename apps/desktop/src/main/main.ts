@@ -1,6 +1,6 @@
 import { openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, type MenuItemConstructorOptions } from 'electron';
 import { mkdtempSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -101,6 +101,7 @@ function registerProtocol(): void {
         return bytesResponse(await cache.get(container, stored), mimeType(stored), request.headers.get('range'));
       }
     } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return new Response('Not found', { status: 404 });
       console.error(err);
       return new Response('Error', { status: 500 });
     }
@@ -186,7 +187,9 @@ function createWindow(): void {
   window = new BrowserWindow({
     width: 1200,
     height: 800,
-    show: !smoke,
+    // Shown once the page has painted, in the page's own colour, so there is no blank white flash.
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#121212' : '#ffffff',
     title: 'Reader',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -201,6 +204,7 @@ function createWindow(): void {
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (smoke || process.env.READER_MUTE === '1') window.webContents.setAudioMuted(true);
+  if (!smoke) window.once('ready-to-show', () => window?.show());
   window.loadURL('reader://app/index.html');
 }
 
