@@ -30,6 +30,7 @@ export const COMMANDS = [
   'focus-toc',
   'focus-text',
   'where-am-i',
+  'help',
 ] as const;
 export type Command = (typeof COMMANDS)[number];
 

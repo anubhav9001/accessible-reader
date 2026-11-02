@@ -70,6 +70,52 @@
       <h2 id="ui-catalog-heading" tabindex="-1">Online library</h2>
       <div id="ui-catalog-results"></div>
     </dialog>
+    <dialog id="ui-help" class="ui-help" aria-labelledby="ui-help-title">
+      <h2 id="ui-help-title" tabindex="-1">Reading commands</h2>
+      <p>Every command is also in the menu bar; press Alt to reach it.</p>
+      <table>
+        <caption>Books</caption>
+        <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Open book</th><td>Ctrl+O</td><td>Opens an EPUB, a zipped DAISY book, or a DAISY folder's ncc.html or .opf file.</td></tr>
+          <tr><th scope="row">Online libraries</th><td>Ctrl+L</td><td>Search or browse Project Gutenberg, then download and open a book.</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <caption>Reading modes</caption>
+        <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Text only</th><td>Ctrl+1</td><td>Shows the text. Play reads it aloud with the Windows voice.</td></tr>
+          <tr><th scope="row">Audio only</th><td>Ctrl+2</td><td>Plays the recorded narration (or the Windows voice) with the text hidden.</td></tr>
+          <tr><th scope="row">Text and audio</th><td>Ctrl+3</td><td>Plays the narration and highlights each phrase as it is read.</td></tr>
+          <tr><th scope="row">Faster / Slower</th><td>Ctrl+] / Ctrl+[</td><td>Changes the reading speed, from half speed to three times normal.</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <caption>Playback and navigation</caption>
+        <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Play or pause</th><td>Ctrl+Space</td><td>Starts or stops reading from the current phrase.</td></tr>
+          <tr><th scope="row">Next / previous phrase</th><td>Alt+Right / Alt+Left</td><td>Moves one phrase or paragraph.</td></tr>
+          <tr><th scope="row">Next / previous heading</th><td>Alt+Down / Alt+Up</td><td>Jumps to the next or previous chapter or section heading.</td></tr>
+          <tr><th scope="row">Next / previous page</th><td>Alt+Page Down / Alt+Page Up</td><td>Moves by printed page.</td></tr>
+          <tr><th scope="row">Go to page</th><td>Ctrl+G</td><td>Goes to a printed page number.</td></tr>
+          <tr><th scope="row">Heading level</th><td>Playback menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <caption>Moving around the window</caption>
+        <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Table of contents</th><td>Ctrl+T</td><td>Moves to the contents list; choose an entry to go there.</td></tr>
+          <tr><th scope="row">Book text</th><td>Ctrl+E</td><td>Moves to the book text, for reading with your screen reader.</td></tr>
+          <tr><th scope="row">Where am I?</th><td>Ctrl+I</td><td>Announces the heading, page, time, mode and speed.</td></tr>
+          <tr><th scope="row">Reading commands</th><td>F1</td><td>Shows this list.</td></tr>
+        </tbody>
+      </table>
+      <p>The reader remembers your place in each book.</p>
+      <form method="dialog"><button value="close">Close</button></form>
+    </dialog>
     <dialog id="ui-goto-dialog" aria-labelledby="ui-goto-title">
       <form method="dialog">
         <h2 id="ui-goto-title">Go to page</h2>

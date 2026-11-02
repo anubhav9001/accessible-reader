@@ -540,6 +540,12 @@ function stepRate(direction: 1 | -1): void {
   if (next !== rate) setRate(next);
 }
 
+function showHelp(): void {
+  const dialog = $<HTMLDialogElement>('ui-help');
+  if (!dialog.open) dialog.showModal();
+  $('ui-help-title').focus();
+}
+
 function focusToc(): void {
   const current = tocLinks.find(({ link }) => link.hasAttribute('aria-current'))?.link ?? tocLinks[0]?.link;
   if (current) current.focus();
@@ -561,6 +567,7 @@ function handle(command: Command): void {
   }
   if (command === 'open') return void openFromDialog();
   if (command === 'catalogs') return catalogs.open();
+  if (command === 'help') return showHelp();
   if (!book) return announce('No book open. Press Control O to open a book.');
   switch (command) {
     case 'toggle-play':

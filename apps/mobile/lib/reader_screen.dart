@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -9,6 +10,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'book_server.dart';
 import 'book_store.dart';
+import 'help_screen.dart';
 import 'models.dart';
 import 'players.dart';
 import 'reader_bridge.dart';
@@ -435,9 +437,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
         time = '${_formatTime(book.clipStarts[_clipIndex])} of ${_formatTime(book.duration)}';
       }
     } else if (_doc != null) {
-      for (var i = _doc!.index; i >= 0; i--) {
-        if (_doc!.blocks[i].heading != null) {
-          heading = _doc!.blocks[i].text;
+      // A page may have no text at all (e.g. a cover picture), so stay within the blocks there are.
+      final blocks = _doc!.blocks;
+      for (var i = math.min(_doc!.index, blocks.length - 1); i >= 0; i--) {
+        if (blocks[i].heading != null) {
+          heading = blocks[i].text;
           break;
         }
       }
@@ -469,6 +473,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               'prev-page' => _stepPage(-1),
               'speed' => _chooseSpeed(),
               'level' => _chooseHeadingLevel(),
+              'help' => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
               _ => null,
             },
             itemBuilder: (_) => const [
@@ -477,6 +482,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
               PopupMenuItem(value: 'speed', child: Text('Reading speed')),
               PopupMenuItem(value: 'level', child: Text('Heading level')),
+              PopupMenuItem(value: 'help', child: Text('Help: reading commands')),
             ],
           ),
         ],

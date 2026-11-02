@@ -311,3 +311,33 @@ dialog input {
   margin-top: 8px;
   font-weight: 600;
 }
+
+.ui-help {
+  width: min(820px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 16px 20px;
+}
+
+.ui-help table {
+  width: 100%;
+  margin-bottom: 16px;
+  border-collapse: collapse;
+}
+
+.ui-help caption {
+  padding: 4px 0;
+  font-weight: 600;
+  text-align: left;
+}
+
+.ui-help th,
+.ui-help td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ui-help td:nth-child(2) {
+  white-space: nowrap;
+}

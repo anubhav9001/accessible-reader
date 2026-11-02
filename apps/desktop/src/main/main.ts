@@ -179,6 +179,7 @@ function buildMenu(): void {
       ],
     },
     { label: '&View', submenu: [{ role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }, { role: 'toggleDevTools' }] },
+    { label: '&Help', submenu: [item('&Reading commands', 'help', 'F1')] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
