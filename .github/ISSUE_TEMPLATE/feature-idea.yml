@@ -1,0 +1,14 @@
+name: Idea or request
+description: Something Reader should do that it doesn't yet.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Reader to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would it help your reading?
