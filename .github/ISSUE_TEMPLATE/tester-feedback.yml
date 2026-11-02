@@ -1,0 +1,64 @@
+name: Tester feedback
+description: Something didn't work, was confusing, or could be better.
+labels: [tester-feedback]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for testing Reader. Every report helps, from a confusing button name to a crash.
+  - type: input
+    id: version
+    attributes:
+      label: Reader version
+      description: Shown at the bottom of My books on the phone; Windows testers can write 0.3.0.
+      placeholder: 0.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Device
+      options:
+        - Android phone or tablet
+        - Windows PC
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device model and system version
+      placeholder: Samsung Galaxy S25, Android 16 / Windows 11
+  - type: dropdown
+    id: screen-reader
+    attributes:
+      label: Screen reader
+      options:
+        - TalkBack
+        - NVDA
+        - JAWS
+        - Narrator
+        - Other
+        - None
+    validations:
+      required: true
+  - type: input
+    id: book
+    attributes:
+      label: Book
+      description: Title, and its format if you know it (DAISY or EPUB).
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: The steps, one by one.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
