@@ -42,7 +42,51 @@ void main() {
 
   test('refuses plain HTTP catalogues', () async {
     final client = CatalogClient();
-    await expectLater(client.feed('http://example.org/feed'), throwsA(isA<HttpException>()));
+    await expectLater(client.feed('http://example.org/feed'), throwsA(isA<CatalogException>()));
     client.close();
+  });
+
+  group('when the library is busy', () {
+    late HttpServer server;
+    late List<int> statuses;
+    var requests = 0;
+
+    setUp(() async {
+      requests = 0;
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) {
+        final status = statuses[requests.clamp(0, statuses.length - 1)];
+        requests++;
+        request.response.statusCode = status;
+        if (status == 200) request.response.write(_fixture('gutenberg-root.xml'));
+        request.response.close();
+      });
+    });
+    tearDown(() => server.close(force: true));
+
+    CatalogClient client() => CatalogClient(retryDelay: Duration.zero, httpsOnly: false);
+    String url() => 'http://127.0.0.1:${server.port}/ebooks.opds/';
+
+    test('retries a gateway timeout and succeeds', () async {
+      statuses = [504, 503, 200];
+      final feed = await client().feed(url());
+      expect(feed.title, 'Project Gutenberg');
+      expect(requests, 3);
+    });
+
+    test('gives up after three tries with a clear message', () async {
+      statuses = [504];
+      await expectLater(
+        client().feed(url()),
+        throwsA(isA<CatalogException>().having((e) => e.message, 'message', contains('busy right now (error 504)'))),
+      );
+      expect(requests, 3);
+    });
+
+    test('does not retry other errors', () async {
+      statuses = [404];
+      await expectLater(client().feed(url()), throwsA(isA<CatalogException>()));
+      expect(requests, 1);
+    });
   });
 }

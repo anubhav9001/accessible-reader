@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -148,23 +149,59 @@ int _score(OpdsLink l) {
   return best;
 }
 
+/// A catalogue request that failed, with a message fit to show the reader.
+class CatalogException implements Exception {
+  const CatalogException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Catalogue requests are HTTPS only and happen only when the reader asks for them.
 class CatalogClient {
-  CatalogClient({String userAgent = 'AccessibleReader/0.1 (mobile)'}) : _client = HttpClient()..userAgent = userAgent;
+  CatalogClient({
+    String userAgent = 'AccessibleReader/0.1 (mobile)',
+    this.retryDelay = const Duration(seconds: 2),
+    this.httpsOnly = true,
+  }) : _client = HttpClient()
+          ..userAgent = userAgent
+          ..connectionTimeout = const Duration(seconds: 20);
 
   final HttpClient _client;
 
+  /// Wait before the first retry; doubled before the second.
+  final Duration retryDelay;
+
+  /// Always true in the app; tests turn it off to use a local HTTP server.
+  final bool httpsOnly;
+
+  /// "Busy" answers that are usually gone a moment later.
+  static const _busy = {HttpStatus.badGateway, HttpStatus.serviceUnavailable, HttpStatus.gatewayTimeout};
+
   Future<HttpClientResponse> _get(String url, String accept) async {
     final uri = Uri.parse(url);
-    if (uri.scheme != 'https') throw const HttpException('Only secure (HTTPS) catalogues can be used.');
-    final request = await _client.getUrl(uri);
-    request.headers.set(HttpHeaders.acceptHeader, accept);
-    final response = await request.close();
-    if (response.statusCode != HttpStatus.ok) {
-      await response.drain<void>();
-      throw HttpException('The library answered with an error (${response.statusCode}).');
+    if (httpsOnly && uri.scheme != 'https') throw const CatalogException('Only secure (HTTPS) catalogues can be used.');
+    for (var attempt = 0;; attempt++) {
+      try {
+        final request = await _client.getUrl(uri);
+        request.headers.set(HttpHeaders.acceptHeader, accept);
+        final response = await request.close().timeout(const Duration(seconds: 30));
+        if (response.statusCode == HttpStatus.ok) return response;
+        await response.drain<void>();
+        if (!_busy.contains(response.statusCode) || attempt == 2) {
+          throw CatalogException(_busy.contains(response.statusCode)
+              ? 'The library is busy right now (error ${response.statusCode}). Please try again in a minute.'
+              : 'The library answered with an error (${response.statusCode}).');
+        }
+      } on SocketException {
+        if (attempt == 2) throw const CatalogException('Could not reach the library. Check the internet connection.');
+      } on TimeoutException {
+        if (attempt == 2) throw const CatalogException('The library took too long to answer. Please try again.');
+      }
+      await Future<void>.delayed(retryDelay * (attempt + 1));
     }
-    return response;
   }
 
   Future<OpdsFeed> feed(String url) async {

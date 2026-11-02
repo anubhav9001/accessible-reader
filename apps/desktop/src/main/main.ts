@@ -39,12 +39,29 @@ async function loadBook(file: string): Promise<BookInfo> {
 
 const USER_AGENT = `AccessibleReader/${app.getVersion()} (desktop)`;
 
-/** Catalogue traffic is HTTPS only and happens only when the reader asks for it. */
+/** "Busy" answers that are usually gone a moment later. */
+const BUSY = new Set([502, 503, 504]);
+
+/**
+ * Catalogue traffic is HTTPS only and happens only when the reader asks for it. Busy
+ * answers and network failures are tried twice more, waiting 2 then 4 seconds.
+ */
 async function catalogFetch(url: string, accept: string): Promise<globalThis.Response> {
   if (new URL(url).protocol !== 'https:') throw new Error('Only secure (HTTPS) catalogues can be used.');
-  const response = await net.fetch(url, { headers: { 'user-agent': USER_AGENT, accept } });
-  if (!response.ok) throw new Error(`The library answered with an error (${response.status}).`);
-  return response;
+  for (let attempt = 0; ; attempt++) {
+    let failure: string;
+    try {
+      const response = await net.fetch(url, { headers: { 'user-agent': USER_AGENT, accept }, signal: AbortSignal.timeout(30000) });
+      if (response.ok) return response;
+      if (!BUSY.has(response.status)) throw new Error(`The library answered with an error (${response.status}).`);
+      failure = `The library is busy right now (error ${response.status}). Please try again in a minute.`;
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('The library answered')) throw err;
+      failure = 'Could not reach the library. Check the internet connection and try again.';
+    }
+    if (attempt === 2) throw new Error(failure);
+    await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+  }
 }
 
 ipcMain.handle('catalog-fetch', async (_event, url: string) =>

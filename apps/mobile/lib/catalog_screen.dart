@@ -63,7 +63,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
       });
       _announce(bestDownload(feed) != null ? 'Book details' : '${_entries.length} items');
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load the library: $e');
+      if (!mounted) return;
+      final message = e is CatalogException ? e.message : 'Could not load the library: $e';
+      if (_feed == null) {
+        setState(() => _error = message);
+      } else {
+        // Keep the results already shown when only "More results" failed.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+      _announce(message);
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -141,7 +149,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ],
       ),
       body: _error != null
-          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() => _error = null);
+                        _load(widget.url);
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : feed == null
               ? const Center(child: CircularProgressIndicator(semanticsLabel: 'Loading'))
               : download != null
