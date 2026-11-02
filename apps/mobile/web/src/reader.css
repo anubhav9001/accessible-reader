@@ -27,7 +27,8 @@ body {
   overflow-wrap: anywhere;
 }
 
-#text:focus {
+#text:focus,
+#text [tabindex='-1']:focus {
   outline: none;
 }
 

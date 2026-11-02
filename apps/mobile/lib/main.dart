@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'book_server.dart';
+import 'app_version.dart';
 import 'book_store.dart';
 import 'catalog_screen.dart';
 import 'help_screen.dart';
@@ -157,6 +158,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 );
               },
             ),
+      bottomNavigationBar: const SafeArea(
+        child: Padding(padding: EdgeInsets.symmetric(vertical: 8), child: AppVersionText(textAlign: TextAlign.center)),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importing ? null : _addBook,
         icon: _importing ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator()) : const Icon(Icons.add),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -143,7 +144,7 @@ class RecordedPlayer {
 
 /// Reads text blocks aloud with the phone's text-to-speech voice.
 class SpeechReader {
-  SpeechReader({required this.onBlock, required this.onState, required this.onFinished}) {
+  SpeechReader({required this.onBlock, required this.onState, required this.onFinished, required this.onVoiceFailed}) {
     _tts.setCompletionHandler(_onDone);
   }
 
@@ -153,33 +154,68 @@ class SpeechReader {
   /// Called after the last loaded block while reading; loads the next document or stops.
   final Future<void> Function() onFinished;
 
+  /// The phone's speech engine could not be started.
+  final void Function() onVoiceFailed;
+
   final FlutterTts _tts = FlutterTts();
   List<TextBlock> blocks = const [];
   int index = 0;
   bool playing = false;
   int _token = 0;
   int _speaking = -1;
+  Future<bool>? _ready;
+  String _lang = '';
+
+  /// Connects to the phone's default speech engine, retrying a few times.
+  ///
+  /// On some phones the first connection, made as the app starts, fails, and flutter_tts
+  /// never tries again by itself (its check for a lost connection cannot see Android's
+  /// internals on recent versions). Choosing the engine afresh makes a new connection.
+  Future<bool> _connect() async {
+    if (!Platform.isAndroid) return true;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final engine = await _tts.getDefaultEngine.timeout(const Duration(seconds: 2)) as String?;
+        if (engine == null) return false;
+        // Returns nothing on success; a failed connection throws.
+        await _tts.setEngine(engine).timeout(const Duration(seconds: 3));
+        return true;
+      } catch (_) {
+        // Try again below.
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    return false;
+  }
 
   Future<void> load(TextDoc doc) async {
     blocks = doc.blocks;
     index = doc.index.clamp(0, blocks.isEmpty ? 0 : blocks.length - 1);
-    if (doc.lang.isNotEmpty) {
-      try {
-        await _tts.setLanguage(doc.lang);
-      } catch (_) {
-        // Keep the current voice if the book's language has none on this phone.
-      }
-    }
+    // The language is set when reading starts, so opening a book never waits on the voice.
+    _lang = doc.lang;
   }
 
-  void play() {
+  Future<void> play() async {
     if (blocks.isEmpty) {
       onFinished();
       return;
     }
     playing = true;
     onState(true);
-    _speak();
+    if (!await (_ready ??= _connect())) {
+      _ready = null; // Try again on the next Play.
+      await pause();
+      onVoiceFailed();
+      return;
+    }
+    if (_lang.isNotEmpty) {
+      try {
+        await _tts.setLanguage(_lang);
+      } catch (_) {
+        // Keep the current voice if the book's language has none on this phone.
+      }
+    }
+    if (playing) _speak();
   }
 
   Future<void> pause() async {

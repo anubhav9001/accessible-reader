@@ -20,6 +20,7 @@ import {
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
 import { DocumentView } from '@accessible-reader/web-view';
 import { CatalogBrowser } from './catalog-browser';
+import { LibraryView } from './library-view';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
 
@@ -34,6 +35,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const ui = {
   title: $('ui-title'),
   meta: $('ui-meta'),
+  library: $<HTMLButtonElement>('ui-library'),
   open: $<HTMLButtonElement>('ui-open'),
   catalogs: $<HTMLButtonElement>('ui-catalogs'),
   play: $<HTMLButtonElement>('ui-play'),
@@ -74,6 +76,16 @@ let tocLinks: { item: NavItem; link: HTMLAnchorElement }[] = [];
 
 const view = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
 const speech = new SpeechPlayer({ block: onSpeechBlock, state: onPlayState, finished: () => void onSpeechFinished() });
+const library = new LibraryView(
+  {
+    dialog: $<HTMLDialogElement>('ui-library-dialog'),
+    heading: $('ui-library-heading'),
+    status: $('ui-library-status'),
+    list: $('ui-library-list'),
+  },
+  window.reader,
+  (info) => openBook(info),
+);
 const catalogs = new CatalogBrowser(
   {
     dialog: $<HTMLDialogElement>('ui-catalog'),
@@ -515,7 +527,7 @@ function updateNow(): void {
 }
 
 function whereAmI(): void {
-  if (!book) return announce('No book open. Press Control O to open a book.');
+  if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
   const { heading, page, time } = location();
   announce(
     [heading, page, time, `${MODE_LABELS[mode]} mode`, `speed ${rate}`, isPlaying() ? 'playing' : 'paused']
@@ -566,9 +578,10 @@ function handle(command: Command): void {
     return;
   }
   if (command === 'open') return void openFromDialog();
+  if (command === 'library') return void library.open();
   if (command === 'catalogs') return catalogs.open();
   if (command === 'help') return showHelp();
-  if (!book) return announce('No book open. Press Control O to open a book.');
+  if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
   switch (command) {
     case 'toggle-play':
       return togglePlay();
@@ -612,6 +625,7 @@ document.getElementById('ui-not-app')?.remove();
 
 for (const r of RATES) ui.speed.add(new Option(`${r}×`, String(r), r === 1, r === 1));
 ui.speed.addEventListener('change', () => setRate(Number(ui.speed.value)));
+ui.library.addEventListener('click', () => handle('library'));
 ui.open.addEventListener('click', () => handle('open'));
 ui.catalogs.addEventListener('click', () => handle('catalogs'));
 ui.play.addEventListener('click', () => handle('toggle-play'));
@@ -642,4 +656,8 @@ window.readerDebug = {
   }),
 };
 
-void window.reader.initialBook().then((info) => (info ? openBook(info) : undefined));
+// Start where the reader left off: the book given on the command line, or else My books.
+void window.reader.initialBook().then(async (info) => {
+  if (info) await openBook(info);
+  else await library.open(true);
+});

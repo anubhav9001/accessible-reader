@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { BookInfo, Command, ModeState } from '../shared/api';
 import { FileCache, mimeType, openContainer } from './book-files';
+import { Library } from './library';
 
 // One custom scheme serves both the reader UI (reader://app/…) and the open book's files
 // (reader://book/…), so audio can stream with range requests and text can be fetched.
@@ -25,6 +26,8 @@ if (smoke) app.setPath('userData', mkdtempSync(path.join(tmpdir(), 'reader-smoke
 let window: BrowserWindow | undefined;
 let container: Container | undefined;
 const cache = new FileCache();
+const booksDir = () => path.join(app.getPath('userData'), 'books');
+let library: Library | undefined;
 
 async function loadBook(file: string): Promise<BookInfo> {
   const opened = await openContainer(file);
@@ -32,8 +35,21 @@ async function loadBook(file: string): Promise<BookInfo> {
   container = c;
   cache.clear();
   window?.setTitle(`${info.metadata.title || path.basename(file)} – Reader`);
+  if (!smoke) await library?.record(file, info);
   return info;
 }
+
+ipcMain.handle('library-list', () => library?.list() ?? []);
+ipcMain.handle('library-open', async (_event, id: string) => {
+  const file = await library?.fileFor(id);
+  if (!file) throw new Error('This book is no longer in My books.');
+  try {
+    return await loadBook(file);
+  } catch {
+    throw new Error('The book file could not be opened. It may have been moved or deleted.');
+  }
+});
+ipcMain.handle('library-remove', (_event, id: string) => library?.remove(id));
 
 // ---- online catalogues (OPDS) ----
 
@@ -72,7 +88,7 @@ ipcMain.handle('catalog-download', async (_event, url: string, title: string) =>
   const response = await catalogFetch(url, 'application/epub+zip, application/zip;q=0.9, */*;q=0.5');
   const bytes = new Uint8Array(await response.arrayBuffer());
   const ext = /epub/i.test(response.headers.get('content-type') ?? '') || /epub/i.test(url) ? '.epub' : '.zip';
-  const dir = path.join(app.getPath('userData'), 'books');
+  const dir = booksDir();
   await mkdir(dir, { recursive: true });
   const safeTitle = title.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().slice(0, 80) || 'book';
   const file = path.join(dir, `${safeTitle} ${Date.now()}${ext}`);
@@ -148,6 +164,7 @@ function buildMenu(): void {
     {
       label: '&File',
       submenu: [
+        item('&My books…', 'library', 'CmdOrCtrl+B'),
         item('&Open book…', 'open', 'CmdOrCtrl+O'),
         item('Online &libraries…', 'catalogs', 'CmdOrCtrl+L'),
         { type: 'separator' },
@@ -287,6 +304,7 @@ async function runSmokeTest(): Promise<void> {
 }
 
 app.whenReady().then(() => {
+  library = new Library(path.join(app.getPath('userData'), 'library.json'), booksDir());
   registerProtocol();
   buildMenu();
   createWindow();
