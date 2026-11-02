@@ -2,6 +2,8 @@
 
 An accessible book reader in the style of Thorium, connected to Sugamya Pustakalaya.
 
+**Using or testing Reader?** Start with the [documentation](docs/README.md): guides for Android and Windows, keyboard shortcuts, FAQ, the testing guide and [release notes](docs/releases/README.md).
+
 | Part | Platforms | Folder | Status |
 |---|---|---|---|
 | Reading engine (TypeScript) | shared by all apps | `packages/engine` | started |
