@@ -1,24 +1,64 @@
 {
   "name": "@accessible-reader/desktop",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Desktop reader (Electron)",
+  "description": "Accessible DAISY and EPUB reader (tester build)",
   "main": "dist/main.cjs",
   "scripts": {
     "build": "npm run build -w @accessible-reader/engine && node build.mjs",
     "typecheck": "tsc --noEmit",
     "start": "node scripts/launch.mjs",
     "samples": "node scripts/make-samples.mjs",
-    "smoke": "npm run build && electron . --smoke samples/sample-daisy202.zip"
-  },
-  "dependencies": {
-    "@accessible-reader/engine": "*",
-    "@accessible-reader/web-view": "*"
+    "smoke": "npm run build && electron . --smoke samples/sample-daisy202.zip",
+    "dist": "npm run build && electron-builder --win nsis --publish never"
   },
   "devDependencies": {
+    "@accessible-reader/engine": "*",
+    "@accessible-reader/web-view": "*",
     "@types/node": "^24.19.2",
     "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
+  },
+  "author": "Saksham",
+  "build": {
+    "appId": "org.saksham.accessible-reader",
+    "productName": "Reader",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Reader",
+      "artifactName": "Reader-Setup-${version}.exe"
+    },
+    "fileAssociations": [
+      {
+        "ext": "epub",
+        "name": "EPUB book",
+        "role": "Viewer"
+      }
+    ],
+    "electronVersion": "45.2.1"
   }
 }

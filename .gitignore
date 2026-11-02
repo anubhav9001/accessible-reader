@@ -7,3 +7,6 @@ samples/
 
 # Built by apps/mobile/web (npm run build)
 apps/mobile/assets/web/
+
+# Installers built by apps/desktop (npm run dist)
+apps/desktop/release/
