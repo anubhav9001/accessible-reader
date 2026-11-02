@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'book_server.dart';
 import 'book_store.dart';
 import 'catalog_screen.dart';
+import 'help_screen.dart';
 import 'opds.dart';
 import 'reader_screen.dart';
 
@@ -123,6 +124,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text('My books'),
         actions: [
           IconButton(tooltip: 'Online libraries', icon: const Icon(Icons.travel_explore), onPressed: _browseOnline),
+          IconButton(
+            tooltip: 'Help: reading commands',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
+          ),
         ],
       ),
       body: books.isEmpty

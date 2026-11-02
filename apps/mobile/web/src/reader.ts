@@ -95,6 +95,17 @@ async function show(ref: TextRef, focus: boolean): Promise<HTMLElement | undefin
   return el;
 }
 
+/** Shows the nearest document after (1) or before (-1) the current one that has readable text. */
+async function showDocumentWithText(direction: 1 | -1): Promise<boolean> {
+  const { book, view } = requireBook();
+  const order = book.readingOrder;
+  for (let i = order.findIndex((r) => r.path === view.currentPath) + direction; i >= 0 && i < order.length; i += direction) {
+    await show({ path: order[i]!.path }, false);
+    if (blocks.length) return true;
+  }
+  return false;
+}
+
 const methods = {
   /** Opens the book served at `baseUrl`, whose files are `paths`. */
   async open(baseUrl: string, paths: string[]) {
@@ -153,23 +164,24 @@ const methods = {
    */
   async textAt(ref: TextRef | null, clipIndex: number | null): Promise<TextDoc> {
     const { book, view } = requireBook();
+    const explicit = (ref && resource(ref.path) ? ref : undefined) ?? textForClip(clipIndex);
     const target: TextRef =
-      (ref && resource(ref.path) ? ref : undefined) ??
-      textForClip(clipIndex) ??
+      explicit ??
       (view.currentPath ? { path: view.currentPath, fragment: view.current?.id || undefined } : { path: book.readingOrder[0]!.path });
     const el = await show(target, false);
     if (!blocks.length) blocks = view.blocks();
+    // With no particular place asked for, start at the first page with text, not a cover picture.
+    if (!explicit && !blocks.length && (await showDocumentWithText(1))) return describeDoc(0);
     return describeDoc(blockIndexFor(el ?? view.current));
   },
 
-  /** Moves to the next (1) or previous (-1) text document. Returns null at either end of the book. */
+  /**
+   * Moves to the next (1) or previous (-1) text document that has text, skipping pages with
+   * only pictures. Returns null at either end of the book.
+   */
   async textDocument(direction: 1 | -1): Promise<TextDoc | null> {
-    const { book, view } = requireBook();
-    const order = book.readingOrder;
-    const next = order[order.findIndex((r) => r.path === view.currentPath) + direction];
-    if (!next) return null;
-    await show({ path: next.path }, false);
-    return describeDoc(direction > 0 ? 0 : Math.max(0, blocks.length - 1));
+    if (!(await showDocumentWithText(direction))) return null;
+    return describeDoc(direction > 0 ? 0 : blocks.length - 1);
   },
 
   highlightBlock(index: number, focus: boolean) {
