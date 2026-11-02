@@ -17,4 +17,7 @@ Guides for people using and testing Reader, Saksham's accessible reading app for
 
 ## Report a problem or suggest an idea
 
-Open an issue in this repository and choose **Tester feedback** or **Idea or request**. See the [testing guide](testing-guide.md#reporting-what-you-find) for what to include.
+- **[Report a problem](https://github.com/anubhav9001/accessible-reader/issues/new?template=tester-feedback.yml)**: something didn't work, was confusing, or could be better.
+- **[Suggest an idea](https://github.com/anubhav9001/accessible-reader/issues/new?template=feature-idea.yml)**: something Reader should do that it doesn't yet.
+
+You need a free GitHub account to report. See the [testing guide](testing-guide.md#reporting-what-you-find) for what to include.

@@ -25,7 +25,7 @@ Thank you for testing Reader. Use it the way you would normally read, and tell u
 
 ## Reporting what you find
 
-Open an issue in this repository: **Issues → New issue → Tester feedback**. The form asks for:
+**[Report a problem](https://github.com/anubhav9001/accessible-reader/issues/new?template=tester-feedback.yml)** opens the Tester feedback form. You can also get there from the repository's **Issues** tab: choose **New issue**, then **Tester feedback**. You need a free GitHub account. The form asks for:
 
 | Field | Example |
 |---|---|
@@ -38,6 +38,6 @@ Open an issue in this repository: **Issues → New issue → Tester feedback**. 
 | What happened | What you heard or saw |
 | What you expected instead | What should have happened |
 
-For something Reader doesn't do yet, choose **Idea or request** instead.
+For something Reader doesn't do yet, **[suggest an idea](https://github.com/anubhav9001/accessible-reader/issues/new?template=feature-idea.yml)** instead.
 
 Before reporting, check the [known issues](releases/0.3.0.md#known-issues) in the release notes; it may already be listed.
