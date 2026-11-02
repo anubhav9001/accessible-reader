@@ -92,13 +92,34 @@ export class DocumentView {
   }
 
   private sanitize(root: Element, docPath: string): void {
+    // Book-relative resource links must point into the book, not at the reader page.
+    const inBook = (value: string) =>
+      /^(data|https?):|^#/i.test(value) ? value : this.url(resolvePath(docPath, value.split('#')[0]!));
+    const rewrite = (el: Element, name: string) => {
+      const value = el.getAttribute(name);
+      if (value) el.setAttribute(name, inBook(value.trim()));
+    };
+
     for (const el of Array.from(root.querySelectorAll(REMOVED))) el.remove();
     for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
       for (const a of Array.from(el.attributes)) {
         if (a.name.toLowerCase().startsWith('on')) el.removeAttribute(a.name);
       }
-      const src = el.getAttribute('src');
-      if (src && !/^(data|https?):/i.test(src)) el.setAttribute('src', this.url(resolvePath(docPath, src)));
+      rewrite(el, 'src');
+      rewrite(el, 'poster');
+      // SVG images (e.g. EPUB cover pages) use href or xlink:href instead of src.
+      if (el.localName === 'image' || el.localName === 'use') {
+        rewrite(el, 'href');
+        rewrite(el, 'xlink:href');
+      }
+      const srcset = el.getAttribute('srcset');
+      if (srcset) {
+        const candidates = srcset.split(',').map((c) => {
+          const [url = '', ...size] = c.trim().split(/\s+/);
+          return [inBook(url), ...size].join(' ');
+        });
+        el.setAttribute('srcset', candidates.join(', '));
+      }
       if (el.localName === 'a') {
         const href = el.getAttribute('href');
         if (!href || href.startsWith('#')) continue;
