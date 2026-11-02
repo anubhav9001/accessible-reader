@@ -7,6 +7,20 @@ export { parseDaisy3 } from './daisy3.js';
 export { parseDaisy202 } from './daisy202.js';
 export { parseClock } from './clock.js';
 export { dtbookToHtml } from './dtbook.js';
+export {
+  BUILT_IN_CATALOGS,
+  bestAcquisition,
+  bestDownload,
+  parseOpdsFeed,
+  parseOpenSearchTemplate,
+  readOpdsFeed,
+  searchUrl,
+  secureUrl,
+  type Catalog,
+  type OpdsEntry,
+  type OpdsFeed,
+  type OpdsLink,
+} from './opds.js';
 export { resolveHref, resolvePath } from './paths.js';
 export { bookContent, defaultReadingMode, readingModes } from './modes.js';
 export type { AudioSource, BookContent, ModeOption, ReadingMode } from './modes.js';

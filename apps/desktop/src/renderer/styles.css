@@ -245,3 +245,69 @@ dialog input {
     color: HighlightText;
   }
 }
+
+.ui-catalog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 16px 20px;
+}
+
+.ui-catalog-bar,
+.ui-catalog-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ui-catalog-close {
+  margin-left: auto;
+}
+
+.ui-catalog-search {
+  margin-top: 12px;
+}
+
+.ui-catalog-search input {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}
+
+.ui-catalog-status {
+  min-height: 1.5em;
+  color: var(--muted);
+}
+
+.catalog-list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.catalog-entry {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.catalog-entry-title {
+  display: block;
+  font-weight: 600;
+}
+
+.catalog-entry-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.catalog-book p {
+  margin: 0 0 8px;
+}
+
+.catalog-download {
+  margin-top: 8px;
+  font-weight: 600;
+}

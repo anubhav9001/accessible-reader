@@ -19,6 +19,7 @@ import {
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
 import { DocumentView } from '@accessible-reader/web-view';
+import { CatalogBrowser } from './catalog-browser';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
 
@@ -34,6 +35,7 @@ const ui = {
   title: $('ui-title'),
   meta: $('ui-meta'),
   open: $<HTMLButtonElement>('ui-open'),
+  catalogs: $<HTMLButtonElement>('ui-catalogs'),
   play: $<HTMLButtonElement>('ui-play'),
   prevHeading: $<HTMLButtonElement>('ui-prev-heading'),
   prevPhrase: $<HTMLButtonElement>('ui-prev-phrase'),
@@ -72,6 +74,21 @@ let tocLinks: { item: NavItem; link: HTMLAnchorElement }[] = [];
 
 const view = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
 const speech = new SpeechPlayer({ block: onSpeechBlock, state: onPlayState, finished: () => void onSpeechFinished() });
+const catalogs = new CatalogBrowser(
+  {
+    dialog: $<HTMLDialogElement>('ui-catalog'),
+    heading: $('ui-catalog-heading'),
+    searchForm: $<HTMLFormElement>('ui-catalog-search'),
+    searchLabel: $('ui-catalog-search-label'),
+    searchInput: $<HTMLInputElement>('ui-catalog-input'),
+    back: $<HTMLButtonElement>('ui-catalog-back'),
+    start: $<HTMLButtonElement>('ui-catalog-start'),
+    status: $('ui-catalog-status'),
+    results: $('ui-catalog-results'),
+  },
+  window.reader,
+  (info) => openBook(info),
+);
 
 // ---- status -------------------------------------------------------------------------
 
@@ -543,6 +560,7 @@ function handle(command: Command): void {
     return;
   }
   if (command === 'open') return void openFromDialog();
+  if (command === 'catalogs') return catalogs.open();
   if (!book) return announce('No book open. Press Control O to open a book.');
   switch (command) {
     case 'toggle-play':
@@ -588,6 +606,7 @@ document.getElementById('ui-not-app')?.remove();
 for (const r of RATES) ui.speed.add(new Option(`${r}×`, String(r), r === 1, r === 1));
 ui.speed.addEventListener('change', () => setRate(Number(ui.speed.value)));
 ui.open.addEventListener('click', () => handle('open'));
+ui.catalogs.addEventListener('click', () => handle('catalogs'));
 ui.play.addEventListener('click', () => handle('toggle-play'));
 ui.prevHeading.addEventListener('click', () => handle('prev-heading'));
 ui.prevPhrase.addEventListener('click', () => handle('prev-phrase'));

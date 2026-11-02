@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:relevance="http://a9.com/-/opensearch/extensions/relevance/1.0/">
+<id>http://www.gutenberg.org/ebooks/search.opds/?query=tagore</id>
+<updated>2026-11-02T00:56:55Z</updated>
+<title>Books: tagore</title>
+<subtitle>Free eBooks since 1971.</subtitle>
+<author>
+<name>Project Gutenberg</name>
+<uri>https://www.gutenberg.org</uri>
+<email>webmaster@gutenberg.org</email>
+</author>
+<icon>https://www.gutenberg.org/gutenberg/favicon.ico</icon>
+<link rel="search" type="application/opensearchdescription+xml" title="Project Gutenberg Catalog Search" href="https://www.gutenberg.org/catalog/osd-books.xml"/>
+<link rel="self" title="This Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks/search.opds/?query=tagore"/>
+<link rel="alternate" type="text/html" title="HTML Page" href="/ebooks/search/?query=tagore"/>
+<link rel="start" title="Start Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks.opds/"/>
+<link rel="next" title="Next Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks/search.opds/?query=tagore&amp;start_index=26"/>
+<opensearch:itemsPerPage>25</opensearch:itemsPerPage>
+<opensearch:startIndex>1</opensearch:startIndex>
+<entry>
+<updated>2026-11-02T00:56:55Z</updated>
+<id>https://www.gutenberg.org/ebooks/authors/search.opds/?query=tagore</id>
+<title>Authors</title>
+<content type="text">3 author names match your search.</content>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks/authors/search.opds/?query=tagore"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,AA=="/>
+</entry>
+<entry>
+<updated>2026-11-02T00:56:55Z</updated>
+<id>https://www.gutenberg.org/ebooks/subjects/search.opds/?query=tagore</id>
+<title>Subjects</title>
+<content type="text">8 subject headings match your search.</content>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks/subjects/search.opds/?query=tagore"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,AA=="/>
+</entry>
+<entry>
+<updated>2026-11-02T00:56:55Z</updated>
+<id>https://www.gutenberg.org/ebooks/7164.opds</id>
+<title>Gitanjali</title>
+<content type="text">Rabindranath Tagore</content>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks/7164.opds"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,AA=="/>
+</entry>
+<entry>
+<updated>2026-11-02T00:56:55Z</updated>
+<id>https://www.gutenberg.org/ebooks/6524.opds</id>
+<title>Stray Birds</title>
+<content type="text">Rabindranath Tagore</content>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks/6524.opds"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,AA=="/>
+</entry>
+<entry>
+<updated>2026-11-02T00:56:55Z</updated>
+<id>https://www.gutenberg.org/ebooks/40766.opds</id>
+<title>Nationalism</title>
+<content type="text">Rabindranath Tagore</content>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks/40766.opds"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,AA=="/>
+</entry>
+<entry>
+<updated>2026-11-02T00:56:55Z</updated>
+<id>https://www.gutenberg.org/ebooks/33525.opds</id>
+<title>Stories from Tagore</title>
+<content type="text">Rabindranath Tagore</content>
+<link type="application/atom+xml;profile=opds-catalog" rel="subsection" href="/ebooks/33525.opds"/>
+<link type="image/png" rel="http://opds-spec.org/image/thumbnail" href="data:image/png;base64,AA=="/>
+</entry>
+</feed>

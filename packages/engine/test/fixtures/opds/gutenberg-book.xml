@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:relevance="http://a9.com/-/opensearch/extensions/relevance/1.0/">
+<id>http://www.gutenberg.org/ebooks/7164.opds</id>
+<updated>2026-11-02T00:57:05Z</updated>
+<title>Gitanjali by Rabindranath Tagore</title>
+<subtitle>Free eBooks since 1971.</subtitle>
+<author>
+<name>Project Gutenberg</name>
+<uri>https://www.gutenberg.org</uri>
+<email>webmaster@gutenberg.org</email>
+</author>
+<icon>https://www.gutenberg.org/gutenberg/favicon.ico</icon>
+<link rel="search" type="application/opensearchdescription+xml" title="Project Gutenberg Catalog Search" href="https://www.gutenberg.org/catalog/osd-books.xml"/>
+<link rel="self" title="This Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks/7164.opds"/>
+<link rel="alternate" type="text/html" title="HTML Page" href="/ebooks/7164"/>
+<link rel="start" title="Start Page" type="application/atom+xml;profile=opds-catalog" href="/ebooks.opds/"/>
+<opensearch:itemsPerPage>25</opensearch:itemsPerPage>
+<opensearch:startIndex>1</opensearch:startIndex>
+<entry>
+<updated>2026-11-02T00:57:05Z</updated>
+<title>Gitanjali</title>
+<content type="xhtml">
+<div xmlns="http://www.w3.org/1999/xhtml">
+<p>This edition had all images removed.</p>
+<p>
+Title:
+Gitanjali
+</p>
+<p>
+Note:
+Translated by the author.
+</p>
+<p>
+Note:
+Wikipedia page about this book: https:<a href="//en.wikipedia.org/wiki/Gitanjali">//en.wikipedia.org/wiki/Gitanjali</a>
+</p>
+<p>
+Credits:
+John B. Hare, Chetan Jain, Viswas G and Anand Rao
+</p>
+<p>
+Summary:
+"Gitanjali" by Rabindranath Tagore is a collection of poems originally published in Bengali in 1910. Meaning "Song offering," this work explores devotion as its central theme, with the motto "I am here to sing thee songs." The collection's English translation earned Tagore the 1913 Nobel Prize for Literature, making him the first non-European to receive this honor. These meditative verses blend medieval Indian devotional lyrics with themes of love, while exploring tensions between material desires and spiritual yearning. (This is an automatically generated summary.)
+</p>
+<p>
+Reading Level:
+Reading ease score: 85.8 (6th grade). Easy to read.
+</p>
+<p>Author: Tagore, Rabindranath, 1861-1941</p><p>Author of introduction, etc.: Yeats, W. B. (William Butler), 1865-1939</p>
+<p>EBook No.: 7164</p>
+<p>Published: Dec 1, 2004</p>
+<p>Downloads: 5545</p>
+<p>Language: English</p>
+<p>Subject: Indic poetry -- Translations into English</p><p>Subject: Tagore, Rabindranath, 1861-1941 -- Translations into English</p><p>Subject: Bengali poetry -- Translations into English</p><p>Subject: Prose poems, Bengali -- Translations into English</p>
+<p>LoCC: Language and Literatures: Indo-Iranian literatures</p>
+<p>Category: Text</p>
+<p>Rights: Public domain in the USA.</p>
+</div>
+</content>
+<id>urn:gutenberg:7164:2</id>
+<published>2004-12-01T00:00:00+00:00</published>
+<rights>Public domain in the USA.</rights>
+<contributor>
+<name>Yeats, W. B. (William Butler)</name>
+</contributor>
+<author>
+<name>Tagore, Rabindranath</name>
+</author>
+<category scheme="http://purl.org/dc/terms/LCSH" term="Indic poetry -- Translations into English"/><category scheme="http://purl.org/dc/terms/LCSH" term="Tagore, Rabindranath, 1861-1941 -- Translations into English"/><category scheme="http://purl.org/dc/terms/LCSH" term="Bengali poetry -- Translations into English"/><category scheme="http://purl.org/dc/terms/LCSH" term="Prose poems, Bengali -- Translations into English"/>
+<category scheme="http://purl.org/dc/terms/LCC" term="PK" label="Language and Literatures: Indo-Iranian literatures"/>
+<category scheme="http://purl.org/dc/terms/DCMIType" term="Text"/>
+<dcterms:language>en</dcterms:language>
+<relevance:score>1</relevance:score>
+<link type="application/epub+zip" rel="http://opds-spec.org/acquisition" title="EPUB (older e-readers, no images)" length="103904" href="https://www.gutenberg.org/ebooks/7164.epub.noimages"/>
+<link type="application/x-mobipocket-ebook" rel="http://opds-spec.org/acquisition" title="Kindle (no images)" length="140220" href="https://www.gutenberg.org/ebooks/7164.kindle.noimages"/>
+<link type="image/jpeg" rel="http://opds-spec.org/image" href="https://www.gutenberg.org/cache/epub/7164/pg7164.cover.medium.jpg"/>
+<link type="image/jpeg" rel="http://opds-spec.org/image/thumbnail" href="https://www.gutenberg.org/cache/epub/7164/pg7164.cover.small.jpg"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/author/942.opds" title="By Tagore, Rabindranath…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/author/1719.opds" title="By Yeats, W. B. (William Butler)…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/3722.opds" title="On Indic poetry -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/3725.opds" title="On Tagore, Rabindranath, 1861-1941 -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/3734.opds" title="On Bengali poetry -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/30407.opds" title="On Prose poems, Bengali -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/bookshelf/637.opds" title="In Category: Poetry…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/bookshelf/692.opds" title="In Category: Religion/Spirituality…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/bookshelf/705.opds" title="In Nobel Prizes in Literature…"/>
+</entry>
+<entry>
+<updated>2026-11-02T00:57:05Z</updated>
+<title>Gitanjali</title>
+<content type="xhtml">
+<div xmlns="http://www.w3.org/1999/xhtml">
+<p>This edition has images.</p>
+<p>
+Title:
+Gitanjali
+</p>
+<p>
+Note:
+Translated by the author.
+</p>
+<p>
+Note:
+Wikipedia page about this book: https:<a href="//en.wikipedia.org/wiki/Gitanjali">//en.wikipedia.org/wiki/Gitanjali</a>
+</p>
+<p>
+Credits:
+John B. Hare, Chetan Jain, Viswas G and Anand Rao
+</p>
+<p>
+Summary:
+"Gitanjali" by Rabindranath Tagore is a collection of poems originally published in Bengali in 1910. Meaning "Song offering," this work explores devotion as its central theme, with the motto "I am here to sing thee songs." The collection's English translation earned Tagore the 1913 Nobel Prize for Literature, making him the first non-European to receive this honor. These meditative verses blend medieval Indian devotional lyrics with themes of love, while exploring tensions between material desires and spiritual yearning. (This is an automatically generated summary.)
+</p>
+<p>
+Reading Level:
+Reading ease score: 85.8 (6th grade). Easy to read.
+</p>
+<p>Author: Tagore, Rabindranath, 1861-1941</p><p>Author of introduction, etc.: Yeats, W. B. (William Butler), 1865-1939</p>
+<p>EBook No.: 7164</p>
+<p>Published: Dec 1, 2004</p>
+<p>Downloads: 5545</p>
+<p>Language: English</p>
+<p>Subject: Indic poetry -- Translations into English</p><p>Subject: Tagore, Rabindranath, 1861-1941 -- Translations into English</p><p>Subject: Bengali poetry -- Translations into English</p><p>Subject: Prose poems, Bengali -- Translations into English</p>
+<p>LoCC: Language and Literatures: Indo-Iranian literatures</p>
+<p>Category: Text</p>
+<p>Rights: Public domain in the USA.</p>
+</div>
+</content>
+<id>urn:gutenberg:7164:3</id>
+<published>2004-12-01T00:00:00+00:00</published>
+<rights>Public domain in the USA.</rights>
+<contributor>
+<name>Yeats, W. B. (William Butler)</name>
+</contributor>
+<author>
+<name>Tagore, Rabindranath</name>
+</author>
+<category scheme="http://purl.org/dc/terms/LCSH" term="Indic poetry -- Translations into English"/><category scheme="http://purl.org/dc/terms/LCSH" term="Tagore, Rabindranath, 1861-1941 -- Translations into English"/><category scheme="http://purl.org/dc/terms/LCSH" term="Bengali poetry -- Translations into English"/><category scheme="http://purl.org/dc/terms/LCSH" term="Prose poems, Bengali -- Translations into English"/>
+<category scheme="http://purl.org/dc/terms/LCC" term="PK" label="Language and Literatures: Indo-Iranian literatures"/>
+<category scheme="http://purl.org/dc/terms/DCMIType" term="Text"/>
+<dcterms:language>en</dcterms:language>
+<relevance:score>1</relevance:score>
+<link type="application/epub+zip" rel="http://opds-spec.org/acquisition" title="EPUB3 (E-readers incl. Send-to-Kindle)" length="309321" href="https://www.gutenberg.org/ebooks/7164.epub3.images"/>
+<link type="application/epub+zip" rel="http://opds-spec.org/acquisition" title="EPUB (older e-readers)" length="307333" href="https://www.gutenberg.org/ebooks/7164.epub.images"/>
+<link type="application/x-mobipocket-ebook" rel="http://opds-spec.org/acquisition" title="Kindles (kf8)" length="388289" href="https://www.gutenberg.org/ebooks/7164.kf8.images"/>
+<link type="application/x-mobipocket-ebook" rel="http://opds-spec.org/acquisition" title="Older Kindles" length="343426" href="https://www.gutenberg.org/ebooks/7164.kindle.images"/>
+<link type="image/jpeg" rel="http://opds-spec.org/image" href="https://www.gutenberg.org/cache/epub/7164/pg7164.cover.medium.jpg"/>
+<link type="image/jpeg" rel="http://opds-spec.org/image/thumbnail" href="https://www.gutenberg.org/cache/epub/7164/pg7164.cover.small.jpg"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/author/942.opds" title="By Tagore, Rabindranath…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/author/1719.opds" title="By Yeats, W. B. (William Butler)…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/3722.opds" title="On Indic poetry -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/3725.opds" title="On Tagore, Rabindranath, 1861-1941 -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/3734.opds" title="On Bengali poetry -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/subject/30407.opds" title="On Prose poems, Bengali -- Translations into English…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/bookshelf/637.opds" title="In Category: Poetry…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/bookshelf/692.opds" title="In Category: Religion/Spirituality…"/>
+<link type="application/atom+xml;profile=opds-catalog" rel="related" href="/ebooks/bookshelf/705.opds" title="In Nobel Prizes in Literature…"/>
+</entry>
+</feed>
