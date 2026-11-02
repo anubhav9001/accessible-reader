@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'announcer.dart';
 import 'book_store.dart';
 import 'opds.dart';
 
@@ -47,8 +47,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
     _load(widget.url);
   }
 
+  final _announcer = Announcer();
+
   void _announce(String message) {
-    if (mounted) SemanticsService.sendAnnouncement(View.of(context), message, TextDirection.ltr);
+    if (mounted) _announcer.say(context, message);
+  }
+
+  @override
+  void dispose() {
+    _announcer.dispose();
+    super.dispose();
   }
 
   Future<void> _load(String url) async {
@@ -148,6 +156,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
             IconButton(tooltip: 'Search ${widget.catalog.name}', icon: const Icon(Icons.search), onPressed: _search),
         ],
       ),
+      bottomNavigationBar: SafeArea(child: AnnouncementRegion(announcer: _announcer)),
       body: _error != null
           ? Center(
               child: Padding(

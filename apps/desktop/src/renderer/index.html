@@ -17,9 +17,10 @@
     <header class="ui-header">
       <div>
         <h1 id="ui-title">No book open</h1>
-        <p id="ui-meta">Press Control O to open an EPUB or DAISY book.</p>
+        <p id="ui-meta">Press Control B for My books, or Control O to open an EPUB or DAISY book.</p>
       </div>
       <div class="ui-controls" role="group" aria-label="Reading controls">
+        <button id="ui-library" type="button" aria-keyshortcuts="Control+B">My books</button>
         <button id="ui-open" type="button" aria-keyshortcuts="Control+O">Open book</button>
         <button id="ui-catalogs" type="button" aria-keyshortcuts="Control+L">Online libraries</button>
         <button id="ui-play" type="button" aria-keyshortcuts="Control+Space">Play</button>
@@ -70,6 +71,14 @@
       <h2 id="ui-catalog-heading" tabindex="-1">Online library</h2>
       <div id="ui-catalog-results"></div>
     </dialog>
+    <dialog id="ui-library-dialog" class="ui-catalog" aria-labelledby="ui-library-heading">
+      <div class="ui-catalog-bar">
+        <h2 id="ui-library-heading" tabindex="-1">My books</h2>
+        <form method="dialog" class="ui-catalog-close"><button value="close">Close</button></form>
+      </div>
+      <p id="ui-library-status" class="ui-catalog-status" role="status"></p>
+      <div id="ui-library-list"></div>
+    </dialog>
     <dialog id="ui-help" class="ui-help" aria-labelledby="ui-help-title">
       <h2 id="ui-help-title" tabindex="-1">Reading commands</h2>
       <p>Every command is also in the menu bar; press Alt to reach it.</p>
@@ -77,6 +86,7 @@
         <caption>Books</caption>
         <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
         <tbody>
+          <tr><th scope="row">My books</th><td>Ctrl+B</td><td>Lists every book you have opened or downloaded, most recently read first. Choose one to carry on reading, or remove it.</td></tr>
           <tr><th scope="row">Open book</th><td>Ctrl+O</td><td>Opens an EPUB, a zipped DAISY book, or a DAISY folder's ncc.html or .opf file.</td></tr>
           <tr><th scope="row">Online libraries</th><td>Ctrl+L</td><td>Search or browse Project Gutenberg, then download and open a book.</td></tr>
         </tbody>

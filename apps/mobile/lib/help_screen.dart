@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_version.dart';
+
 /// "Reading commands": what every button and menu item in the app does.
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
@@ -43,7 +45,7 @@ class HelpScreen extends StatelessWidget {
     (
       'Good to know',
       [
-        ('Your place', 'The app remembers where you stopped in each book.'),
+        ('Your place', 'The app remembers where you stopped in each book, down to the paragraph, also when TalkBack or VoiceOver was reading, and takes you back there when you open the book again.'),
         ('Screen readers', 'With TalkBack or VoiceOver, swipe through the book text as on any page. Stepping by phrase moves the screen reader to the new phrase.'),
         ('Background listening', 'Reading stops when the screen locks or you leave the app. This will change in a later version.'),
       ],
@@ -78,6 +80,7 @@ class HelpScreen extends StatelessWidget {
                 ),
               ),
           ],
+          const Padding(padding: EdgeInsets.only(top: 24), child: AppVersionText()),
         ],
       ),
     );

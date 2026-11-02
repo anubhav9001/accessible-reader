@@ -44,6 +44,13 @@ const textEl = document.getElementById('text')!;
 let book: PublicationData | undefined;
 let view: DocumentView | undefined;
 let blocks: HTMLElement[] = [];
+const blockIndex = new Map<Element, number>();
+/** The block the reader is at: set by the app's own moves, or by the screen reader (see trackPlace). */
+let place = -1;
+/** Off while the app reads aloud, when it already knows the place. */
+let tracking = true;
+/** Each block's narration clip, or the last clip before it; worked out once per document. */
+let clipsByBlock: (number | null)[] | undefined;
 
 function requireBook(): { book: PublicationData; view: DocumentView } {
   if (!book || !view) throw new Error('No book open');
@@ -66,7 +73,12 @@ function headingLevel(el: Element): number | null {
 
 function blockIndexFor(el: Element | undefined): number {
   if (!el) return 0;
-  const i = blocks.findIndex((b) => b === el || b.contains(el) || el.contains(b));
+  // Usually the element is a block or inside one: walk up rather than search every block.
+  for (let up: Element | null = el; up && up !== textEl; up = up.parentElement) {
+    const at = blockIndex.get(up);
+    if (at !== undefined) return at;
+  }
+  const i = blocks.findIndex((b) => el.contains(b));
   if (i >= 0) return i;
   const after = blocks.findIndex((b) => el.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
   return after >= 0 ? after : Math.max(0, blocks.length - 1);
@@ -74,6 +86,7 @@ function blockIndexFor(el: Element | undefined): number {
 
 function describeDoc(index: number): TextDoc {
   const { view } = requireBook();
+  place = index;
   return {
     path: view.currentPath!,
     index,
@@ -88,9 +101,10 @@ async function show(ref: TextRef, focus: boolean): Promise<HTMLElement | undefin
   if (!r) return undefined;
   const changed = view.currentPath !== r.path;
   await view.show(r.path, r.mediaType);
-  if (changed) blocks = view.blocks();
+  if (changed) blocks = focusable(view.blocks());
   const el = ref.fragment ? view.highlight(ref.fragment) : undefined;
   if (!ref.fragment) view.highlightElement(undefined);
+  if (changed || el) place = blockIndexFor(el);
   if (focus) view.focus(el);
   return el;
 }
@@ -104,6 +118,73 @@ async function showDocumentWithText(direction: 1 | -1): Promise<boolean> {
     if (blocks.length) return true;
   }
   return false;
+}
+
+/**
+ * Blocks can take focus (but are not Tab stops), so moving the screen reader's cursor onto
+ * one can move focus there too, which trackPlace below hears.
+ */
+function focusable(list: HTMLElement[]): HTMLElement[] {
+  blockIndex.clear();
+  clipsByBlock = undefined;
+  list.forEach((b, i) => {
+    if (!b.hasAttribute('tabindex')) b.tabIndex = -1;
+    blockIndex.set(b, i);
+  });
+  return list;
+}
+
+function isOnScreen(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  return r.bottom > 0 && r.top < window.innerHeight;
+}
+
+/** The clip narrating a block, or the last clip before it in the same document. */
+function clipNear(index: number): number | null {
+  if (!clipsByBlock) {
+    const { book, view } = requireBook();
+    const path = view.currentPath?.toLowerCase();
+    const first: (number | null)[] = blocks.map(() => null);
+    for (const clip of book.narration) {
+      if (clip.text?.path.toLowerCase() !== path || !clip.text.fragment) continue;
+      const el = document.getElementById(clip.text.fragment);
+      if (!el) continue;
+      const at = blockIndexFor(el);
+      if (first[at] === null) first[at] = clip.index;
+    }
+    let last: number | null = null;
+    clipsByBlock = first.map((c) => (last = c ?? last));
+  }
+  return clipsByBlock[index] ?? null;
+}
+
+function reportPlace(index: number) {
+  if (!tracking || !view?.currentPath || index < 0 || index === place) return;
+  place = index;
+  post({ type: 'place', path: view.currentPath, index, clip: clipNear(index) });
+}
+
+/**
+ * Follows the reader while TalkBack or VoiceOver reads the text by itself, which the app's
+ * buttons never hear about, so the app can save the place and come back to it. Focus gives
+ * the exact block where the screen reader moves focus with its cursor. Otherwise the page
+ * scrolling to keep the screen reader's cursor in view is the sign: once the remembered
+ * block has left the screen, the first block still on screen becomes the place, so the
+ * reader may hear a few lines again but never misses any.
+ */
+function trackPlace() {
+  textEl.addEventListener('focusin', (event) => {
+    const target = event.target as HTMLElement;
+    if (target !== textEl) reportPlace(blockIndexFor(target));
+  });
+  let timer: number | undefined;
+  window.addEventListener('scroll', () => {
+    clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      if (place >= 0 && blocks[place] && isOnScreen(blocks[place]!)) return;
+      reportPlace(blocks.findIndex(isOnScreen));
+    }, 250);
+  }, { passive: true });
 }
 
 const methods = {
@@ -169,7 +250,7 @@ const methods = {
       explicit ??
       (view.currentPath ? { path: view.currentPath, fragment: view.current?.id || undefined } : { path: book.readingOrder[0]!.path });
     const el = await show(target, false);
-    if (!blocks.length) blocks = view.blocks();
+    if (!blocks.length) blocks = focusable(view.blocks());
     // With no particular place asked for, start at the first page with text, not a cover picture.
     if (!explicit && !blocks.length && (await showDocumentWithText(1))) return describeDoc(0);
     return describeDoc(blockIndexFor(el ?? view.current));
@@ -188,6 +269,7 @@ const methods = {
     const { view } = requireBook();
     const el = blocks[index];
     if (!el) return;
+    place = index;
     view.highlightElement(el);
     if (focus) view.focus(el);
   },
@@ -214,6 +296,22 @@ const methods = {
     return book.narration.find((c) => c.text?.fragment === id && c.text.path.toLowerCase() === path)?.index ?? null;
   },
 
+  /**
+   * Puts the screen reader's cursor on block `index` (or the current place) by moving focus
+   * there afresh; the app first gives the web view itself focus, or the move goes unheard.
+   */
+  startAt(index: number | null) {
+    const el = blocks[index ?? place];
+    if (!el) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    view?.highlightElement(el);
+    view?.focus(el);
+  },
+
+  setTracking(on: boolean) {
+    tracking = on;
+  },
+
   setFontScale(scale: number) {
     document.documentElement.style.setProperty('--font-scale', String(scale));
   },
@@ -233,4 +331,5 @@ window.readerBridge = {
   },
 };
 
+trackPlace();
 post({ type: 'ready' });

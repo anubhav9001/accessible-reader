@@ -7,7 +7,7 @@ import 'models.dart';
 
 /// Request/reply link to the reader page in the WebView (web/src/reader.ts).
 class ReaderBridge {
-  ReaderBridge({required this.onLink}) {
+  ReaderBridge({required this.onLink, required this.onPlace}) {
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..addJavaScriptChannel('ReaderChannel', onMessageReceived: _onMessage)
@@ -20,6 +20,9 @@ class ReaderBridge {
 
   final WebViewController controller = WebViewController();
   final void Function(TextRef target) onLink;
+
+  /// The screen reader moved to block [index] of the document at [path]; [clip] narrates it.
+  final void Function(String path, int index, int? clip) onPlace;
   final _pending = <int, Completer<Object?>>{};
   Completer<void> _ready = Completer<void>();
   int _nextId = 0;
@@ -53,6 +56,8 @@ class ReaderBridge {
         }
       case 'link':
         onLink(TextRef.fromJson(msg['target'] as Map<String, dynamic>));
+      case 'place':
+        onPlace(msg['path'] as String, msg['index'] as int, msg['clip'] as int?);
     }
   }
 }

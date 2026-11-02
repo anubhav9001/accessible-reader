@@ -6,6 +6,7 @@ export type BookInfo = PublicationData;
 /** Commands sent from the application menu (and its keyboard shortcuts) to the reader window. */
 export const COMMANDS = [
   'open',
+  'library',
   'catalogs',
   'toggle-play',
   'next-phrase',
@@ -39,6 +40,20 @@ export interface ModeState {
   available: { text: boolean; audio: boolean; textAudio: boolean };
 }
 
+/** One book in "My books". */
+export interface LibraryEntry {
+  id: string;
+  title: string;
+  authors: string[];
+  format: BookInfo['format'];
+  /** Downloaded by the app into its own folder (removing it deletes the file). */
+  downloaded: boolean;
+  /** Milliseconds since 1970. */
+  lastOpened: number;
+  /** The file has been moved or deleted since. */
+  missing: boolean;
+}
+
 /** The API the preload script exposes to the reader window as `window.reader`. */
 export interface ReaderApi {
   openBookDialog(): Promise<BookInfo | null>;
@@ -46,6 +61,10 @@ export interface ReaderApi {
   fetchCatalog(url: string): Promise<string>;
   /** Downloads a book from a catalogue into the app's books folder and opens it. */
   downloadBook(url: string, title: string): Promise<BookInfo>;
+  /** "My books", most recently read first. */
+  listLibrary(): Promise<LibraryEntry[]>;
+  openFromLibrary(id: string): Promise<BookInfo>;
+  removeFromLibrary(id: string): Promise<void>;
   /** The book passed on the command line, if any. */
   initialBook(): Promise<BookInfo | null>;
   onCommand(listener: (command: Command) => void): void;

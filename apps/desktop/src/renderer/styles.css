@@ -303,6 +303,16 @@ dialog input {
   font-size: 0.9em;
 }
 
+.library-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.library-item .catalog-entry {
+  flex: 1;
+}
+
 .catalog-book p {
   margin: 0 0 8px;
 }

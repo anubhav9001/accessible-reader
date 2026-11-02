@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'announcer.dart';
 import 'book_server.dart';
 import 'book_store.dart';
 import 'help_screen.dart';
@@ -29,9 +31,15 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  late final ReaderBridge _bridge = ReaderBridge(onLink: (target) => _goToText(target));
+  late final ReaderBridge _bridge = ReaderBridge(onLink: (target) => _goToText(target), onPlace: _onPlace);
   late final SpeechReader _speech =
-      SpeechReader(onBlock: _onBlock, onState: _onPlayState, onFinished: _onSpeechFinished);
+      SpeechReader(
+      onBlock: _onBlock,
+      onState: _onPlayState,
+      onFinished: _onSpeechFinished,
+      onVoiceFailed: () => _announce(
+          "The phone's reading voice could not be started. If this copy of the app is a Dual App, "
+          'open the normal copy instead, or check Text-to-speech in accessibility settings.'));
   RecordedPlayer? _recorded;
   OpenedBook? _book;
   String? _error;
@@ -59,6 +67,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _save();
     _recorded?.dispose();
     _speech.dispose();
+    _announcer.dispose();
     super.dispose();
   }
 
@@ -94,8 +103,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final savedMode = ReadingMode.values.asNameMap()[saved?['mode']];
       setState(() => _book = book);
       await _setMode(savedMode != null && book.option(savedMode).available ? savedMode : book.defaultMode,
-          quiet: true, savedBlockPath: saved?['docPath'] as String?, savedBlock: saved?['block'] as int?);
-      _announce('${book.title}. ${_mode.label} mode.');
+          restore: true, savedBlockPath: saved?['docPath'] as String?, savedBlock: saved?['block'] as int?);
+      if (_screenReaderOn && _mode != ReadingMode.audio) {
+        // Like a printed book left open: the screen reader goes on reading where it stopped.
+        await _moveScreenReaderToPlace();
+      } else {
+        _announce('${book.title}. ${_mode.label} mode.');
+      }
     } catch (e) {
       setState(() => _error = 'Could not open this book: $e');
     }
@@ -108,11 +122,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
   /// Recorded-audio books move clip by clip; device-voice reading moves block by block.
   bool get _usesClips => _source == 'recorded' || !(_book?.hasText ?? false);
 
+  /// TalkBack or VoiceOver is on.
+  bool get _screenReaderOn => mounted && MediaQuery.of(context).accessibleNavigation;
+
+  static const _accessibility = MethodChannel('org.saksham.accessible_reader/accessibility');
+
+  /// Puts TalkBack's or VoiceOver's cursor on the current place in the text.
+  Future<void> _moveScreenReaderToPlace() async {
+    // Let the screen reader finish settling on the newly opened screen first.
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    if (Platform.isAndroid) {
+      try {
+        await _accessibility.invokeMethod<bool>('focusWebView');
+      } on PlatformException {
+        // Without it the place is still shown; the screen reader just starts at the top.
+      }
+    }
+    await _bridge.call('startAt', [_usesClips ? null : _doc?.index]);
+  }
+
   bool get _isPlaying => (_recorded?.playing ?? false) || _speech.playing;
 
+  final _announcer = Announcer();
+
   void _announce(String message) {
-    if (!mounted) return;
-    SemanticsService.sendAnnouncement(View.of(context), message, TextDirection.ltr);
+    if (mounted) _announcer.say(context, message);
   }
 
   String _formatTime(double seconds) {
@@ -150,7 +185,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   // ---- modes --------------------------------------------------------------------------
 
-  Future<void> _setMode(ReadingMode next, {bool quiet = false, String? savedBlockPath, int? savedBlock}) async {
+  /// [restore] is for opening the book: it returns to the saved place, putting the screen reader there.
+  Future<void> _setMode(ReadingMode next, {bool restore = false, String? savedBlockPath, int? savedBlock}) async {
     final book = _book;
     if (book == null) return;
     final option = book.option(next);
@@ -159,24 +195,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
       return;
     }
     final wasPlaying = _isPlaying;
+    final wasByBlock = !_usesClips;
     await _pauseAll();
 
     // Carry the place across from block-by-block reading to a clip.
-    if (!_usesClips && _doc != null) {
+    if (wasByBlock && _doc != null) {
       final clip = await _bridge.call<int>('clipForBlock', [_doc!.index]);
       if (clip != null) _clipIndex = clip;
     }
     setState(() => _mode = next);
 
     if (!_usesClips) {
-      final ref = savedBlockPath != null ? TextRef(savedBlockPath) : null;
-      await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [ref?.toJson(), _clipIndex]));
-      if (savedBlock != null && _doc != null && savedBlockPath == _doc!.path) _speech.jump(savedBlock);
+      // Keep the exact block, from the saved place or from the mode being left.
+      final path = restore ? savedBlockPath : (wasByBlock ? _doc?.path : null);
+      final block = restore ? savedBlock : (wasByBlock ? _doc?.index : null);
+      await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [path == null ? null : TextRef(path).toJson(), _clipIndex]));
+      if (block != null && _doc != null && path == _doc!.path) _speech.jump(block);
     } else if (_mode == ReadingMode.textAudio) {
-      await _bridge.call('showClip', [_clipIndex, false]);
+      await _bridge.call('showClip', [_clipIndex, restore]);
     }
     await _updateLocation();
-    if (!quiet) _announce('${_mode.label} mode');
+    if (!restore) _announce('${_mode.label} mode');
     if (wasPlaying) await _play();
   }
 
@@ -210,6 +249,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _onPlayState(bool playing) {
     if (mounted) setState(() => _playing = _isPlaying);
+    // While reading aloud the app itself knows the place; following the screen reader is for when it is quiet.
+    _bridge.call('setTracking', [!_isPlaying]);
   }
 
   void _onClip(int index) {
@@ -221,8 +262,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _onBlock(int index) {
     _doc?.index = index;
-    // Stepping by hand moves TalkBack/VoiceOver to the new phrase; reading aloud never does.
-    _bridge.call('highlightBlock', [index, !_speech.playing]);
+    // The screen reader stays on the button pressed (see _sayBlock), so it can be pressed again.
+    _bridge.call('highlightBlock', [index, false]);
+    _updateLocation();
+    _scheduleSave();
+  }
+
+  /// TalkBack or VoiceOver read on through the text by itself: remember where it got to.
+  void _onPlace(String path, int index, int? clip) {
+    if (_isPlaying || _book == null) return;
+    if (_usesClips) {
+      if (clip == null || clip == _clipIndex) return;
+      _clipIndex = clip;
+    } else {
+      final doc = _doc;
+      if (doc == null || doc.path != path || index >= doc.blocks.length) return;
+      doc.index = index;
+      _speech.index = index;
+    }
     _updateLocation();
     _scheduleSave();
   }
@@ -271,8 +328,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final doc = _doc;
     if (doc == null) return;
     final target = doc.index + direction;
-    if (target >= 0 && target < doc.blocks.length) return _speech.jump(target);
+    if (target >= 0 && target < doc.blocks.length) {
+      _speech.jump(target);
+      return _sayBlock();
+    }
     await _changeDoc(direction);
+  }
+
+  /// Reads out the current block after stepping by hand, unless reading aloud already does.
+  void _sayBlock() {
+    final doc = _doc;
+    if (doc != null && !_speech.playing && doc.index < doc.blocks.length) _announce(doc.blocks[doc.index].text);
   }
 
   Future<void> _changeDoc(int direction) async {
@@ -284,6 +350,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _speech.play();
     } else {
       _onBlock(_doc!.index);
+      _sayBlock();
     }
   }
 
@@ -299,7 +366,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final level = doc.blocks[i].heading;
       if (level != null && (_headingLevel == 0 || level <= _headingLevel)) {
         _speech.jump(i);
-        if (_speech.playing) _announce(doc.blocks[i].text);
+        _announce(doc.blocks[i].text);
         return;
       }
     }
@@ -493,6 +560,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               children: [
                 if (book != null) _modeSelector(book),
                 if (book != null) _locationBar(),
+                AnnouncementRegion(announcer: _announcer),
                 Expanded(
                   child: Stack(
                     children: [
