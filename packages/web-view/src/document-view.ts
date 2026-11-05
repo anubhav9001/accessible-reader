@@ -97,6 +97,11 @@ export class DocumentView {
     return innermostBlocks(this.el);
   }
 
+  /** The element with this id in the document. */
+  element(fragment: string): HTMLElement | undefined {
+    return this.el.querySelector<HTMLElement>(`#${CSS.escape(fragment)}`) ?? undefined;
+  }
+
   pageMarkers(): HTMLElement[] {
     return Array.from(this.el.querySelectorAll<HTMLElement>(PAGE_MARKERS));
   }

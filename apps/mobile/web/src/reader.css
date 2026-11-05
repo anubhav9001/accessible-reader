@@ -37,6 +37,31 @@ body {
   height: auto;
 }
 
+/* Screen reader mode: the book's text only, in one plain readable style. */
+.text-only #text {
+  font-family: system-ui, sans-serif;
+}
+
+.text-only #text .img-alt,
+.text-only #text .pagebreak {
+  display: block;
+  margin: 0.5em 0;
+  font-style: italic;
+}
+
+.text-only #text .book-doc + .book-doc {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid currentColor;
+}
+
+/* "You are here": follows the screen reader, so a sighted helper can see the place. */
+.text-only #text .reader-place {
+  outline: 3px solid #1a73e8;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 #text .current-phrase {
   background: var(--highlight-bg);
   color: var(--highlight-fg);

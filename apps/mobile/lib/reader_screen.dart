@@ -79,7 +79,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final byLower = {for (final f in files) f.toLowerCase(): f};
       final dir = widget.store.folder(widget.book.id).path;
       await _bridge.load(widget.server.readerUrl);
-      final opened = await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files]);
+      _textOnly = (await SharedPreferences.getInstance()).getBool(_textOnlyKey) ?? false;
+      final opened =
+          await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files, _textOnly]);
       final book = OpenedBook.fromJson(opened!);
 
       _recorded = RecordedPlayer(
@@ -165,6 +167,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   String get _positionKey => 'position:${widget.book.id}';
 
+  // ---- screen reader mode -------------------------------------------------------------
+
+  /// Screen reader mode: the whole book as one text-only page, read straight through with
+  /// TalkBack or VoiceOver, keeping its headings, lists, tables and links. A setting for all books.
+  static const _textOnlyKey = 'screenReaderMode';
+  bool _textOnly = false;
+
+  Future<void> _toggleTextOnly() async {
+    final on = !_textOnly;
+    await _pauseAll();
+    setState(() => _textOnly = on);
+    await (await SharedPreferences.getInstance()).setBool(_textOnlyKey, on);
+    if (on) _announce('Preparing the text of the whole book');
+    final keep = _doc?.index;
+    await _bridge.call('setTextOnly', [on]);
+    if (!_usesClips && _doc != null) {
+      await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [TextRef(_doc!.path).toJson(), null]),
+          highlight: false);
+      final doc = _doc!;
+      if (keep != null && keep < doc.blocks.length) {
+        doc.index = keep;
+        _speech.index = keep;
+      }
+      await _bridge.call('highlightBlock', [doc.index, false]);
+    } else if (_mode == ReadingMode.textAudio) {
+      await _bridge.call('showClip', [_clipIndex, false]);
+    }
+    _announce(on
+        ? 'Screen reader mode on. The whole book is one page of plain text.'
+        : 'Screen reader mode off. The book is shown chapter by chapter.');
+    if (_screenReaderOn && _mode != ReadingMode.audio) await _moveScreenReaderToPlace();
+  }
+
   Future<Map<String, dynamic>?> _loadPosition() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_positionKey);
@@ -219,12 +254,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (wasPlaying) await _play();
   }
 
-  Future<void> _loadDoc(Map<String, dynamic>? json) async {
+  /// [highlight] is false when following the screen reader, so the page doesn't jump under it.
+  Future<void> _loadDoc(Map<String, dynamic>? json, {bool highlight = true}) async {
     if (json == null) return;
     final doc = TextDoc.fromJson(json);
     _doc = doc;
     await _speech.load(doc);
-    await _bridge.call('highlightBlock', [doc.index, false]);
+    if (highlight) await _bridge.call('highlightBlock', [doc.index, false]);
   }
 
   // ---- playback -----------------------------------------------------------------------
@@ -269,13 +305,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   /// TalkBack or VoiceOver read on through the text by itself: remember where it got to.
-  void _onPlace(String path, int index, int? clip) {
+  Future<void> _onPlace(String path, int index, int? clip) async {
     if (_isPlaying || _book == null) return;
     if (_usesClips) {
+      // In screen reader mode TalkBack can read on into another chapter: find its clip there.
+      clip ??= await _bridge.call<int>('clipIn', [path, index]);
       if (clip == null || clip == _clipIndex) return;
       _clipIndex = clip;
     } else {
-      final doc = _doc;
+      var doc = _doc;
+      if (doc != null && doc.path != path) {
+        await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [TextRef(path).toJson(), null]),
+            highlight: false);
+        await _bridge.call('notePlace', [index]);
+        doc = _doc;
+      }
       if (doc == null || doc.path != path || index >= doc.blocks.length) return;
       doc.index = index;
       _speech.index = index;
@@ -540,16 +584,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
               'prev-page' => _stepPage(-1),
               'speed' => _chooseSpeed(),
               'level' => _chooseHeadingLevel(),
+              'text-only' => _toggleTextOnly(),
               'help' => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
               _ => null,
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'page', child: Text('Go to page')),
-              PopupMenuItem(value: 'next-page', child: Text('Next page')),
-              PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
-              PopupMenuItem(value: 'speed', child: Text('Reading speed')),
-              PopupMenuItem(value: 'level', child: Text('Heading level')),
-              PopupMenuItem(value: 'help', child: Text('Help: reading commands')),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'page', child: Text('Go to page')),
+              const PopupMenuItem(value: 'next-page', child: Text('Next page')),
+              const PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
+              const PopupMenuItem(value: 'speed', child: Text('Reading speed')),
+              const PopupMenuItem(value: 'level', child: Text('Heading level')),
+              CheckedPopupMenuItem(value: 'text-only', checked: _textOnly, child: const Text('Screen reader mode')),
+              const PopupMenuItem(value: 'help', child: Text('Help: reading commands')),
             ],
           ),
         ],
