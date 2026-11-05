@@ -9,6 +9,8 @@ import { children, descendants, type XmlPlatform } from './xml.js';
 export const SUGAMYA_API = 'https://sugamyapustakalaya.org.in/rest/NALPAPIService/getNALPData';
 export const SUGAMYA_SITE = 'https://sugamyapustakalaya.org.in';
 export const SUGAMYA_PAGE_SIZE = 20;
+/** Shown for a detail the library marks as not available (NA or N/A). */
+export const SUGAMYA_NOT_AVAILABLE = 'Not available';
 
 /** One book in a search or browse result. Search results leave out format and language. */
 export interface SugamyaBook {
@@ -73,9 +75,13 @@ export function isSugamyaPath(path: string): boolean {
 
 const text = (el: Element | undefined, name: string): string => {
   const child = el && children(el, name)[0];
-  const value = (child?.textContent ?? '').replace(/\s+/g, ' ').trim();
-  // The library writes a missing value as NA or N/A.
-  return /^N\/?A$/i.test(value) ? '' : value;
+  return (child?.textContent ?? '').replace(/\s+/g, ' ').trim();
+};
+
+/** A book detail: empty when not given, "Not available" when the library says NA or N/A. */
+const detail = (el: Element, name: string): string => {
+  const value = text(el, name);
+  return /^N\/?A$/i.test(value) ? SUGAMYA_NOT_AVAILABLE : value;
 };
 
 function parse(doc: Document): { results: Element[]; total: number; page: number; message?: string } {
@@ -93,13 +99,14 @@ export function parseSugamyaBooks(xml: XmlPlatform, body: string): SugamyaPage<S
   const items = results.map((r) => ({
     id: text(r, 'id'),
     title: text(r, 'title') || 'Untitled',
-    author: text(r, 'author'),
-    publisher: text(r, 'publisher'),
-    synopsis: text(r, 'brief-synopsis'),
-    format: text(r, 'download-format'),
-    size: /^0\s*\w*$/.test(text(r, 'dtbook-size')) ? '' : text(r, 'dtbook-size'),
-    language: text(r, 'language'),
-    isbn: text(r, 'isbn13'),
+    author: detail(r, 'author'),
+    publisher: detail(r, 'publisher'),
+    synopsis: detail(r, 'brief-synopsis'),
+    format: detail(r, 'download-format'),
+    // A size of 0 means the library doesn't know it.
+    size: /^0\s*\w*$/.test(text(r, 'dtbook-size')) ? SUGAMYA_NOT_AVAILABLE : detail(r, 'dtbook-size'),
+    language: detail(r, 'language'),
+    isbn: detail(r, 'isbn13'),
     freelyAvailable: text(r, 'freely-available') === 'true',
   }));
   return { items: items.filter((b) => b.id), total, page, message };
@@ -109,6 +116,23 @@ export function parseSugamyaBooks(xml: XmlPlatform, body: string): SugamyaPage<S
 export function parseSugamyaNames(xml: XmlPlatform, body: string): SugamyaPage<string> {
   const { results, total, page, message } = parse(xml.parseXml(body));
   return { items: results.map((r) => text(r, 'title')).filter(Boolean), total, page, message };
+}
+
+/** "Author. Language. Format" for a list entry, saying which of them are not available. */
+export function sugamyaBookSummary(book: SugamyaBook): string {
+  const na = SUGAMYA_NOT_AVAILABLE;
+  return [
+    book.author === na ? 'Author not available' : book.author,
+    book.language === na ? 'Language not available' : book.language,
+    book.format === na ? 'Format not available' : book.format && sugamyaFormatLabel(book.format),
+  ]
+    .filter(Boolean)
+    .join('. ');
+}
+
+/** The author line of a book's details. */
+export function sugamyaByLine(book: SugamyaBook): string {
+  return book.author === SUGAMYA_NOT_AVAILABLE ? `Author: ${SUGAMYA_NOT_AVAILABLE}` : `By ${book.author}`;
 }
 
 /** Whether Reader can open a Sugamya download format (DAISY and EPUB, not braille or Word). */

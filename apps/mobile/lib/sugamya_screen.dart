@@ -263,10 +263,12 @@ class _SugamyaBookScreenState extends State<SugamyaBookScreen> {
                   children: [
                     Semantics(header: true, child: Text(book.title, style: Theme.of(context).textTheme.headlineSmall)),
                     for (final line in [
-                      if (book.author.isNotEmpty) 'By ${book.author}',
+                      if (book.author.isNotEmpty) book.byLine,
                       if (book.publisher.isNotEmpty) 'Publisher: ${book.publisher}',
                       if (book.language.isNotEmpty) 'Language: ${book.language}',
-                      if (book.format.isNotEmpty)
+                      if (book.format == sugamyaNotAvailable)
+                        'Format: $sugamyaNotAvailable'
+                      else if (book.format.isNotEmpty)
                         'Format: ${sugamyaFormatLabel(book.format)}. '
                             '${sugamyaFormatReadable(book.format) ? 'Reader can open this format.' : "Reader can't open this format."}',
                       if (book.size.isNotEmpty) 'Size: ${book.size}',

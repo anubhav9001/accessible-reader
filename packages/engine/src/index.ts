@@ -23,11 +23,14 @@ export {
 } from './opds.js';
 export {
   SUGAMYA_API,
+  SUGAMYA_NOT_AVAILABLE,
   SUGAMYA_PAGE_SIZE,
   SUGAMYA_SITE,
   isSugamyaPath,
   parseSugamyaBooks,
   parseSugamyaNames,
+  sugamyaBookSummary,
+  sugamyaByLine,
   sugamyaFormatLabel,
   sugamyaFormatReadable,
   sugamyaPath,

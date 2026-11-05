@@ -13,13 +13,23 @@ void main() {
     expect(const SugamyaNames(grades: true).path(1), 'gradelist/page/1/limit/20/format/xml');
   });
 
-  test('reads search results, treating NA as empty', () {
+  test('reads search results, marking NA as not available', () {
     final page = parseSugamyaBooks(_fixture('search.xml'));
     expect(page.total, 35);
     expect(page.items.map((b) => [b.id, b.title, b.author, b.size]), [
-      ['474', 'Nauka Doobi', 'Ravindranath Tagore', ''],
-      ['2861', 'The Postmaster', 'Rabindranath Tagore', ''],
+      ['474', 'Nauka Doobi', 'Ravindranath Tagore', 'Not available'],
+      ['2861', 'The Postmaster', 'Rabindranath Tagore', 'Not available'],
     ]);
+  });
+
+  test('says which details are not available', () {
+    const xml = '<nalp><books><list><result><author>N/A</author><id>9</id><language>NA</language>'
+        '<title>Koyal Song</title><download-format>DAISY Audio Only</download-format><dtbook-size>0BS</dtbook-size>'
+        '</result></list></books></nalp>';
+    final book = parseSugamyaBooks(xml).items.single;
+    expect([book.author, book.language, book.size, book.publisher], ['Not available', 'Not available', 'Not available', '']);
+    expect(book.detail, 'Author not available. Language not available. DAISY Audio Only');
+    expect(book.byLine, 'Author: Not available');
   });
 
   test("reads a book's details", () {
