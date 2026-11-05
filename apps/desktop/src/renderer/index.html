@@ -59,6 +59,11 @@
     <div id="ui-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     <dialog id="ui-catalog" class="ui-catalog" aria-labelledby="ui-catalog-heading">
       <div class="ui-catalog-bar">
+        <label for="ui-catalog-library">Library</label>
+        <select id="ui-catalog-library">
+          <option value="gutenberg">Project Gutenberg</option>
+          <option value="sugamya">Sugamya Pustakalaya</option>
+        </select>
         <button id="ui-catalog-back" type="button" disabled>Back</button>
         <button id="ui-catalog-start" type="button">Start page</button>
         <form method="dialog" class="ui-catalog-close"><button value="close">Close</button></form>
@@ -89,7 +94,7 @@
         <tbody>
           <tr><th scope="row">My books</th><td>Ctrl+B</td><td>Lists every book you have opened or downloaded, most recently read first. Choose one to carry on reading, or remove it.</td></tr>
           <tr><th scope="row">Open book</th><td>Ctrl+O</td><td>Opens an EPUB, a zipped DAISY book, or a DAISY folder's ncc.html or .opf file.</td></tr>
-          <tr><th scope="row">Online libraries</th><td>Ctrl+L</td><td>Search or browse Project Gutenberg, then download and open a book.</td></tr>
+          <tr><th scope="row">Online libraries</th><td>Ctrl+L</td><td>Choose Project Gutenberg or Sugamya Pustakalaya. Search or browse; Gutenberg books download and open in one step.</td></tr>
         </tbody>
       </table>
       <table>

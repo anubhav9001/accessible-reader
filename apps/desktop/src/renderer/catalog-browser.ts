@@ -30,6 +30,8 @@ export class CatalogBrowser {
   private catalog: Catalog = BUILT_IN_CATALOGS[0]!;
   private history: string[] = [];
   private current: string | undefined;
+  /** False while another library uses the same window. */
+  active = true;
 
   constructor(
     private readonly el: Elements,
@@ -37,25 +39,24 @@ export class CatalogBrowser {
     private readonly onBook: (info: BookInfo) => Promise<void>,
   ) {
     el.searchForm.addEventListener('submit', (event) => {
+      if (!this.active) return;
       event.preventDefault();
       const terms = el.searchInput.value.trim();
       if (terms && this.catalog.searchTemplate) void this.load(searchUrl(this.catalog.searchTemplate, terms));
     });
     el.back.addEventListener('click', () => {
+      if (!this.active) return;
       const previous = this.history.pop();
       if (previous) void this.load(previous, false);
     });
-    el.start.addEventListener('click', () => void this.load(this.catalog.url));
+    el.start.addEventListener('click', () => this.active && void this.load(this.catalog.url));
   }
 
   open(): void {
     this.el.searchLabel.textContent = `Search ${this.catalog.name}`;
-    this.el.dialog.showModal();
-    if (this.current) {
-      this.el.searchInput.focus();
-    } else {
-      void this.load(this.catalog.url, false).then(() => this.el.searchInput.focus());
-    }
+    if (!this.el.dialog.open) this.el.dialog.showModal();
+    // Show the page again: another library may have used the window since.
+    void this.load(this.current ?? this.catalog.url, false).then(() => this.el.searchInput.focus());
   }
 
   private setStatus(message: string): void {

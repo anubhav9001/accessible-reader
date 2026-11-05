@@ -68,12 +68,31 @@ text with highlighting. A loopback HTTP server with a random token feeds the pag
 ```bash
 cd apps/mobile/web && npm run build   # builds the WebView page into apps/mobile/assets/web
 cd apps/mobile && flutter test        # book import and server tests
-cd apps/mobile && flutter run         # on a connected Android phone (USB debugging on)
+cd apps/mobile && flutter run --dart-define-from-file=../../config.local.json   # on a connected phone
+cd apps/mobile && flutter build apk --release --dart-define-from-file=../../config.local.json
 ```
 
 Books are added from the phone's files ("Add book": an `.epub` or a zipped DAISY book) and
 unpacked into app storage. Not yet done: background playback and lock-screen controls,
 Sugamya sign-in and downloads, display settings.
+
+## Sugamya Pustakalaya
+
+Both apps search and browse Sugamya Pustakalaya (DAISY Forum of India) through its NALP API:
+search by title or author, categories, school books by grade, latest books, and each book's
+details. The shared request paths and XML parser are in `packages/engine/src/sugamya.ts`
+(mirrored in `apps/mobile/lib/sugamya.dart`). Signing in and downloading come next.
+
+The API key is not in the repository. Put it in `config.local.json` at the repository root,
+which git ignores:
+
+```json
+{ "SUGAMYA_API_KEY": "..." }
+```
+
+The desktop build (`apps/desktop/build.mjs`) builds it into the main process only, which adds
+it to each request. The phone app takes it from `--dart-define-from-file=../../config.local.json`
+(see above). Without it, Sugamya Pustakalaya says it isn't set up.
 
 ## Online libraries (OPDS)
 

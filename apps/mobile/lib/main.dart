@@ -13,6 +13,8 @@ import 'catalog_screen.dart';
 import 'help_screen.dart';
 import 'opds.dart';
 import 'reader_screen.dart';
+import 'sugamya.dart';
+import 'sugamya_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,15 +65,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
+  /// Online libraries: a choice of Project Gutenberg or Sugamya Pustakalaya.
   void _browseOnline() {
     final catalog = builtInCatalogs.first;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => CatalogScreen(
-        catalog: catalog,
-        url: catalog.url,
-        client: _catalogClient,
-        store: widget.store,
-        onBook: _open,
+    void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+    open(Scaffold(
+      appBar: AppBar(title: const Text('Online libraries')),
+      body: ListView(
+        children: [
+          ListTile(
+            title: const Text(sugamyaName),
+            subtitle: const Text("India's accessible library, from DAISY Forum of India"),
+            onTap: () => open(SugamyaStartScreen(client: SugamyaClient(_catalogClient))),
+          ),
+          ListTile(
+            title: Text(catalog.name),
+            subtitle: const Text('Free classics; download and open in one step'),
+            onTap: () => open(CatalogScreen(
+              catalog: catalog,
+              url: catalog.url,
+              client: _catalogClient,
+              store: widget.store,
+              onBook: _open,
+            )),
+          ),
+        ],
       ),
     ));
   }

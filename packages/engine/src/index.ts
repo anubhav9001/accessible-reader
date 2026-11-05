@@ -21,6 +21,20 @@ export {
   type OpdsFeed,
   type OpdsLink,
 } from './opds.js';
+export {
+  SUGAMYA_API,
+  SUGAMYA_PAGE_SIZE,
+  SUGAMYA_SITE,
+  isSugamyaPath,
+  parseSugamyaBooks,
+  parseSugamyaNames,
+  sugamyaFormatLabel,
+  sugamyaFormatReadable,
+  sugamyaPath,
+  type SugamyaBook,
+  type SugamyaPage,
+  type SugamyaQuery,
+} from './sugamya.js';
 export { resolveHref, resolvePath } from './paths.js';
 export { bookContent, defaultReadingMode, readingModes } from './modes.js';
 export type { AudioSource, BookContent, ModeOption, ReadingMode } from './modes.js';

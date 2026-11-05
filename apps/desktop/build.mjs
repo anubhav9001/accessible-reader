@@ -1,5 +1,14 @@
 import { build } from 'esbuild';
-import { cp, mkdir } from 'node:fs/promises';
+import { cp, mkdir, readFile } from 'node:fs/promises';
+
+// The Sugamya Pustakalaya API key comes from config.local.json at the repository root, which
+// git ignores, and is built into the main process only (never the reader window).
+let sugamyaKey = '';
+try {
+  sugamyaKey = JSON.parse(await readFile('../../config.local.json', 'utf8')).SUGAMYA_API_KEY?.trim() ?? '';
+} catch {
+  // No local config: Sugamya Pustakalaya says it isn't set up in this copy.
+}
 
 const common = { bundle: true, sourcemap: true, logLevel: 'warning' };
 
@@ -13,6 +22,7 @@ await Promise.all([
     format: 'cjs',
     target: 'node22',
     external: ['electron'],
+    define: { __SUGAMYA_API_KEY__: JSON.stringify(sugamyaKey) },
   }),
   build({
     ...common,

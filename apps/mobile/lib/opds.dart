@@ -204,6 +204,12 @@ class CatalogClient {
     }
   }
 
+  /// Any text resource, with the same retries (used for Sugamya Pustakalaya).
+  Future<String> text(String url, String accept) async {
+    final response = await _get(url, accept);
+    return response.transform(utf8.decoder).join();
+  }
+
   Future<OpdsFeed> feed(String url) async {
     final response = await _get(url, 'application/atom+xml, application/xml;q=0.9, */*;q=0.5');
     return parseOpdsFeed(await response.transform(utf8.decoder).join(), url);
