@@ -13,6 +13,7 @@ class HelpScreen extends StatelessWidget {
         ('Text', 'Shows the book text. Play reads it aloud with the phone\'s voice.'),
         ('Audio', 'Plays the book\'s recorded narration, or the phone\'s voice if it has none. The text is hidden.'),
         ('Both', 'Plays the narration and highlights each phrase in the text as it is read.'),
+        ('Screen reader', 'Shows the whole book as one page of plain text, without pictures or styling, but with its headings, lists, tables and links. Read straight through with TalkBack or VoiceOver, or use their reading controls to move by heading, link or table. An outline marks where you are, and the app opens the book there next time. Play reads aloud from your place.'),
         ('Unavailable modes', 'A mode the book cannot support is dimmed, for example Text for a book with audio only.'),
       ],
     ),
@@ -32,7 +33,6 @@ class HelpScreen extends StatelessWidget {
         ('Next page and Previous page', 'In the same menu. Move by printed page.'),
         ('Reading speed', 'From half speed to three times normal speed.'),
         ('Heading level', 'Choose which heading levels Previous and Next heading stop at, such as chapters only.'),
-        ('Screen reader mode', 'Shows the whole book as one page of plain text, without pictures or styling, but with its headings, lists, tables and links. Read straight through with TalkBack or VoiceOver, or use their reading controls to move by heading, link or table. An outline marks where you are, and the app opens the book there next time.'),
       ],
     ),
     (

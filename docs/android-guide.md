@@ -28,6 +28,7 @@ At the top of the reader, choose a reading mode:
 | Text | Shows the book text. **Play** reads it aloud with the phone's voice. |
 | Audio | Plays the book's recorded narration, or the phone's voice if it has none. The text is hidden. |
 | Both | Plays the narration and highlights each phrase in the text as it is read. |
+| Screen reader | Shows the whole book as one page of plain text for reading with TalkBack. See [Screen reader mode](#screen-reader-mode). |
 
 A mode the book can't support is dimmed, for example Text for a book with audio only.
 
@@ -48,7 +49,7 @@ While the app is reading aloud, touching the screen makes TalkBack speak too. Pa
 
 ## Screen reader mode
 
-Screen reader mode shows the whole book as one continuous page of plain text: no pictures (their descriptions are shown instead) and no book styling, but with the book's headings, lists, tables and links kept. Turn it on in the **More reading options** menu with **Screen reader mode**; the app remembers the choice for all books.
+Screen reader mode shows the whole book as one continuous page of plain text: no pictures (their descriptions are shown instead) and no book styling, but with the book's headings, lists, tables and links kept. Choose **Screen reader** at the top of the reader, next to Text, Audio and Both; choose one of those to go back. The app remembers the choice for all books.
 
 - **Read straight through:** swipe or use TalkBack's "Read from next item". You move from chapter to chapter without pressing any buttons.
 - **Move by structure:** use TalkBack's reading controls (Headings, Links, Lines, Paragraphs and more) as on any web page.
