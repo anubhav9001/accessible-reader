@@ -1,11 +1,13 @@
 import {
+  SUGAMYA_NOT_AVAILABLE,
   SUGAMYA_PAGE_SIZE,
   parseSugamyaBooks,
   parseSugamyaNames,
+  sugamyaBookSummary,
+  sugamyaByLine,
   sugamyaFormatLabel,
   sugamyaFormatReadable,
   sugamyaPath,
-  type SugamyaBook,
   type SugamyaQuery,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
@@ -137,7 +139,7 @@ export class SugamyaBrowser {
         const result = parseSugamyaBooks(browserPlatform, body);
         total = result.total;
         for (const book of result.items) {
-          list.append(this.entry(book.title, bookDetail(book), () => this.show({ kind: 'book', id: book.id })));
+          list.append(this.entry(book.title, sugamyaBookSummary(book), () => this.show({ kind: 'book', id: book.id })));
         }
       }
       more.hidden = page * SUGAMYA_PAGE_SIZE >= total;
@@ -173,10 +175,12 @@ export class SugamyaBrowser {
     this.el.heading.textContent = book.title;
     const details = document.createElement('div');
     details.className = 'catalog-book';
-    if (book.author) details.append(paragraph(`By ${book.author}`));
+    if (book.author) details.append(paragraph(sugamyaByLine(book)));
     if (book.publisher) details.append(paragraph(`Publisher: ${book.publisher}`));
     if (book.language) details.append(paragraph(`Language: ${book.language}`));
-    if (book.format) {
+    if (book.format === SUGAMYA_NOT_AVAILABLE) {
+      details.append(paragraph(`Format: ${SUGAMYA_NOT_AVAILABLE}`));
+    } else if (book.format) {
       const label = sugamyaFormatLabel(book.format);
       details.append(
         paragraph(
@@ -218,10 +222,6 @@ export class SugamyaBrowser {
 const DOWNLOAD_NOTE =
   'Downloading books needs your Sugamya Pustakalaya account. Signing in from Reader is coming in the next version; ' +
   'until then, download on sugamyapustakalaya.org.in and open the book with Open book (Control O).';
-
-function bookDetail(book: SugamyaBook): string {
-  return [book.author, book.language, book.format && sugamyaFormatLabel(book.format)].filter(Boolean).join('. ');
-}
 
 function errorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);

@@ -9,6 +9,9 @@ const sugamyaName = 'Sugamya Pustakalaya';
 const sugamyaApi = 'https://sugamyapustakalaya.org.in/rest/NALPAPIService/getNALPData';
 const sugamyaPageSize = 20;
 
+/// Shown for a detail the library marks as not available (NA or N/A).
+const sugamyaNotAvailable = 'Not available';
+
 /// Built in at build time: `flutter build apk --dart-define-from-file=../../config.local.json`.
 /// config.local.json stays on the build PC; git ignores it.
 const sugamyaApiKey = String.fromEnvironment('SUGAMYA_API_KEY');
@@ -38,10 +41,15 @@ class SugamyaBook {
   final String language;
   final String isbn;
 
-  /// "Author. Language. Format", for a list entry.
-  String get detail => [author, language, if (format.isNotEmpty) sugamyaFormatLabel(format)]
-      .where((s) => s.isNotEmpty)
-      .join('. ');
+  /// "Author. Language. Format" for a list entry, saying which of them are not available.
+  String get detail => [
+        author == sugamyaNotAvailable ? 'Author not available' : author,
+        language == sugamyaNotAvailable ? 'Language not available' : language,
+        format == sugamyaNotAvailable ? 'Format not available' : (format.isEmpty ? '' : sugamyaFormatLabel(format)),
+      ].where((s) => s.isNotEmpty).join('. ');
+
+  /// The author line of the book's details.
+  String get byLine => author == sugamyaNotAvailable ? 'Author: $sugamyaNotAvailable' : 'By $author';
 }
 
 class SugamyaPage<T> {
@@ -89,12 +97,13 @@ class SugamyaIn extends SugamyaQuery {
 
 String _tail(int page) => 'page/$page/limit/$sugamyaPageSize/format/xml';
 
-String _text(XmlElement el, String name) {
-  final value = (el.childElements.where((e) => e.localName == name).firstOrNull?.innerText ?? '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  // The library writes a missing value as NA or N/A.
-  return RegExp(r'^N/?A$', caseSensitive: false).hasMatch(value) ? '' : value;
+String _text(XmlElement el, String name) =>
+    (el.childElements.where((e) => e.localName == name).firstOrNull?.innerText ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// A book detail: empty when not given, "Not available" when the library says NA or N/A.
+String _detail(XmlElement el, String name) {
+  final value = _text(el, name);
+  return RegExp(r'^N/?A$', caseSensitive: false).hasMatch(value) ? sugamyaNotAvailable : value;
 }
 
 ({List<XmlElement> results, int total, String? message}) _parse(String body) {
@@ -113,13 +122,14 @@ SugamyaPage<SugamyaBook> parseSugamyaBooks(String body) {
         SugamyaBook(
           id: _text(e, 'id'),
           title: _text(e, 'title').isEmpty ? 'Untitled' : _text(e, 'title'),
-          author: _text(e, 'author'),
-          publisher: _text(e, 'publisher'),
-          synopsis: _text(e, 'brief-synopsis'),
-          format: _text(e, 'download-format'),
-          size: RegExp(r'^0\s*\w*$').hasMatch(_text(e, 'dtbook-size')) ? '' : _text(e, 'dtbook-size'),
-          language: _text(e, 'language'),
-          isbn: _text(e, 'isbn13'),
+          author: _detail(e, 'author'),
+          publisher: _detail(e, 'publisher'),
+          synopsis: _detail(e, 'brief-synopsis'),
+          format: _detail(e, 'download-format'),
+          // A size of 0 means the library doesn't know it.
+          size: RegExp(r'^0\s*\w*$').hasMatch(_text(e, 'dtbook-size')) ? sugamyaNotAvailable : _detail(e, 'dtbook-size'),
+          language: _detail(e, 'language'),
+          isbn: _detail(e, 'isbn13'),
         ),
   ];
   return SugamyaPage(books, r.total, message: r.message);

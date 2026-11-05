@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { isSugamyaPath, parseSugamyaBooks, parseSugamyaNames, sugamyaFormatReadable, sugamyaPath } from '../src/index.js';
+import {
+  isSugamyaPath,
+  parseSugamyaBooks,
+  parseSugamyaNames,
+  sugamyaBookSummary,
+  sugamyaByLine,
+  sugamyaFormatReadable,
+  sugamyaPath,
+} from '../src/index.js';
 import { xmldomPlatform } from '../src/platform/xmldom.js';
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/sugamya/${name}`, import.meta.url), 'utf8');
@@ -14,13 +22,21 @@ describe('Sugamya Pustakalaya', () => {
     expect(isSugamyaPath('../../evil?x=1/format/xml')).toBe(false);
   });
 
-  it('reads search results, treating NA as empty', () => {
+  it('reads search results, marking NA as not available', () => {
     const page = parseSugamyaBooks(xmldomPlatform, fixture('search.xml'));
     expect(page.total).toBe(35);
-    expect(page.items.map((b) => [b.id, b.title, b.author, b.size])).toEqual([
-      ['474', 'Nauka Doobi', 'Ravindranath Tagore', ''],
-      ['2861', 'The Postmaster', 'Rabindranath Tagore', ''],
+    expect(page.items.map((b) => [b.id, b.title, b.author, b.size, b.isbn])).toEqual([
+      ['474', 'Nauka Doobi', 'Ravindranath Tagore', 'Not available', ''],
+      ['2861', 'The Postmaster', 'Rabindranath Tagore', 'Not available', ''],
     ]);
+  });
+
+  it('says which details are not available', () => {
+    const xml = '<nalp><books><list><result><author>N/A</author><id>9</id><language>NA</language><title>Koyal Song</title><download-format>DAISY Audio Only</download-format><dtbook-size>0BS</dtbook-size></result></list></books></nalp>';
+    const [book] = parseSugamyaBooks(xmldomPlatform, xml).items;
+    expect(book).toMatchObject({ author: 'Not available', language: 'Not available', size: 'Not available', publisher: '' });
+    expect(sugamyaBookSummary(book!)).toBe('Author not available. Language not available. DAISY Audio Only');
+    expect(sugamyaByLine(book!)).toBe('Author: Not available');
   });
 
   it("reads a book's details", () => {
