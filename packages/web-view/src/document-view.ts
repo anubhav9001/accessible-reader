@@ -1,10 +1,31 @@
 import { dtbookToHtml, resolveHref, resolvePath, type TextRef } from '@accessible-reader/engine';
 
 /** Elements read as one unit by the device voice, and stepped through as "phrases" in text mode. */
-const BLOCKS = 'h1,h2,h3,h4,h5,h6,p,li,dt,dd,th,td,figcaption,caption,blockquote,pre,aside,div.dtb-line';
-const PAGE_MARKERS =
+export const BLOCKS = 'h1,h2,h3,h4,h5,h6,p,li,dt,dd,th,td,figcaption,caption,blockquote,pre,aside,div.dtb-line';
+export const PAGE_MARKERS =
   '[role="doc-pagebreak"],[epub\\:type~="pagebreak"],.page-normal,.page-front,.page-special,.pagenum,.dtb-pagenum';
-const REMOVED = 'script,iframe,object,embed,style,link,meta,base,form,noscript';
+export const REMOVED = 'script,iframe,object,embed,style,link,meta,base,form,noscript';
+
+/** Parses one text document of the book (XHTML, HTML or DTBook) into an HTML body. Nothing in it loads. */
+export function parseBookDocument(text: string, path: string, mediaType: string): { body: Element; lang: string } {
+  const parser = new DOMParser();
+  const xml = /xml/.test(mediaType) || /\.(xhtml|xml)$/i.test(path);
+  let source = parser.parseFromString(text, xml ? 'application/xml' : 'text/html');
+  if (xml && source.getElementsByTagName('parsererror').length > 0) source = parser.parseFromString(text, 'text/html');
+  const root = source.documentElement;
+  const lang = root.getAttribute('xml:lang') ?? root.getAttribute('lang') ?? '';
+  if (root.localName.toLowerCase() === 'dtbook') {
+    source = parser.parseFromString(`<body>${dtbookToHtml(source)}</body>`, 'text/html');
+  }
+  return { body: source.getElementsByTagName('body')[0] ?? source.documentElement, lang };
+}
+
+/** The innermost readable blocks under `root`, in document order. */
+export function innermostBlocks(root: ParentNode): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(BLOCKS)).filter(
+    (b) => !b.querySelector(BLOCKS) && (b.textContent ?? '').trim() !== '',
+  );
+}
 
 /**
  * Shows one text document of the book inside the reader page itself (not an iframe), so
@@ -31,17 +52,8 @@ export class DocumentView {
   async show(path: string, mediaType: string): Promise<void> {
     if (path === this.currentPath) return;
     const text = await (await fetch(this.url(path))).text();
-    const parser = new DOMParser();
-    const xml = /xml/.test(mediaType) || /\.(xhtml|xml)$/i.test(path);
-    let source = parser.parseFromString(text, xml ? 'application/xml' : 'text/html');
-    if (xml && source.getElementsByTagName('parsererror').length > 0) source = parser.parseFromString(text, 'text/html');
-
-    const root = source.documentElement;
-    this.lang = root.getAttribute('xml:lang') ?? root.getAttribute('lang') ?? '';
-    if (root.localName.toLowerCase() === 'dtbook') {
-      source = parser.parseFromString(`<body>${dtbookToHtml(source)}</body>`, 'text/html');
-    }
-    const body = source.getElementsByTagName('body')[0] ?? source.documentElement;
+    const { body, lang } = parseBookDocument(text, path, mediaType);
+    this.lang = lang;
     this.sanitize(body, path);
 
     this.el.replaceChildren(...Array.from(body.childNodes, (n) => document.importNode(n, true)));
@@ -82,9 +94,7 @@ export class DocumentView {
 
   /** The innermost readable blocks, in document order. */
   blocks(): HTMLElement[] {
-    return Array.from(this.el.querySelectorAll<HTMLElement>(BLOCKS)).filter(
-      (b) => !b.querySelector(BLOCKS) && (b.textContent ?? '').trim() !== '',
-    );
+    return innermostBlocks(this.el);
   }
 
   pageMarkers(): HTMLElement[] {

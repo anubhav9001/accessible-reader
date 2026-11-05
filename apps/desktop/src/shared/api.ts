@@ -31,6 +31,7 @@ export const COMMANDS = [
   'focus-toc',
   'focus-text',
   'where-am-i',
+  'sr-mode',
   'help',
 ] as const;
 export type Command = (typeof COMMANDS)[number];
@@ -69,5 +70,7 @@ export interface ReaderApi {
   initialBook(): Promise<BookInfo | null>;
   onCommand(listener: (command: Command) => void): void;
   modeChanged(state: ModeState): void;
+  /** Keeps the View menu's Screen reader mode tick in step. */
+  screenReaderModeChanged(on: boolean): void;
   bookReady(): void;
 }

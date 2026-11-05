@@ -212,7 +212,17 @@ function buildMenu(): void {
         item('&Where am I?', 'where-am-i', 'CmdOrCtrl+I'),
       ],
     },
-    { label: '&View', submenu: [{ role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }, { role: 'toggleDevTools' }] },
+    {
+      label: '&View',
+      submenu: [
+        { id: 'sr-mode', type: 'checkbox', label: '&Screen reader mode', accelerator: 'CmdOrCtrl+Shift+R', click: send('sr-mode') },
+        { type: 'separator' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { role: 'resetZoom' },
+        { role: 'toggleDevTools' },
+      ],
+    },
     { label: '&Help', submenu: [item('&Reading commands', 'help', 'F1')] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -281,6 +291,11 @@ ipcMain.on('mode-changed', (_event, state: ModeState) => {
     entry.enabled = state.available[mode];
     entry.checked = state.mode === mode;
   }
+});
+
+ipcMain.on('sr-mode-changed', (_event, on: boolean) => {
+  const entry = Menu.getApplicationMenu()?.getMenuItemById('sr-mode');
+  if (entry) entry.checked = on;
 });
 
 ipcMain.on('book-ready', () => {

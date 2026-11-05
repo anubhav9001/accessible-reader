@@ -13,6 +13,7 @@ const api: ReaderApi = {
     ipcRenderer.on('command', (_event, command: Command) => listener(command));
   },
   modeChanged: (state) => ipcRenderer.send('mode-changed', state),
+  screenReaderModeChanged: (on) => ipcRenderer.send('sr-mode-changed', on),
   bookReady: () => ipcRenderer.send('book-ready'),
 };
 

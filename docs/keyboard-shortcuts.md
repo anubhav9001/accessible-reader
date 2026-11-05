@@ -43,3 +43,20 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | Where am I? | Ctrl+I |
 | Reading commands (help) | F1 |
 | Zoom in, zoom out, reset zoom | Ctrl+Plus, Ctrl+Minus, Ctrl+0 |
+| Screen reader mode on or off | Ctrl+Shift+R |
+
+## In screen reader mode
+
+These keys work in the book's text box. Shift with the key goes backwards.
+
+| Moves to | Key |
+|---|---|
+| Next heading | H |
+| Next heading at a level | 1 to 6 |
+| Next printed page | P |
+| Next link | K (Enter follows it) |
+| Next table | T |
+| Next list / list item | L / I |
+| Next image / figure / separator | G / F / S |
+| Next / previous section | ] / [ |
+| How far through the book | = |
