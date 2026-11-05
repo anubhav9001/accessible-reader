@@ -13,7 +13,7 @@ Guides for people using and testing Reader, Saksham's accessible reading app for
 ## Releases
 
 - [All releases](releases/README.md)
-- Latest: [0.3.1, Windows fix](releases/0.3.1.md) (4 November 2026); Android: [0.3.0](releases/0.3.0.md)
+- Latest: [0.4.0, screen reader mode](releases/0.4.0.md) (4 November 2026)
 
 ## Report a problem or suggest an idea
 
