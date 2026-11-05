@@ -133,6 +133,7 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
         final result = await widget.client.books(query, page);
         _books.addAll(result.items);
         _total = result.total;
+        _fillFormats(result.items.where((b) => b.format.isEmpty).map((b) => b.id).toList());
       }
       _page = page;
       if (!mounted) return;
@@ -148,6 +149,27 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
       if (_count > 0) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       _announcer.say(context, message);
     }
+  }
+
+  /// Search results leave out each book's format and language, and each format of a book is a
+  /// separate entry, so the same title can appear more than once. Look each one up (a few at a
+  /// time) and add its format and language, so the copies can be told apart.
+  Future<void> _fillFormats(List<String> ids) async {
+    final queue = [...ids];
+    Future<void> worker() async {
+      while (queue.isNotEmpty && mounted) {
+        final id = queue.removeAt(0);
+        try {
+          final book = await widget.client.book(id);
+          final i = _books.indexWhere((b) => b.id == id);
+          if (book != null && i >= 0 && mounted) setState(() => _books[i] = book);
+        } catch (_) {
+          // The entry keeps what the search gave; the book's page still has every detail.
+        }
+      }
+    }
+
+    await Future.wait([worker(), worker(), worker(), worker()]);
   }
 
   String get _emptyText => widget.query is SugamyaLatest ? 'No books were added in the last 15 days.' : 'Nothing found.';

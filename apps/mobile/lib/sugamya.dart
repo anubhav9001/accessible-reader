@@ -46,7 +46,7 @@ class SugamyaBook {
         author == sugamyaNotAvailable ? 'Author not available' : author,
         language == sugamyaNotAvailable ? 'Language not available' : language,
         format == sugamyaNotAvailable ? 'Format not available' : (format.isEmpty ? '' : sugamyaFormatLabel(format)),
-      ].where((s) => s.isNotEmpty).join('. ');
+      ].map((s) => s.replaceAll(RegExp(r'\.+$'), '')).where((s) => s.isNotEmpty).join('. ');
 
   /// The author line of the book's details.
   String get byLine => author == sugamyaNotAvailable ? 'Author: $sugamyaNotAvailable' : 'By $author';
