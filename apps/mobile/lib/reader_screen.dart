@@ -174,8 +174,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   static const _textOnlyKey = 'screenReaderMode';
   bool _textOnly = false;
 
-  Future<void> _toggleTextOnly() async {
-    final on = !_textOnly;
+  Future<void> _setTextOnly(bool on) async {
+    if (on == _textOnly) return;
     await _pauseAll();
     setState(() => _textOnly = on);
     await (await SharedPreferences.getInstance()).setBool(_textOnlyKey, on);
@@ -584,7 +584,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
               'prev-page' => _stepPage(-1),
               'speed' => _chooseSpeed(),
               'level' => _chooseHeadingLevel(),
-              'text-only' => _toggleTextOnly(),
               'help' => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
               _ => null,
             },
@@ -594,7 +593,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
               const PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
               const PopupMenuItem(value: 'speed', child: Text('Reading speed')),
               const PopupMenuItem(value: 'level', child: Text('Heading level')),
-              CheckedPopupMenuItem(value: 'text-only', checked: _textOnly, child: const Text('Screen reader mode')),
               const PopupMenuItem(value: 'help', child: Text('Help: reading commands')),
             ],
           ),
@@ -634,21 +632,43 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  /// Text, Audio and Both pick how the book is read; Screen reader shows it as one page of
+  /// plain text for reading with TalkBack or VoiceOver (with the voice of Text, or Both).
+  static const _screenReaderChoice = 'screen-reader';
+
+  Future<void> _choose(String choice) async {
+    if (choice == _screenReaderChoice) {
+      // The text is hidden in audio only mode, so read it as text.
+      if (_mode == ReadingMode.audio) await _setMode(ReadingMode.text);
+      await _setTextOnly(true);
+      return;
+    }
+    await _setTextOnly(false);
+    await _setMode(ReadingMode.values.byName(choice));
+  }
+
   Widget _modeSelector(OpenedBook book) => Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-        child: SegmentedButton<ReadingMode>(
+        child: SegmentedButton<String>(
           showSelectedIcon: false,
           segments: [
             for (final m in ReadingMode.values)
               ButtonSegment(
-                value: m,
+                value: m.name,
                 enabled: book.option(m).available,
                 tooltip: m.label,
                 label: Text(m.shortLabel, semanticsLabel: m.label),
               ),
+            ButtonSegment(
+              value: _screenReaderChoice,
+              enabled: book.hasText,
+              tooltip: 'Screen reader mode: the whole book as one page of plain text',
+              label: const Text('Screen reader',
+                  textAlign: TextAlign.center, maxLines: 2, semanticsLabel: 'Screen reader mode'),
+            ),
           ],
-          selected: {_mode},
-          onSelectionChanged: (s) => _setMode(s.first),
+          selected: {_textOnly ? _screenReaderChoice : _mode.name},
+          onSelectionChanged: (s) => _choose(s.first),
         ),
       );
 
