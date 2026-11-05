@@ -126,6 +126,7 @@ export function sugamyaBookSummary(book: SugamyaBook): string {
     book.language === na ? 'Language not available' : book.language,
     book.format === na ? 'Format not available' : book.format && sugamyaFormatLabel(book.format),
   ]
+    .map((part) => part.replace(/\.+$/, ''))
     .filter(Boolean)
     .join('. ');
 }

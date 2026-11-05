@@ -40,6 +40,8 @@ export class SugamyaBrowser {
   active = false;
   private history: View[] = [];
   private current: View | undefined;
+  /** Counts pages shown, so lookups for a page the reader has left can stop. */
+  private shown = 0;
 
   constructor(
     private readonly el: Elements,
@@ -75,6 +77,7 @@ export class SugamyaBrowser {
   }
 
   private async show(view: View, remember = true): Promise<void> {
+    this.shown++;
     this.setStatus(view.kind === 'start' ? '' : 'Loading…');
     try {
       if (view.kind === 'start') this.renderStart();
@@ -138,9 +141,13 @@ export class SugamyaBrowser {
       } else {
         const result = parseSugamyaBooks(browserPlatform, body);
         total = result.total;
+        const missing: { id: string; li: HTMLLIElement }[] = [];
         for (const book of result.items) {
-          list.append(this.entry(book.title, sugamyaBookSummary(book), () => this.show({ kind: 'book', id: book.id })));
+          const li = this.entry(book.title, sugamyaBookSummary(book), () => this.show({ kind: 'book', id: book.id }));
+          list.append(li);
+          if (!book.format) missing.push({ id: book.id, li });
         }
+        void this.fillFormats(missing);
       }
       more.hidden = page * SUGAMYA_PAGE_SIZE >= total;
     };
@@ -198,6 +205,29 @@ export class SugamyaBrowser {
     this.setStatus(`Book details: ${book.title}`);
   }
 
+  /**
+   * Search results leave out each book's format and language, and each format of a book is a
+   * separate entry, so the same title can appear more than once. Look each one up (a few at
+   * a time) and add its format and language, so the copies can be told apart.
+   */
+  private async fillFormats(entries: { id: string; li: HTMLLIElement }[]): Promise<void> {
+    const queue = [...entries];
+    const page = this.shown;
+    const worker = async (): Promise<void> => {
+      for (let next = queue.shift(); next; next = queue.shift()) {
+        if (this.shown !== page) return;
+        try {
+          const [book] = parseSugamyaBooks(browserPlatform, await this.fetch(sugamyaPath({ kind: 'book', id: next.id }))).items;
+          const detail = next.li.querySelector('.catalog-entry-detail');
+          if (book && detail) detail.textContent = sugamyaBookSummary(book);
+        } catch {
+          // The entry keeps what the search gave; the book's page still has every detail.
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+  }
+
   private entry(title: string, detail: string, onChoose: () => Promise<void> | void): HTMLLIElement {
     const li = document.createElement('li');
     const button = document.createElement('button');
@@ -207,12 +237,10 @@ export class SugamyaBrowser {
     t.className = 'catalog-entry-title';
     t.textContent = title;
     button.append(t);
-    if (detail) {
-      const d = document.createElement('span');
-      d.className = 'catalog-entry-detail';
-      d.textContent = detail;
-      button.append(d);
-    }
+    const d = document.createElement('span');
+    d.className = 'catalog-entry-detail';
+    d.textContent = detail;
+    button.append(d);
     button.addEventListener('click', () => void onChoose());
     li.append(button);
     return li;
