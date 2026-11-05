@@ -176,25 +176,37 @@ function loadPosition(): SavedPosition | undefined {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
-function savePosition(): void {
+
+/** Saves the place now. */
+function writePosition(): void {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const position: SavedPosition = {
-      mode,
-      clipIndex,
-      docPath: view.currentPath,
-      fragment: view.current?.id || undefined,
-      block: place ? docBlocks().indexOf(place) : undefined,
-    };
-    try {
-      localStorage.setItem(positionKey(), JSON.stringify(position));
-    } catch {
-      // Storage unavailable: the position is simply not remembered.
-    }
-  }, 1000);
+  saveTimer = undefined;
+  if (!book) return;
+  const position: SavedPosition = {
+    mode,
+    clipIndex,
+    docPath: view.currentPath,
+    fragment: view.current?.id || undefined,
+    block: place ? docBlocks().indexOf(place) : undefined,
+  };
+  try {
+    localStorage.setItem(positionKey(), JSON.stringify(position));
+  } catch {
+    // Storage unavailable: the position is simply not remembered.
+  }
+}
+
+/**
+ * Saves the place within a second. A steady stream of moves (a screen reader reading on)
+ * still saves every second rather than waiting for a pause; closing the window or opening
+ * another book saves at once (see flushPosition).
+ */
+function savePosition(): void {
+  if (saveTimer === undefined) saveTimer = setTimeout(writePosition, 1000);
 }
 
 async function openBook(info: BookInfo): Promise<void> {
+  flushPosition();
   recorded?.stop();
   speech.pause();
   view.clear();
@@ -378,18 +390,34 @@ ui.text.addEventListener('focusin', (event) => {
 // left the screen, the first paragraph still on screen becomes the place: the reader may
 // hear a few lines again, but never misses any.
 let scrollTimer: ReturnType<typeof setTimeout> | undefined;
+
+function followScroll(): void {
+  clearTimeout(scrollTimer);
+  scrollTimer = undefined;
+  if (isPlaying() || (place?.isConnected && isOnScreen(place))) return;
+  const first = docBlocks().find(isOnScreen);
+  if (first) setPlace(first);
+}
+
 ui.text.addEventListener(
   'scroll',
   () => {
     clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => {
-      if (isPlaying() || (place?.isConnected && isOnScreen(place))) return;
-      const first = docBlocks().find(isOnScreen);
-      if (first) setPlace(first);
-    }, 250);
+    scrollTimer = setTimeout(followScroll, 250);
   },
   { passive: true },
 );
+
+/** Saves the current book's place straight away, including a scroll not yet looked at. */
+function flushPosition(): void {
+  if (!book) return;
+  if (scrollTimer !== undefined) followScroll();
+  writePosition();
+}
+
+// Quitting right after the screen reader moved must not lose that last move.
+window.addEventListener('pagehide', flushPosition);
+window.addEventListener('beforeunload', flushPosition);
 
 /** Index of the block holding (or following) an element. */
 function blockIndexFor(blocks: readonly HTMLElement[], el: Element | undefined): number {
