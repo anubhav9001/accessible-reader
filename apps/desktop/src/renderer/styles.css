@@ -199,6 +199,27 @@ main {
   line-height: 1.7;
 }
 
+/* Screen reader mode: the book as plain text in a read-only text box. */
+.ui-plain {
+  flex: 1;
+  width: 100%;
+  margin: 0;
+  resize: none;
+  border: 0;
+  padding: 24px max(24px, calc((100% - 46em) / 2));
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.ui-plain:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
 #ui-text img {
   max-width: 100%;
   height: auto;
