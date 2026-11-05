@@ -39,7 +39,7 @@ class HelpScreen extends StatelessWidget {
       'Getting books',
       [
         ('Add book', 'On My books. Opens an EPUB or zipped DAISY book stored on this phone.'),
-        ('Online libraries', 'On My books. Search or browse Project Gutenberg, then choose Download and open.'),
+        ('Online libraries', 'On My books. Choose Sugamya Pustakalaya to search and browse its books, or Project Gutenberg to search, browse and choose Download and open.'),
         ('Remove from phone', 'In a book\'s options menu on My books.'),
       ],
     ),

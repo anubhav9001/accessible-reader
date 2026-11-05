@@ -60,6 +60,8 @@ export interface ReaderApi {
   openBookDialog(): Promise<BookInfo | null>;
   /** Fetches an online catalogue feed (OPDS) as text. */
   fetchCatalog(url: string): Promise<string>;
+  /** Fetches a Sugamya Pustakalaya result page (XML); the path comes from sugamyaPath(). */
+  fetchSugamya(path: string): Promise<string>;
   /** Downloads a book from a catalogue into the app's books folder and opens it. */
   downloadBook(url: string, title: string): Promise<BookInfo>;
   /** "My books", most recently read first. */

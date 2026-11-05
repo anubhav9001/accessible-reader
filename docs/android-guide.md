@@ -16,7 +16,9 @@ If you have Samsung's **Dual App** turned on for Reader, use the normal Reader i
 **My books** is the first screen. It lists every book you have added.
 
 - **Add book** opens an EPUB file or a zipped DAISY book (DAISY 2.02 or DAISY 3) stored on your phone.
-- **Online libraries** lets you search or browse Project Gutenberg. Choose a book, then **Download and open**.
+- **Online libraries** offers two libraries:
+  - **Sugamya Pustakalaya:** search by title or author, or browse categories, school books by grade and the latest books, and read each book's details. Downloading from Sugamya inside Reader comes in the next version.
+  - **Project Gutenberg:** search or browse free classics. Choose a book, then **Download and open**.
 - To remove a book, use its **More options** menu and choose **Remove from phone**.
 
 ## Read and listen

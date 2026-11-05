@@ -1,4 +1,4 @@
-import { openPublication, type Container } from '@accessible-reader/engine';
+import { SUGAMYA_API, isSugamyaPath, openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, type MenuItemConstructorOptions } from 'electron';
 import { mkdtempSync } from 'node:fs';
@@ -83,6 +83,19 @@ async function catalogFetch(url: string, accept: string): Promise<globalThis.Res
 ipcMain.handle('catalog-fetch', async (_event, url: string) =>
   (await catalogFetch(url, 'application/atom+xml, application/xml;q=0.9, */*;q=0.5')).text(),
 );
+
+// ---- Sugamya Pustakalaya ----
+
+declare const __SUGAMYA_API_KEY__: string;
+
+ipcMain.handle('sugamya-fetch', async (_event, path: string) => {
+  if (!__SUGAMYA_API_KEY__) throw new Error("Sugamya Pustakalaya isn't set up in this copy of Reader.");
+  if (!isSugamyaPath(path)) throw new Error('That is not a Sugamya Pustakalaya request.');
+  const url = `${SUGAMYA_API}/${path}?API_key=${encodeURIComponent(__SUGAMYA_API_KEY__)}`;
+  const body = await (await catalogFetch(url, 'application/xml')).text();
+  if (/Don't have access/i.test(body)) throw new Error("Sugamya Pustakalaya didn't allow this request.");
+  return body;
+});
 
 ipcMain.handle('catalog-download', async (_event, url: string, title: string) => {
   const response = await catalogFetch(url, 'application/epub+zip, application/zip;q=0.9, */*;q=0.5');

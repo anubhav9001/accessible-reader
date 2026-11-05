@@ -20,6 +20,7 @@ import {
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
 import { blockAt, DocumentView } from '@accessible-reader/web-view';
 import { CatalogBrowser } from './catalog-browser';
+import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
@@ -103,6 +104,44 @@ const catalogs = new CatalogBrowser(
   window.reader,
   (info) => openBook(info),
 );
+const sugamya = new SugamyaBrowser(
+  {
+    dialog: $<HTMLDialogElement>('ui-catalog'),
+    heading: $('ui-catalog-heading'),
+    searchForm: $<HTMLFormElement>('ui-catalog-search'),
+    searchLabel: $('ui-catalog-search-label'),
+    searchInput: $<HTMLInputElement>('ui-catalog-input'),
+    back: $<HTMLButtonElement>('ui-catalog-back'),
+    start: $<HTMLButtonElement>('ui-catalog-start'),
+    status: $('ui-catalog-status'),
+    results: $('ui-catalog-results'),
+  },
+  window.reader,
+);
+
+// Online libraries: one window, with a choice of library that is remembered.
+const libraryChoice = $<HTMLSelectElement>('ui-catalog-library');
+const LIBRARY_KEY = 'onlineLibrary';
+try {
+  libraryChoice.value = localStorage.getItem(LIBRARY_KEY) === 'sugamya' ? 'sugamya' : 'gutenberg';
+} catch {
+  // Not remembered: Project Gutenberg first.
+}
+function openLibrary(): void {
+  const useSugamya = libraryChoice.value === 'sugamya';
+  catalogs.active = !useSugamya;
+  sugamya.active = useSugamya;
+  if (useSugamya) sugamya.open();
+  else catalogs.open();
+}
+libraryChoice.addEventListener('change', () => {
+  try {
+    localStorage.setItem(LIBRARY_KEY, libraryChoice.value);
+  } catch {
+    // The choice still applies now.
+  }
+  openLibrary();
+});
 
 // ---- screen reader mode -------------------------------------------------------------
 
@@ -826,7 +865,7 @@ function handle(command: Command): void {
   }
   if (command === 'open') return void openFromDialog();
   if (command === 'library') return void library.open();
-  if (command === 'catalogs') return catalogs.open();
+  if (command === 'catalogs') return openLibrary();
   if (command === 'help') return showHelp();
   if (command === 'sr-mode') return void toggleScreenReaderMode();
   if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
