@@ -74,7 +74,8 @@ export function isSugamyaPath(path: string): boolean {
 const text = (el: Element | undefined, name: string): string => {
   const child = el && children(el, name)[0];
   const value = (child?.textContent ?? '').replace(/\s+/g, ' ').trim();
-  return value === 'NA' ? '' : value;
+  // The library writes a missing value as NA or N/A.
+  return /^N\/?A$/i.test(value) ? '' : value;
 };
 
 function parse(doc: Document): { results: Element[]; total: number; page: number; message?: string } {

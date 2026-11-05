@@ -93,7 +93,8 @@ String _text(XmlElement el, String name) {
   final value = (el.childElements.where((e) => e.localName == name).firstOrNull?.innerText ?? '')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
-  return value == 'NA' ? '' : value;
+  // The library writes a missing value as NA or N/A.
+  return RegExp(r'^N/?A$', caseSensitive: false).hasMatch(value) ? '' : value;
 }
 
 ({List<XmlElement> results, int total, String? message}) _parse(String body) {
