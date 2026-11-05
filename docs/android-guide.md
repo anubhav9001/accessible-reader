@@ -46,6 +46,17 @@ You can also read the text with TalkBack itself, swiping through it as on any pa
 
 While the app is reading aloud, touching the screen makes TalkBack speak too. Pause first if you want to explore.
 
+## Screen reader mode
+
+Screen reader mode shows the whole book as one continuous page of plain text: no pictures (their descriptions are shown instead) and no book styling, but with the book's headings, lists, tables and links kept. Turn it on in the **More reading options** menu with **Screen reader mode**; the app remembers the choice for all books.
+
+- **Read straight through:** swipe or use TalkBack's "Read from next item". You move from chapter to chapter without pressing any buttons.
+- **Move by structure:** use TalkBack's reading controls (Headings, Links, Lines, Paragraphs and more) as on any web page.
+- **Your place:** Reader follows where TalkBack is, marks it with a blue outline, and when you open the book again TalkBack starts at that paragraph. Play reads aloud from there.
+- **Links** inside the book take you to their target.
+
+Opening a long book in this mode takes a moment while the whole text is prepared.
+
 ## Things to know
 
 - Reading stops when the screen locks or you switch to another app. Background listening is planned.

@@ -15,7 +15,7 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
-import { DocumentView } from '@accessible-reader/web-view';
+import { BookPageView, DocumentView } from '@accessible-reader/web-view';
 
 /**
  * The reader page inside the mobile app's WebView. The Flutter side owns playback and
@@ -42,7 +42,9 @@ const post = (message: object) => window.ReaderChannel?.postMessage(JSON.stringi
 const textEl = document.getElementById('text')!;
 
 let book: PublicationData | undefined;
-let view: DocumentView | undefined;
+/** One document at a time, or (screen reader mode) the whole book as one text-only page. */
+let view: DocumentView | BookPageView | undefined;
+let bookUrl: (path: string) => string = (p) => p;
 let blocks: HTMLElement[] = [];
 const blockIndex = new Map<Element, number>();
 /** The block the reader is at: set by the app's own moves, or by the screen reader (see trackPlace). */
@@ -52,7 +54,7 @@ let tracking = true;
 /** Each block's narration clip, or the last clip before it; worked out once per document. */
 let clipsByBlock: (number | null)[] | undefined;
 
-function requireBook(): { book: PublicationData; view: DocumentView } {
+function requireBook(): { book: PublicationData; view: DocumentView | BookPageView } {
   if (!book || !view) throw new Error('No book open');
   return { book, view };
 }
@@ -146,8 +148,9 @@ function clipNear(index: number): number | null {
     const path = view.currentPath?.toLowerCase();
     const first: (number | null)[] = blocks.map(() => null);
     for (const clip of book.narration) {
-      if (clip.text?.path.toLowerCase() !== path || !clip.text.fragment) continue;
-      const el = document.getElementById(clip.text.fragment);
+      const text = clip.text;
+      if (!text?.fragment || text.path.toLowerCase() !== path) continue;
+      const el = view.element(text.fragment);
       if (!el) continue;
       const at = blockIndexFor(el);
       if (first[at] === null) first[at] = clip.index;
@@ -161,7 +164,32 @@ function clipNear(index: number): number | null {
 function reportPlace(index: number) {
   if (!tracking || !view?.currentPath || index < 0 || index === place) return;
   place = index;
+  markPlace(blocks[index]);
   post({ type: 'place', path: view.currentPath, index, clip: clipNear(index) });
+}
+
+/**
+ * In the whole-book page the screen reader can read on into the next chapter; report the
+ * block there with its own document, and the app makes that document the current one.
+ */
+function reportPlaceIn(el: Element | undefined) {
+  if (!(view instanceof BookPageView) || !el) return;
+  const block = el.closest<HTMLElement>('[data-block]');
+  const path = view.documentOf(el);
+  if (!block || !path) return;
+  if (path === view.currentPath) return reportPlace(blockIndexFor(block));
+  if (!tracking) return;
+  markPlace(block);
+  post({ type: 'place', path, index: Number(block.dataset.block), clip: null });
+}
+
+let marked: HTMLElement | undefined;
+/** A visible "you are here" outline on the place, in screen reader mode. */
+function markPlace(el: HTMLElement | undefined) {
+  if (!(view instanceof BookPageView) || el === marked) return;
+  marked?.classList.remove('reader-place');
+  marked = el;
+  el?.classList.add('reader-place');
 }
 
 /**
@@ -175,26 +203,33 @@ function reportPlace(index: number) {
 function trackPlace() {
   textEl.addEventListener('focusin', (event) => {
     const target = event.target as HTMLElement;
-    if (target !== textEl) reportPlace(blockIndexFor(target));
+    if (target === textEl) return;
+    if (view instanceof BookPageView) reportPlaceIn(target);
+    else reportPlace(blockIndexFor(target));
   });
   let timer: number | undefined;
   window.addEventListener('scroll', () => {
     clearTimeout(timer);
     timer = window.setTimeout(() => {
       if (place >= 0 && blocks[place] && isOnScreen(blocks[place]!)) return;
-      reportPlace(blocks.findIndex(isOnScreen));
+      if (view instanceof BookPageView) {
+        // Any chapter can be on screen: look through the whole page.
+        reportPlaceIn(Array.from(textEl.querySelectorAll<HTMLElement>('[data-block]')).find(isOnScreen));
+      } else {
+        reportPlace(blocks.findIndex(isOnScreen));
+      }
     }, 250);
   }, { passive: true });
 }
 
 const methods = {
-  /** Opens the book served at `baseUrl`, whose files are `paths`. */
-  async open(baseUrl: string, paths: string[]) {
+  /** Opens the book served at `baseUrl`, whose files are `paths`; `textOnly` is screen reader mode. */
+  async open(baseUrl: string, paths: string[], textOnly = false) {
     const container = new HttpContainer(baseUrl, paths);
     const { container: _files, ...data } = await openPublication(container, browserPlatform);
     book = data;
-    view = new DocumentView(textEl, (p) => container.url(p), (target) => post({ type: 'link', target }));
-    blocks = [];
+    bookUrl = (p) => container.url(p);
+    await useView(textOnly);
     const timeline = new NarrationTimeline(book.narration);
     return {
       publication: book,
@@ -270,6 +305,7 @@ const methods = {
     const el = blocks[index];
     if (!el) return;
     place = index;
+    markPlace(el);
     view.highlightElement(el);
     if (focus) view.focus(el);
   },
@@ -304,8 +340,34 @@ const methods = {
     const el = blocks[index ?? place];
     if (!el) return;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    markPlace(el);
     view?.highlightElement(el);
     view?.focus(el);
+  },
+
+  /**
+   * Screen reader mode on or off: the whole book as one text-only page, or the formatted
+   * chapter. Returns the current document and block so the app can carry on there.
+   */
+  async setTextOnly(on: boolean) {
+    const path = view?.currentPath ?? null;
+    const index = place;
+    await useView(on);
+    if (path) await show({ path }, false);
+    return { path, index };
+  },
+
+  /** Records where the screen reader is without moving anything (screen reader mode). */
+  notePlace(index: number) {
+    place = index;
+    markPlace(blocks[index]);
+  },
+
+  /** The narration clip for block `index` of document `path` (screen reader mode, recorded audio). */
+  async clipIn(path: string, index: number) {
+    await show({ path }, false);
+    place = index;
+    return clipNear(index);
   },
 
   setTracking(on: boolean) {
@@ -316,6 +378,23 @@ const methods = {
     document.documentElement.style.setProperty('--font-scale', String(scale));
   },
 };
+
+async function useView(textOnly: boolean) {
+  view?.clear();
+  blocks = [];
+  blockIndex.clear();
+  place = -1;
+  marked = undefined;
+  document.body.classList.toggle('text-only', textOnly);
+  const onLink = (target: TextRef) => post({ type: 'link', target });
+  if (textOnly && book) {
+    const page = new BookPageView(textEl, bookUrl, onLink);
+    view = page;
+    await page.load(book.readingOrder.filter((r) => /html|xml|dtbook/i.test(r.mediaType)));
+  } else {
+    view = new DocumentView(textEl, bookUrl, onLink);
+  }
+}
 
 type Methods = typeof methods;
 
