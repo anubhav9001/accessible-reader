@@ -38,6 +38,21 @@ export class PlainReader {
     private readonly events: PlainReaderEvents,
   ) {
     area.addEventListener('keydown', (event) => this.onKey(event));
+    // The box is an ordinary (editable) text field, because screen readers only follow the
+    // cursor and switch to focus mode by themselves in an editable one, as they do in
+    // Paperback's native text box. Every change to the text is refused here instead.
+    area.readOnly = false;
+    area.addEventListener('beforeinput', (event) => event.preventDefault());
+    for (const type of ['paste', 'cut', 'drop'] as const) area.addEventListener(type, (event) => event.preventDefault());
+    // And if anything still gets through, put the book's text back where it was.
+    area.addEventListener('input', () => {
+      if (!this.book || area.value === this.book.text) return;
+      const at = Math.min(this.lastCaret >= 0 ? this.lastCaret : area.selectionStart, this.book.text.length);
+      this.quiet = true;
+      area.value = this.book.text;
+      area.setSelectionRange(at, at);
+      this.quiet = false;
+    });
     for (const type of ['keyup', 'mouseup', 'focus', 'select', 'selectionchange'] as const) {
       area.addEventListener(type, () => this.watchCaret());
     }

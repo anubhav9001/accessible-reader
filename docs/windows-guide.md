@@ -60,7 +60,7 @@ Stepping by phrase or heading with the keyboard moves your screen reader into th
 
 Screen reader mode works like the Paperback reader: the whole book is shown as plain text in one read-only text box. Your screen reader's cursor is your reading position. Read with the arrow keys, Ctrl+arrows and say all, and Reader remembers exactly where the cursor is, down to the character, even after you open another book or close the app. When you open the book again, focus goes straight to that spot.
 
-Turn it on or off with Ctrl+Shift+R, the **Screen reader mode** checkbox beside the reading modes, or **View → Screen reader mode**. Reader remembers the choice. NVDA says "focus mode" when you enter the text box; that is expected.
+Turn it on or off with Ctrl+Shift+R, the **Screen reader mode** checkbox beside the reading modes, or **View → Screen reader mode**. Reader remembers the choice. NVDA switches to focus mode by itself when you reach the text box, as in Paperback, so the arrow keys and say all read straight away.
 
 In the text box, single keys move the cursor through the book's structure, as in Paperback. Shift with the key goes backwards.
 
