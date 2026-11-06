@@ -18,10 +18,11 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
-import { BookPageView, DocumentView } from '@accessible-reader/web-view';
+import { blockAt, DocumentView } from '@accessible-reader/web-view';
 import { CatalogBrowser } from './catalog-browser';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
+import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
 
@@ -55,6 +56,7 @@ const ui = {
   nowPage: $('ui-now-page'),
   nowTime: $('ui-now-time'),
   text: $('ui-text'),
+  plain: $<HTMLTextAreaElement>('ui-plain'),
   audioOnly: $('ui-audio-only'),
   status: $('ui-status'),
   gotoDialog: $<HTMLDialogElement>('ui-goto-dialog'),
@@ -77,11 +79,7 @@ let rate = 1;
 let recorded: RecordedPlayer | undefined;
 let tocItems: { item: NavItem; el: HTMLElement; level: number }[] = [];
 
-// Two ways to show the text, in the same place: one chapter at a time, formatted, or (screen
-// reader mode) the whole book as one text-only page. Both have the same methods.
-const formatted = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
-const pageView = new BookPageView(ui.text, bookUrl, (target) => void goToText(target, false));
-let view: DocumentView | BookPageView = formatted;
+const view = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
 const speech = new SpeechPlayer({ block: onSpeechBlock, state: onPlayState, finished: () => void onSpeechFinished() });
 const library = new LibraryView(
   {
@@ -149,10 +147,11 @@ libraryChoice.addEventListener('change', () => {
 
 // ---- screen reader mode -------------------------------------------------------------
 
-// Screen reader mode shows the whole book as one text-only page: no pictures (their
-// descriptions instead) and no styling, but headings, lists, tables and links kept. NVDA and
-// JAWS stay in browse mode, so all their own reading and navigation commands work, and they
-// read straight on from chapter to chapter.
+// Screen reader mode works like Paperback: the whole book as plain text in one read-only text
+// box. The screen reader's own cursor is the reading position, so Reader saves the exact
+// character and comes back to it. Single keys (H, 1 to 6, K, T, L, I, P, G, F, S, [ and ])
+// move the cursor through the book's structure, as in Paperback. The formatted chapter stays
+// loaded, hidden, underneath, so playback, the contents and saved places keep working.
 const SR_MODE_KEY = 'screenReaderMode';
 let srMode = (() => {
   try {
@@ -161,6 +160,12 @@ let srMode = (() => {
     return false;
   }
 })();
+const plain = new PlainReader(ui.plain, {
+  caret: (offset, block) => void onPlainCaret(offset, block),
+  announce: (message) => announce(message),
+});
+/** True while the place is being moved to follow the text cursor, so the cursor isn't moved back. */
+let followingCaret = false;
 
 // ---- status -------------------------------------------------------------------------
 
@@ -221,6 +226,8 @@ interface SavedPosition {
   fragment?: string;
   /** The paragraph (block) within docPath: works for text without ids, and follows the screen reader. */
   block?: number;
+  /** The exact cursor position (character) in screen reader mode's text box. */
+  plainOffset?: number;
 }
 
 function positionKey(): string {
@@ -248,6 +255,7 @@ function writePosition(): void {
     docPath: view.currentPath,
     fragment: view.current?.id || undefined,
     block: place ? docBlocks().indexOf(place) : undefined,
+    plainOffset: plain.ready ? plain.caret : undefined,
   };
   try {
     localStorage.setItem(positionKey(), JSON.stringify(position));
@@ -270,9 +278,9 @@ async function openBook(info: BookInfo): Promise<void> {
   recorded?.stop();
   speech.pause();
   view.clear();
+  plain.clear();
 
   book = info;
-  await useView(srMode, false);
   timeline = new NarrationTimeline(info.narration);
   modes = readingModes(info);
   recorded = new RecordedPlayer(info.narration, timeline, bookUrl, {
@@ -315,6 +323,7 @@ async function openBook(info: BookInfo): Promise<void> {
       if (place) break;
     }
   }
+  if (srMode) await showPlain(saved?.plainOffset);
   updateNow();
   announce(`Opened ${ui.title.textContent}. ${MODE_LABELS[mode]} mode.`);
   // Straight into the book, at the saved place, so the screen reader starts reading there.
@@ -527,13 +536,21 @@ async function showText(ref: TextRef, focus: boolean): Promise<HTMLElement | und
   const el = ref.fragment ? view.highlight(ref.fragment) : undefined;
   if (!ref.fragment) view.highlightElement(undefined);
   setPlace(blockOf(el) ?? docBlocks()[0]);
-  if (focus) view.focus(el);
+  if (focus) {
+    if (showingPlain()) plain.focus();
+    else view.focus(el);
+  }
   return el;
 }
 
-/** Shows the text, or (audio only mode) not. */
+function showingPlain(): boolean {
+  return srMode && mode !== 'audio';
+}
+
+/** Shows the formatted text, the plain-text box, or (audio only mode) neither. */
 function applyView(): void {
-  ui.text.hidden = mode === 'audio';
+  ui.text.hidden = mode === 'audio' || srMode;
+  ui.plain.hidden = !showingPlain();
   ui.audioOnly.hidden = mode !== 'audio';
 }
 
@@ -541,29 +558,38 @@ function textDocuments(): Resource[] {
   return (book?.readingOrder ?? []).filter((r) => /html|xml|dtbook/i.test(r.mediaType));
 }
 
-/**
- * Switches between the formatted chapter and the whole-book text-only page, keeping the place
- * when `keepPlace` (switching while a book is open).
- */
-async function useView(textOnly: boolean, keepPlace = true): Promise<void> {
-  document.body.classList.toggle('text-only', textOnly);
-  const path = keepPlace ? view.currentPath : undefined;
-  const index = keepPlace && place ? docBlocks().indexOf(place) : -1;
-  view.clear();
-  view = textOnly ? pageView : formatted;
-  view.clear();
-  blocksCache = undefined;
-  place = undefined;
-  speech.docPath = undefined;
-  if (textOnly && book) await pageView.load(textDocuments());
-  if (path) {
-    await showText({ path }, false);
-    const el = docBlocks()[index];
-    if (el) {
-      view.highlightElement(el);
-      setPlace(el);
-    }
+/** Fills the text box (once per book) and puts its cursor at the place, or at `offset` exactly. */
+async function showPlain(offset?: number): Promise<void> {
+  if (!book || !showingPlain()) return;
+  const opened = book;
+  await plain.load(textDocuments(), bookUrl);
+  if (book !== opened || !plain.book) return;
+  // A saved cursor position is exact; use it while it still belongs to the place's paragraph
+  // (which runs up to the next paragraph, covering text outside any paragraph).
+  const blockStart = placeOffset();
+  const saved = offset === undefined ? undefined : blockAt(plain.book, offset);
+  if (offset !== undefined && saved && saved.start === blockStart) plain.place(offset);
+  else if (blockStart !== undefined) plain.place(blockStart);
+}
+
+function placeOffset(): number | undefined {
+  if (!place || !view.currentPath) return undefined;
+  return plain.blockOffset(view.currentPath, docBlocks().indexOf(place));
+}
+
+/** The reader moved the text cursor: make that paragraph the place. */
+async function onPlainCaret(_offset: number, block: { path: string; index: number } | undefined): Promise<void> {
+  if (!block) return;
+  followingCaret = true;
+  try {
+    if (block.path.toLowerCase() !== view.currentPath?.toLowerCase()) await showText({ path: block.path }, false);
+    const el = docBlocks()[block.index];
+    if (el && !isPlaying()) view.highlightElement(el);
+    if (el) await followElement(el);
+  } finally {
+    followingCaret = false;
   }
+  savePosition();
 }
 
 async function toggleScreenReaderMode(): Promise<void> {
@@ -574,13 +600,16 @@ async function toggleScreenReaderMode(): Promise<void> {
     // Not remembered next time; the mode still changes now.
   }
   showScreenReaderMode();
+  applyView();
   if (!book) {
-    document.body.classList.toggle('text-only', srMode);
-    announce(srMode ? 'Screen reader mode on. Books will open as one page of plain text.' : 'Screen reader mode off.');
+    announce(srMode ? 'Screen reader mode on. Books will open as plain text.' : 'Screen reader mode off.');
     return;
   }
-  if (srMode) announce('Preparing the text of the whole book');
-  await useView(srMode);
+  if (srMode) {
+    announce('Preparing the text of the book');
+    // The box keeps its cursor while hidden: go back to that exact spot if it is still the place.
+    await showPlain(plain.ready ? plain.caret : undefined);
+  }
   // Move focus first, so the screen reader doesn't cut the message short.
   const fromToggle = document.activeElement === ui.srToggle;
   if (mode !== 'audio' && !fromToggle) focusPlace();
@@ -588,7 +617,7 @@ async function toggleScreenReaderMode(): Promise<void> {
     () =>
       announce(
         srMode
-          ? 'Screen reader mode on. The whole book is one page of plain text. Use your screen reader to read and move around.'
+          ? 'Screen reader mode on. The book is plain text in one text box. Read with the arrow keys; press H for the next heading, or F1 for all keys.'
           : 'Screen reader mode off. The book is shown formatted, one chapter at a time.',
       ),
     400,
@@ -627,25 +656,23 @@ function setPlace(el: HTMLElement | undefined): void {
   if (place?.isConnected) place.tabIndex = -1;
   place = el;
   if (el) el.tabIndex = 0;
+  if (srMode && !followingCaret && plain.ready) {
+    const offset = placeOffset();
+    if (offset !== undefined) plain.place(offset);
+  }
   updateNow();
   savePosition();
 }
 
 function focusPlace(): void {
-  if (place?.isConnected) place.focus();
+  if (showingPlain()) plain.focus();
+  else if (place?.isConnected) place.focus();
   else view.focus();
 }
 
-/**
- * The screen reader moved to an element (by focus or by scrolling): make its paragraph the
- * place. On the whole-book page it may be in another chapter, which becomes the current one.
- */
+/** The screen reader (or the text cursor) moved to an element: make its paragraph the place. */
 async function followElement(el: Element | undefined): Promise<void> {
   if (!el || isPlaying()) return;
-  if (view instanceof BookPageView) {
-    const path = view.documentOf(el);
-    if (path && path !== view.currentPath) await view.show(path);
-  }
   const block = blockOf(el);
   if (!block) return;
   setPlace(block);
@@ -689,9 +716,7 @@ function followScroll(): void {
   clearTimeout(scrollTimer);
   scrollTimer = undefined;
   if (isPlaying() || (place?.isConnected && isOnScreen(place))) return;
-  // On the whole-book page any chapter can be on screen.
-  const candidates = view instanceof BookPageView ? Array.from(ui.text.querySelectorAll<HTMLElement>('[data-block]')) : docBlocks();
-  void followElement(candidates.find(isOnScreen));
+  void followElement(docBlocks().find(isOnScreen));
 }
 
 ui.text.addEventListener(
@@ -706,6 +731,7 @@ ui.text.addEventListener(
 /** Saves the current book's place straight away, including a scroll not yet looked at. */
 function flushPosition(): void {
   if (!book) return;
+  plain.flush();
   if (scrollTimer !== undefined) followScroll();
   writePosition();
 }
@@ -790,7 +816,10 @@ function onSpeechBlock(_index: number, el: HTMLElement): void {
   view.highlightElement(el);
   setPlace(el);
   // When stepping by hand, move the screen reader to the new phrase; never while reading aloud.
-  if (!speech.isPlaying) view.focus(el);
+  if (!speech.isPlaying) {
+    if (showingPlain()) announce(el.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+    else view.focus(el);
+  }
   updateNow();
   savePosition();
 }
@@ -978,6 +1007,7 @@ function whereAmI(): void {
       page,
       time,
       `${MODE_LABELS[mode]} mode`,
+      showingPlain() && plain.ready ? plain.whereAmI() : '',
       srMode ? 'screen reader mode' : '',
       `speed ${rate}`,
       isPlaying() ? 'playing' : 'paused',
@@ -1034,6 +1064,14 @@ function handle(command: Command): void {
   if (command === 'help') return showHelp();
   if (command === 'sr-mode') return void toggleScreenReaderMode();
   if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
+  // In screen reader mode, headings and pages move the text cursor through the whole book.
+  if (showingPlain() && plain.ready && !isPlaying()) {
+    const back = command.startsWith('prev-') ? -1 : 1;
+    if (command === 'next-heading' || command === 'prev-heading') {
+      return plain.go('heading', back, 'heading', undefined, headingLevel || undefined);
+    }
+    if (command === 'next-page' || command === 'prev-page') return plain.go('page', back, 'page');
+  }
   switch (command) {
     case 'toggle-play':
       return togglePlay();
