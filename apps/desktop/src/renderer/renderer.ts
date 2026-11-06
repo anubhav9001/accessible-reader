@@ -47,6 +47,8 @@ const ui = {
   goto: $<HTMLButtonElement>('ui-goto'),
   speed: $<HTMLSelectElement>('ui-speed'),
   modes: $<HTMLFieldSetElement>('ui-modes'),
+  srToggle: $<HTMLInputElement>('ui-sr-mode'),
+  srBadge: $('ui-sr-badge'),
   toc: $('ui-toc'),
   tocTree: $('ui-toc-tree'),
   nowHeading: $('ui-now-heading-text'),
@@ -571,7 +573,7 @@ async function toggleScreenReaderMode(): Promise<void> {
   } catch {
     // Not remembered next time; the mode still changes now.
   }
-  window.reader.screenReaderModeChanged(srMode);
+  showScreenReaderMode();
   if (!book) {
     document.body.classList.toggle('text-only', srMode);
     announce(srMode ? 'Screen reader mode on. Books will open as one page of plain text.' : 'Screen reader mode off.');
@@ -579,12 +581,25 @@ async function toggleScreenReaderMode(): Promise<void> {
   }
   if (srMode) announce('Preparing the text of the whole book');
   await useView(srMode);
-  announce(
-    srMode
-      ? 'Screen reader mode on. The whole book is one page of plain text. Use your screen reader to read and move around.'
-      : 'Screen reader mode off. The book is shown formatted, one chapter at a time.',
+  // Move focus first, so the screen reader doesn't cut the message short.
+  const fromToggle = document.activeElement === ui.srToggle;
+  if (mode !== 'audio' && !fromToggle) focusPlace();
+  setTimeout(
+    () =>
+      announce(
+        srMode
+          ? 'Screen reader mode on. The whole book is one page of plain text. Use your screen reader to read and move around.'
+          : 'Screen reader mode off. The book is shown formatted, one chapter at a time.',
+      ),
+    400,
   );
-  if (mode !== 'audio') focusPlace();
+}
+
+/** Keeps the checkbox, the "Screen reader mode" note and the View menu tick in step. */
+function showScreenReaderMode(): void {
+  ui.srToggle.checked = srMode;
+  ui.srBadge.hidden = !srMode;
+  window.reader.screenReaderModeChanged(srMode);
 }
 
 
@@ -1076,7 +1091,10 @@ ui.modes.addEventListener('change', (event) => {
   if (input.name === 'mode') void setMode(input.value as ReadingMode);
 });
 window.reader.onCommand(handle);
-window.reader.screenReaderModeChanged(srMode);
+showScreenReaderMode();
+ui.srToggle.addEventListener('change', () => {
+  if (ui.srToggle.checked !== srMode) void toggleScreenReaderMode();
+});
 applyView();
 
 window.readerDebug = {

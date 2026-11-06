@@ -131,6 +131,23 @@ button {
   opacity: 0.55;
 }
 
+.ui-sr-toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.ui-sr-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--fg);
+  font-weight: 600;
+}
+
 .ui-layout {
   display: flex;
   flex: 1;
