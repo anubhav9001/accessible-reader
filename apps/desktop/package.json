@@ -1,6 +1,6 @@
 {
   "name": "@accessible-reader/desktop",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "Accessible DAISY and EPUB reader (tester build)",
   "main": "dist/main.cjs",
