@@ -60,4 +60,16 @@ After Ctrl+T, or Tab into the contents:
 
 ## In screen reader mode
 
-The book stays in your screen reader's browse mode, so use its own keys: for example H and 1 to 6 for headings, T for tables, L for lists, K for links, and say all.
+These keys work in the book's text box, as in Paperback. Shift with the key goes backwards.
+
+| Moves to | Key |
+|---|---|
+| Next heading | H |
+| Next heading at a level | 1 to 6 |
+| Next printed page | P |
+| Next link | K (Enter or Space follows it) |
+| Next table | T |
+| Next list / list item | L / I |
+| Next image / figure / separator | G / F / S |
+| Next / previous section | ] / [ |
+| How far through the book | = |

@@ -218,29 +218,25 @@ main {
   line-height: 1.7;
 }
 
-/* Screen reader mode: the whole book as one text-only page. */
-.text-only #ui-text {
-  font-family: system-ui, sans-serif;
+/* Screen reader mode: the book as plain text in a read-only text box, like Paperback. */
+.ui-plain {
+  flex: 1;
+  width: 100%;
+  margin: 0;
+  resize: none;
+  border: 0;
+  padding: 24px max(24px, calc((100% - 46em) / 2));
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 
-.text-only #ui-text .img-alt,
-.text-only #ui-text .pagebreak {
-  display: block;
-  margin: 0.5em 0;
-  font-style: italic;
-}
-
-.text-only #ui-text .book-doc + .book-doc {
-  margin-top: 2em;
-  padding-top: 1em;
-  border-top: 1px solid var(--border);
-}
-
-/* "You are here": the place, which follows the screen reader. */
-.text-only #ui-text [tabindex="0"] {
+.ui-plain:focus-visible {
   outline: 3px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: 2px;
+  outline-offset: -3px;
 }
 
 #ui-text img {

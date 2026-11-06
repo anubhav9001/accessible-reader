@@ -58,8 +58,22 @@ Stepping by phrase or heading with the keyboard moves your screen reader into th
 
 ## Screen reader mode
 
-Screen reader mode shows the whole book as one page of plain text: no pictures (their descriptions are shown instead) and no book styling, but the book's headings, lists, tables and links are kept. Your screen reader stays in browse mode, so you read with its usual keys and say all, and move with its own quick keys: H and 1 to 6 for headings, T for tables, L for lists, K for links, and so on. It reads straight on from one chapter to the next.
+Screen reader mode works like the Paperback reader: the whole book is shown as plain text in one read-only text box. Your screen reader's cursor is your reading position. Read with the arrow keys, Ctrl+arrows and say all, and Reader remembers exactly where the cursor is, down to the character, even after you open another book or close the app. When you open the book again, focus goes straight to that spot.
 
-Turn it on or off with Ctrl+Shift+R, or **View → Screen reader mode**. Reader remembers the choice.
+Turn it on or off with Ctrl+Shift+R, the **Screen reader mode** checkbox beside the reading modes, or **View → Screen reader mode**. Reader remembers the choice. NVDA says "focus mode" when you enter the text box; that is expected.
 
-Reader follows where your screen reader is, marks it with an outline, and remembers it, even after you open another book or close the app. When you open the book again, focus goes straight to that paragraph. Ctrl+Space plays from there, and the table of contents marks the chapter you are in.
+In the text box, single keys move the cursor through the book's structure, as in Paperback. Shift with the key goes backwards.
+
+| Key | Moves to |
+|---|---|
+| H | Next heading |
+| 1 to 6 | Next heading at that level |
+| P | Next printed page |
+| K | Next link (Enter or Space follows a link inside the book) |
+| T | Next table (each row is a line, cells divided by a bar) |
+| L / I | Next list / list item |
+| G / F / S | Next image / figure / separator |
+| ] / [ | Next / previous section (a part or chapter file of the book) |
+| = | Says how far through the book you are, and the page |
+
+Ctrl+Space plays from the cursor, Alt+Up and Alt+Down move by heading, the table of contents moves the cursor to the chapter and marks the chapter you are in, and while Reader reads aloud the cursor follows the voice.
