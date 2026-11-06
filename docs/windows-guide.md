@@ -28,7 +28,7 @@ From top to bottom:
 
 1. The book title, a toolbar with My books, Open book, Online libraries, Play, the phrase and heading buttons and Go to page, and the reading speed.
 2. The reading mode choice.
-3. The table of contents, under the heading Contents.
+3. The table of contents, under the heading Contents. It is a tree: one Tab stop, then Up and Down to move, Right and Left to open and close a part, Home and End, a letter to jump to an entry starting with it, and Enter to go there. The entry you are reading is marked as current.
 4. Where you are: the heading, page and time.
 5. The book text.
 
@@ -50,7 +50,7 @@ The book text is an ordinary web page, so browse mode works as usual: arrow keys
 
 Reader follows your screen reader and remembers the paragraph you reached. When you come back to the book:
 
-- Tabbing into the text, or pressing Ctrl+E, lands on that paragraph.
+- Opening the book puts focus straight on that paragraph, and tabbing into the text, or pressing Ctrl+E, lands there too.
 - Ctrl+Space starts reading aloud from there.
 - Ctrl+I (Where am I?) announces the heading, page, time, mode and speed.
 
@@ -58,22 +58,8 @@ Stepping by phrase or heading with the keyboard moves your screen reader into th
 
 ## Screen reader mode
 
-Screen reader mode shows the whole book as plain text in one read-only text box, like the Paperback reader. Your screen reader's own cursor is your reading position: read with the arrow keys and say all as in any document, and Reader remembers exactly where the cursor is, even after you open another book or close the app.
+Screen reader mode shows the whole book as one page of plain text: no pictures (their descriptions are shown instead) and no book styling, but the book's headings, lists, tables and links are kept. Your screen reader stays in browse mode, so you read with its usual keys and say all, and move with its own quick keys: H and 1 to 6 for headings, T for tables, L for lists, K for links, and so on. It reads straight on from one chapter to the next.
 
 Turn it on or off with Ctrl+Shift+R, or **View → Screen reader mode**. Reader remembers the choice.
 
-In the text box, single keys move the cursor through the book's structure. Shift with the key goes backwards.
-
-| Key | Moves to |
-|---|---|
-| H | Next heading |
-| 1 to 6 | Next heading at that level |
-| P | Next printed page |
-| K | Next link (Enter follows a link inside the book) |
-| T | Next table (rows are on lines of their own, cells divided by a bar) |
-| L / I | Next list / list item |
-| G / F / S | Next image / figure / separator |
-| ] / [ | Next / previous section (a part or chapter file of the book) |
-| = | Says how far through the book you are, and the page |
-
-Everything else works as usual: Ctrl+Space plays from the cursor, Alt+Up and Alt+Down move by heading (at the level chosen in the Playback menu), the table of contents moves the cursor to the chapter, and while Reader reads aloud the cursor follows the voice.
+Reader follows where your screen reader is, marks it with an outline, and remembers it, even after you open another book or close the app. When you open the book again, focus goes straight to that paragraph. Ctrl+Space plays from there, and the table of contents marks the chapter you are in.

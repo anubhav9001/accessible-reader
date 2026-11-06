@@ -45,18 +45,19 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | Zoom in, zoom out, reset zoom | Ctrl+Plus, Ctrl+Minus, Ctrl+0 |
 | Screen reader mode on or off | Ctrl+Shift+R |
 
-## In screen reader mode
+## In the table of contents
 
-These keys work in the book's text box. Shift with the key goes backwards.
+After Ctrl+T, or Tab into the contents:
 
 | Moves to | Key |
 |---|---|
-| Next heading | H |
-| Next heading at a level | 1 to 6 |
-| Next printed page | P |
-| Next link | K (Enter follows it) |
-| Next table | T |
-| Next list / list item | L / I |
-| Next image / figure / separator | G / F / S |
-| Next / previous section | ] / [ |
-| How far through the book | = |
+| Next / previous entry | Down / Up |
+| Open a part, or go to its first entry | Right |
+| Close a part, or go to the part it is in | Left |
+| First / last entry | Home / End |
+| Next entry starting with a letter | That letter |
+| Go to the entry in the book | Enter |
+
+## In screen reader mode
+
+The book stays in your screen reader's browse mode, so use its own keys: for example H and 1 to 6 for headings, T for tables, L for lists, K for links, and say all.

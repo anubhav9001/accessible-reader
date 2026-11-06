@@ -414,8 +414,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return;
       }
     }
-    if (direction > 0) return _changeDoc(1);
-    _announce('No previous heading in this section');
+    // No more headings in this chapter: look in the next or previous ones.
+    final fromPath = doc.path;
+    final fromIndex = doc.index;
+    while (true) {
+      final json = await _bridge.call<Map<String, dynamic>>('textDocument', [direction]);
+      if (json == null) break;
+      final candidate = TextDoc.fromJson(json);
+      final blocks = candidate.blocks;
+      for (var i = direction > 0 ? 0 : blocks.length - 1; i >= 0 && i < blocks.length; i += direction) {
+        final level = blocks[i].heading;
+        if (level != null && (_headingLevel == 0 || level <= _headingLevel)) {
+          await _loadDoc(json, highlight: false);
+          _speech.jump(i);
+          _announce(blocks[i].text);
+          return;
+        }
+      }
+    }
+    // None anywhere: stay where the reader was.
+    await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [TextRef(fromPath).toJson(), null]), highlight: false);
+    _speech.jump(fromIndex);
+    _announce(direction > 0 ? 'No next heading' : 'No previous heading');
   }
 
   Future<void> _stepPage(int direction) async {
