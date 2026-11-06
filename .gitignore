@@ -10,3 +10,6 @@ apps/mobile/assets/web/
 
 # Installers built by apps/desktop (npm run dist)
 apps/desktop/release/
+
+# Private reference documents (e.g. the TCS API guide, which is confidential and has keys)
+documents/

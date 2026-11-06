@@ -18,11 +18,10 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
-import { blockAt, DocumentView } from '@accessible-reader/web-view';
+import { BookPageView, DocumentView } from '@accessible-reader/web-view';
 import { CatalogBrowser } from './catalog-browser';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
-import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
 
@@ -54,7 +53,6 @@ const ui = {
   nowPage: $('ui-now-page'),
   nowTime: $('ui-now-time'),
   text: $('ui-text'),
-  plain: $<HTMLTextAreaElement>('ui-plain'),
   audioOnly: $('ui-audio-only'),
   status: $('ui-status'),
   gotoDialog: $<HTMLDialogElement>('ui-goto-dialog'),
@@ -75,9 +73,13 @@ let clipIndex = 0;
 let headingLevel = 0;
 let rate = 1;
 let recorded: RecordedPlayer | undefined;
-let tocLinks: { item: NavItem; link: HTMLAnchorElement }[] = [];
+let tocItems: { item: NavItem; el: HTMLElement; level: number }[] = [];
 
-const view = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
+// Two ways to show the text, in the same place: one chapter at a time, formatted, or (screen
+// reader mode) the whole book as one text-only page. Both have the same methods.
+const formatted = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
+const pageView = new BookPageView(ui.text, bookUrl, (target) => void goToText(target, false));
+let view: DocumentView | BookPageView = formatted;
 const speech = new SpeechPlayer({ block: onSpeechBlock, state: onPlayState, finished: () => void onSpeechFinished() });
 const library = new LibraryView(
   {
@@ -145,9 +147,10 @@ libraryChoice.addEventListener('change', () => {
 
 // ---- screen reader mode -------------------------------------------------------------
 
-// The book as plain text in one read-only text box, read with the screen reader's own
-// cursor (like Paperback). The formatted view stays loaded but hidden underneath, so
-// playback, the table of contents and saved places all keep working.
+// Screen reader mode shows the whole book as one text-only page: no pictures (their
+// descriptions instead) and no styling, but headings, lists, tables and links kept. NVDA and
+// JAWS stay in browse mode, so all their own reading and navigation commands work, and they
+// read straight on from chapter to chapter.
 const SR_MODE_KEY = 'screenReaderMode';
 let srMode = (() => {
   try {
@@ -156,12 +159,6 @@ let srMode = (() => {
     return false;
   }
 })();
-const plain = new PlainReader(ui.plain, {
-  caret: (offset, block) => void onPlainCaret(offset, block),
-  announce: (message) => announce(message),
-});
-/** True while the place is being moved to follow the plain-text cursor, so it isn't moved back. */
-let followingCaret = false;
 
 // ---- status -------------------------------------------------------------------------
 
@@ -222,8 +219,6 @@ interface SavedPosition {
   fragment?: string;
   /** The paragraph (block) within docPath: works for text without ids, and follows the screen reader. */
   block?: number;
-  /** The exact cursor position in screen reader mode's plain text. */
-  plainOffset?: number;
 }
 
 function positionKey(): string {
@@ -251,7 +246,6 @@ function writePosition(): void {
     docPath: view.currentPath,
     fragment: view.current?.id || undefined,
     block: place ? docBlocks().indexOf(place) : undefined,
-    plainOffset: srMode && plain.ready ? plain.caret : undefined,
   };
   try {
     localStorage.setItem(positionKey(), JSON.stringify(position));
@@ -274,9 +268,9 @@ async function openBook(info: BookInfo): Promise<void> {
   recorded?.stop();
   speech.pause();
   view.clear();
-  plain.clear();
 
   book = info;
+  await useView(srMode, false);
   timeline = new NarrationTimeline(info.narration);
   modes = readingModes(info);
   recorded = new RecordedPlayer(info.narration, timeline, bookUrl, {
@@ -312,33 +306,171 @@ async function openBook(info: BookInfo): Promise<void> {
       setPlace(el);
     }
   }
-  if (srMode) void showPlain(saved?.plainOffset);
+  // A new book (no saved place) starts at the first page with text, not a cover picture.
+  if (!place && !usesClips()) {
+    for (const doc of textDocuments()) {
+      await showText({ path: doc.path }, false);
+      if (place) break;
+    }
+  }
   updateNow();
-  announce(`Opened ${ui.title.textContent}. ${MODE_LABELS[mode]} mode. Press Control Space to play.`);
+  announce(`Opened ${ui.title.textContent}. ${MODE_LABELS[mode]} mode.`);
+  // Straight into the book, at the saved place, so the screen reader starts reading there.
+  if (mode !== 'audio') focusPlace();
   window.reader.bookReady();
 }
 
+/**
+ * The table of contents as a tree: one Tab stop, then Up and Down to move, Right and Left to
+ * open and close a part, Home and End, Enter to go there, and a letter to jump to the next
+ * entry starting with it. Screen readers switch to focus mode in a tree, so the arrow keys
+ * reach it. The entry being read is marked as current.
+ */
 function renderToc(): void {
-  tocLinks = [];
-  const build = (items: NavItem[]): HTMLUListElement => {
-    const list = document.createElement('ul');
-    for (const item of items) {
-      const li = document.createElement('li');
-      const link = document.createElement('a');
-      link.href = '#';
-      link.textContent = item.label || 'Untitled';
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
+  tocItems = [];
+  if (!book?.toc.length) {
+    ui.tocTree.replaceChildren(document.createTextNode('This book has no table of contents.'));
+    return;
+  }
+  const tree = document.createElement('div');
+  tree.setAttribute('role', 'tree');
+  tree.setAttribute('aria-labelledby', 'ui-toc-heading');
+  tree.className = 'toc-tree';
+  const add = (items: NavItem[], level: number) => {
+    items.forEach((item, i) => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'treeitem');
+      el.setAttribute('aria-level', String(level));
+      el.setAttribute('aria-setsize', String(items.length));
+      el.setAttribute('aria-posinset', String(i + 1));
+      if (item.children.length) el.setAttribute('aria-expanded', 'true');
+      el.tabIndex = -1;
+      el.textContent = item.label || 'Untitled';
+      el.style.paddingInlineStart = `${(level - 1) * 1.1 + 0.4}em`;
+      el.addEventListener('click', () => {
+        focusTocItem(tocItems.findIndex((t) => t.el === el));
         void goToNav(item);
       });
-      tocLinks.push({ item, link });
-      li.append(link);
-      if (item.children.length) li.append(build(item.children));
-      list.append(li);
-    }
-    return list;
+      tocItems.push({ item, el, level });
+      tree.append(el);
+      add(item.children, level + 1);
+    });
   };
-  ui.tocTree.replaceChildren(book?.toc.length ? build(book.toc) : document.createTextNode('This book has no table of contents.'));
+  add(book.toc, 1);
+  tree.addEventListener('keydown', onTocKey);
+  tocItems[0]!.el.tabIndex = 0;
+  ui.tocTree.replaceChildren(tree);
+}
+
+function focusTocItem(i: number): void {
+  const target = tocItems[i];
+  if (!target) return;
+  for (const t of tocItems) t.el.tabIndex = -1;
+  target.el.tabIndex = 0;
+  target.el.focus();
+}
+
+/** Hides the entries under closed parts. */
+function syncTocVisibility(): void {
+  let closedAt = Infinity;
+  for (const t of tocItems) {
+    if (t.level <= closedAt) closedAt = Infinity;
+    t.el.hidden = t.level > closedAt;
+    if (!t.el.hidden && t.el.getAttribute('aria-expanded') === 'false') closedAt = t.level;
+  }
+}
+
+function onTocKey(event: KeyboardEvent): void {
+  const i = tocItems.findIndex((t) => t.el === document.activeElement);
+  if (i < 0) return;
+  const here = tocItems[i]!;
+  const visible = (j: number) => !!tocItems[j] && !tocItems[j]!.el.hidden;
+  const step = (dir: 1 | -1) => {
+    for (let j = i + dir; j >= 0 && j < tocItems.length; j += dir) if (visible(j)) return j;
+    return i;
+  };
+  const expanded = here.el.getAttribute('aria-expanded');
+  let handled = true;
+  switch (event.key) {
+    case 'ArrowDown':
+      focusTocItem(step(1));
+      break;
+    case 'ArrowUp':
+      focusTocItem(step(-1));
+      break;
+    case 'Home':
+      focusTocItem(0);
+      break;
+    case 'End': {
+      let last = tocItems.length - 1;
+      while (last > 0 && !visible(last)) last--;
+      focusTocItem(last);
+      break;
+    }
+    case 'ArrowRight':
+      if (expanded === 'false') {
+        here.el.setAttribute('aria-expanded', 'true');
+        syncTocVisibility();
+      } else if (expanded === 'true') {
+        focusTocItem(i + 1);
+      }
+      break;
+    case 'ArrowLeft':
+      if (expanded === 'true') {
+        here.el.setAttribute('aria-expanded', 'false');
+        syncTocVisibility();
+      } else {
+        for (let j = i - 1; j >= 0; j--) {
+          if (tocItems[j]!.level < here.level) {
+            focusTocItem(j);
+            break;
+          }
+        }
+      }
+      break;
+    case 'Enter':
+    case ' ':
+      void goToNav(here.item);
+      break;
+    default:
+      if (event.key.length === 1 && /\S/.test(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        const letter = event.key.toLowerCase();
+        for (let k = 1; k <= tocItems.length; k++) {
+          const j = (i + k) % tocItems.length;
+          if (visible(j) && tocItems[j]!.el.textContent!.trim().toLowerCase().startsWith(letter)) {
+            focusTocItem(j);
+            break;
+          }
+        }
+      } else {
+        handled = false;
+      }
+  }
+  if (handled) event.preventDefault();
+}
+
+/** The contents entry for the place: the last one at or before it. */
+function currentTocItem(): NavItem | undefined {
+  if (!book) return undefined;
+  if (usesClips()) return currentHeading(book, clipIndex);
+  if (!view.currentPath) return undefined;
+  const order = book.readingOrder.map((r) => r.path.toLowerCase());
+  const here = order.indexOf(view.currentPath.toLowerCase());
+  const anchor = place ?? view.current;
+  let found: NavItem | undefined;
+  for (const { item } of tocItems) {
+    const d = order.indexOf(item.target.path.toLowerCase());
+    if (d < 0 || d > here) continue;
+    if (d < here || !item.target.fragment) {
+      found = item;
+      continue;
+    }
+    const el = view.element(item.target.fragment);
+    if (el && anchor && (el === anchor || el.contains(anchor) || el.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+      found = item;
+    }
+  }
+  return found;
 }
 
 // ---- modes --------------------------------------------------------------------------
@@ -393,21 +525,13 @@ async function showText(ref: TextRef, focus: boolean): Promise<HTMLElement | und
   const el = ref.fragment ? view.highlight(ref.fragment) : undefined;
   if (!ref.fragment) view.highlightElement(undefined);
   setPlace(blockOf(el) ?? docBlocks()[0]);
-  if (focus) {
-    if (showingPlain()) plain.focus();
-    else view.focus(el);
-  }
+  if (focus) view.focus(el);
   return el;
 }
 
-function showingPlain(): boolean {
-  return srMode && mode !== 'audio';
-}
-
-/** Shows the formatted text, the plain text, or (in audio only mode) neither. */
+/** Shows the text, or (audio only mode) not. */
 function applyView(): void {
-  ui.text.hidden = mode === 'audio' || srMode;
-  ui.plain.hidden = !showingPlain();
+  ui.text.hidden = mode === 'audio';
   ui.audioOnly.hidden = mode !== 'audio';
 }
 
@@ -415,47 +539,29 @@ function textDocuments(): Resource[] {
   return (book?.readingOrder ?? []).filter((r) => /html|xml|dtbook/i.test(r.mediaType));
 }
 
-/** Fills the plain-text box (once per book) and puts its cursor at the place. */
-async function showPlain(offset?: number): Promise<void> {
-  if (!book || !showingPlain()) return;
-  const opened = book;
-  await plain.load(textDocuments(), bookUrl);
-  if (book !== opened || !plain.book) return;
-  // A saved cursor position is exact; use it while it still belongs to the place's paragraph
-  // (which runs up to the next paragraph, covering text outside any paragraph).
-  const blockStart = placeOffset();
-  const saved = offset === undefined ? undefined : blockAt(plain.book, offset);
-  if (offset !== undefined && saved && saved.start === blockStart) plain.place(offset);
-  else if (blockStart !== undefined) plain.place(blockStart);
-}
-
-function placeOffset(): number | undefined {
-  if (!place || !view.currentPath) return undefined;
-  return plain.blockOffset(view.currentPath, docBlocks().indexOf(place));
-}
-
-/** The reader moved the plain-text cursor: make that paragraph the place. */
-async function onPlainCaret(_offset: number, block: { path: string; index: number } | undefined): Promise<void> {
-  if (!block) return;
-  followingCaret = true;
-  try {
-    if (block.path.toLowerCase() !== view.currentPath?.toLowerCase()) await showText({ path: block.path }, false);
-    const el = docBlocks()[block.index];
-    if (el && !isPlaying()) {
+/**
+ * Switches between the formatted chapter and the whole-book text-only page, keeping the place
+ * when `keepPlace` (switching while a book is open).
+ */
+async function useView(textOnly: boolean, keepPlace = true): Promise<void> {
+  document.body.classList.toggle('text-only', textOnly);
+  const path = keepPlace ? view.currentPath : undefined;
+  const index = keepPlace && place ? docBlocks().indexOf(place) : -1;
+  view.clear();
+  view = textOnly ? pageView : formatted;
+  view.clear();
+  blocksCache = undefined;
+  place = undefined;
+  speech.docPath = undefined;
+  if (textOnly && book) await pageView.load(textDocuments());
+  if (path) {
+    await showText({ path }, false);
+    const el = docBlocks()[index];
+    if (el) {
       view.highlightElement(el);
-      // Recorded narration plays from a clip: start it at this paragraph's first clip.
-      if (usesClips() && book) {
-        const ids = new Set([el.id, ...Array.from(el.querySelectorAll('[id]'), (e) => e.id)].filter(Boolean));
-        const path = block.path.toLowerCase();
-        const clip = book.narration.find((c) => c.text?.fragment && c.text.path.toLowerCase() === path && ids.has(c.text.fragment));
-        if (clip) clipIndex = clip.index;
-      }
+      setPlace(el);
     }
-    if (el) setPlace(el);
-  } finally {
-    followingCaret = false;
   }
-  savePosition();
 }
 
 async function toggleScreenReaderMode(): Promise<void> {
@@ -466,23 +572,21 @@ async function toggleScreenReaderMode(): Promise<void> {
     // Not remembered next time; the mode still changes now.
   }
   window.reader.screenReaderModeChanged(srMode);
-  applyView();
-  if (!srMode) {
-    announce('Screen reader mode off. The book is shown formatted.');
-    if (book) focusPlace();
+  if (!book) {
+    document.body.classList.toggle('text-only', srMode);
+    announce(srMode ? 'Screen reader mode on. Books will open as one page of plain text.' : 'Screen reader mode off.');
     return;
   }
+  if (srMode) announce('Preparing the text of the whole book');
+  await useView(srMode);
   announce(
-    book
-      ? 'Screen reader mode on. The book is shown as plain text. Press H for the next heading, or F1 for all keys.'
-      : 'Screen reader mode on. Books will open as plain text.',
+    srMode
+      ? 'Screen reader mode on. The whole book is one page of plain text. Use your screen reader to read and move around.'
+      : 'Screen reader mode off. The book is shown formatted, one chapter at a time.',
   );
-  if (book) {
-    // The text box keeps its cursor while hidden; return to that exact spot if it is still the place.
-    await showPlain(plain.ready ? plain.caret : undefined);
-    plain.focus();
-  }
+  if (mode !== 'audio') focusPlace();
 }
+
 
 // ---- the reader's place -------------------------------------------------------------
 
@@ -508,17 +612,35 @@ function setPlace(el: HTMLElement | undefined): void {
   if (place?.isConnected) place.tabIndex = -1;
   place = el;
   if (el) el.tabIndex = 0;
-  if (srMode && !followingCaret && plain.ready) {
-    const offset = placeOffset();
-    if (offset !== undefined) plain.place(offset);
-  }
+  updateNow();
   savePosition();
 }
 
 function focusPlace(): void {
-  if (showingPlain()) plain.focus();
-  else if (place?.isConnected) place.focus();
+  if (place?.isConnected) place.focus();
   else view.focus();
+}
+
+/**
+ * The screen reader moved to an element (by focus or by scrolling): make its paragraph the
+ * place. On the whole-book page it may be in another chapter, which becomes the current one.
+ */
+async function followElement(el: Element | undefined): Promise<void> {
+  if (!el || isPlaying()) return;
+  if (view instanceof BookPageView) {
+    const path = view.documentOf(el);
+    if (path && path !== view.currentPath) await view.show(path);
+  }
+  const block = blockOf(el);
+  if (!block) return;
+  setPlace(block);
+  // Recorded narration plays from a clip: start it at this paragraph's first clip.
+  if (usesClips() && book && view.currentPath) {
+    const ids = new Set([block.id, ...Array.from(block.querySelectorAll('[id]'), (e) => e.id)].filter(Boolean));
+    const path = view.currentPath.toLowerCase();
+    const clip = book.narration.find((c) => c.text?.fragment && c.text.path.toLowerCase() === path && ids.has(c.text.fragment));
+    if (clip) clipIndex = clip.index;
+  }
 }
 
 function isOnScreen(el: HTMLElement): boolean {
@@ -540,7 +662,7 @@ ui.text.addEventListener('focusin', (event) => {
     place.focus();
     return;
   }
-  if (target !== ui.text && !isPlaying()) setPlace(blockOf(target));
+  if (target !== ui.text) void followElement(target);
 });
 
 // NVDA and JAWS scroll the text to keep their reading cursor in view. Once the place has
@@ -552,8 +674,9 @@ function followScroll(): void {
   clearTimeout(scrollTimer);
   scrollTimer = undefined;
   if (isPlaying() || (place?.isConnected && isOnScreen(place))) return;
-  const first = docBlocks().find(isOnScreen);
-  if (first) setPlace(first);
+  // On the whole-book page any chapter can be on screen.
+  const candidates = view instanceof BookPageView ? Array.from(ui.text.querySelectorAll<HTMLElement>('[data-block]')) : docBlocks();
+  void followElement(candidates.find(isOnScreen));
 }
 
 ui.text.addEventListener(
@@ -568,7 +691,6 @@ ui.text.addEventListener(
 /** Saves the current book's place straight away, including a scroll not yet looked at. */
 function flushPosition(): void {
   if (!book) return;
-  plain.flush();
   if (scrollTimer !== undefined) followScroll();
   writePosition();
 }
@@ -653,10 +775,7 @@ function onSpeechBlock(_index: number, el: HTMLElement): void {
   view.highlightElement(el);
   setPlace(el);
   // When stepping by hand, move the screen reader to the new phrase; never while reading aloud.
-  if (!speech.isPlaying) {
-    if (showingPlain()) announce(el.textContent?.replace(/\s+/g, ' ').trim() ?? '');
-    else view.focus(el);
-  }
+  if (!speech.isPlaying) view.focus(el);
   updateNow();
   savePosition();
 }
@@ -685,7 +804,6 @@ async function goToNav(item: { label: string; target: TextRef; clipIndex?: numbe
   }
   const ref = textForTarget(item.target, item.clipIndex);
   if (ref) await goToText(ref, !isPlaying());
-  if (ref && showingPlain() && !isPlaying()) announce(item.label);
 }
 
 function stepPhrase(direction: 1 | -1): void {
@@ -729,11 +847,33 @@ async function stepHeading(direction: 1 | -1): Promise<void> {
       return;
     }
   }
-  // No more headings here: continue at the start of the next document, or report the edge.
-  const order = book.readingOrder;
-  const next = order[order.findIndex((r) => r.path === view.currentPath) + direction];
-  if (direction > 0 && next) await goToText({ path: next.path }, !speech.isPlaying);
-  else announce(direction > 0 ? 'No next heading' : 'No previous heading');
+  // No more headings in this chapter: look in the next or previous ones.
+  const order = textDocuments();
+  const fromPath = view.currentPath;
+  const fromIndex = place ? docBlocks().indexOf(place) : 0;
+  for (let d = order.findIndex((r) => r.path === fromPath) + direction; d >= 0 && d < order.length; d += direction) {
+    await showText({ path: order[d]!.path }, false);
+    syncSpeech();
+    const found = speech.elements;
+    for (let i = direction > 0 ? 0 : found.length - 1; i >= 0 && i < found.length; i += direction) {
+      const l = headingLevelOf(found[i]!);
+      if (l !== undefined && (level === undefined || l <= level)) {
+        speech.jump(i);
+        if (speech.isPlaying) announce(found[i]!.textContent?.trim() ?? '');
+        return;
+      }
+    }
+  }
+  // None anywhere: stay where the reader was.
+  if (fromPath && fromPath !== view.currentPath) {
+    await showText({ path: fromPath }, false);
+    const el = docBlocks()[fromIndex];
+    if (el) {
+      view.highlightElement(el);
+      setPlace(el);
+    }
+  }
+  announce(direction > 0 ? 'No next heading' : 'No previous heading');
 }
 
 async function stepPage(direction: 1 | -1): Promise<void> {
@@ -771,8 +911,8 @@ ui.gotoDialog.addEventListener('close', () => {
 // ---- where am I ---------------------------------------------------------------------
 
 function domHeading(): string | undefined {
-  const blocks = speech.elements.length ? speech.elements : view.blocks();
-  for (let i = blockIndexFor(blocks, view.current); i >= 0; i--) {
+  const blocks = docBlocks();
+  for (let i = blockIndexFor(blocks, place ?? view.current); i >= 0; i--) {
     if (blocks[i] && headingLevelOf(blocks[i]!) !== undefined) return blocks[i]!.textContent?.trim();
   }
   return undefined;
@@ -796,10 +936,21 @@ function updateNow(): void {
   ui.nowHeading.textContent = heading ?? '';
   ui.nowPage.textContent = page ?? '';
   ui.nowTime.textContent = time ?? '';
-  const current = usesClips() && book ? currentHeading(book, clipIndex) : undefined;
-  for (const { item, link } of tocLinks) {
-    if (item === current) link.setAttribute('aria-current', 'location');
-    else link.removeAttribute('aria-current');
+  const current = currentTocItem();
+  const inTree = ui.tocTree.contains(document.activeElement);
+  for (const { item, el } of tocItems) {
+    if (item !== current) {
+      el.removeAttribute('aria-current');
+      continue;
+    }
+    if (el.getAttribute('aria-current') === 'location') continue;
+    el.setAttribute('aria-current', 'location');
+    // Tabbing into the contents lands on the current entry, which is kept in view.
+    if (!inTree && !el.hidden) {
+      for (const t of tocItems) t.el.tabIndex = -1;
+      el.tabIndex = 0;
+      el.scrollIntoView({ block: 'nearest' });
+    }
   }
 }
 
@@ -811,7 +962,6 @@ function whereAmI(): void {
       heading,
       page,
       time,
-      showingPlain() && plain.ready ? plain.whereAmI() : '',
       `${MODE_LABELS[mode]} mode`,
       srMode ? 'screen reader mode' : '',
       `speed ${rate}`,
@@ -845,8 +995,8 @@ function showHelp(): void {
 }
 
 function focusToc(): void {
-  const current = tocLinks.find(({ link }) => link.hasAttribute('aria-current'))?.link ?? tocLinks[0]?.link;
-  if (current) current.focus();
+  const current = tocItems.findIndex(({ el }) => el.getAttribute('aria-current') === 'location');
+  if (tocItems.length) focusTocItem(current >= 0 ? current : 0);
   else ui.toc.focus();
 }
 
@@ -869,14 +1019,6 @@ function handle(command: Command): void {
   if (command === 'help') return showHelp();
   if (command === 'sr-mode') return void toggleScreenReaderMode();
   if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
-  // In screen reader mode, headings and pages move the text cursor through the whole book.
-  if (showingPlain() && plain.ready && !isPlaying()) {
-    const back = command.startsWith('prev-') ? -1 : 1;
-    if (command === 'next-heading' || command === 'prev-heading') {
-      return plain.go('heading', back, 'heading', undefined, headingLevel || undefined);
-    }
-    if (command === 'next-page' || command === 'prev-page') return plain.go('page', back, 'page');
-  }
   switch (command) {
     case 'toggle-play':
       return togglePlay();
