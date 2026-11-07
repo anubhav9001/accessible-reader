@@ -74,8 +74,30 @@ let timeline = new NarrationTimeline([]);
 let modes: ModeOption[] = [];
 let mode: ReadingMode = 'text';
 let clipIndex = 0;
-let headingLevel = 0;
-let rate = 1;
+const SETTINGS_KEY = 'settings';
+interface Settings {
+  rate: number;
+  headingLevel: number;
+  voice: string;
+  tocDepth: number;
+}
+const settings: Settings = (() => {
+  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0 };
+  try {
+    return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
+  } catch {
+    return defaults;
+  }
+})();
+function saveSettings(): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Not saved; the choice still holds until Reader closes.
+  }
+}
+let headingLevel = settings.headingLevel;
+let rate = RATES.includes(settings.rate) ? settings.rate : 1;
 let recorded: RecordedPlayer | undefined;
 let tocItems: { item: NavItem; el: HTMLElement; level: number }[] = [];
 
@@ -367,7 +389,7 @@ function renderToc(): void {
       el.setAttribute('aria-level', String(level));
       el.setAttribute('aria-setsize', String(items.length));
       el.setAttribute('aria-posinset', String(i + 1));
-      if (item.children.length) el.setAttribute('aria-expanded', 'true');
+      if (item.children.length) el.setAttribute('aria-expanded', String(!settings.tocDepth || level < settings.tocDepth));
       el.tabIndex = -1;
       el.textContent = item.label || 'Untitled';
       el.style.paddingInlineStart = `${(level - 1) * 1.1 + 0.4}em`;
@@ -384,6 +406,7 @@ function renderToc(): void {
   tree.addEventListener('keydown', onTocKey);
   tocItems[0]!.el.tabIndex = 0;
   ui.tocTree.replaceChildren(tree);
+  syncTocVisibility();
 }
 
 function focusTocItem(i: number): void {
@@ -392,6 +415,19 @@ function focusTocItem(i: number): void {
   for (const t of tocItems) t.el.tabIndex = -1;
   target.el.tabIndex = 0;
   target.el.focus();
+}
+
+/** Opens the parts an entry is inside, so it can be seen and reached. */
+function revealTocItem(i: number): void {
+  let level = tocItems[i]?.level ?? 0;
+  for (let j = i - 1; j >= 0 && level > 1; j--) {
+    const t = tocItems[j]!;
+    if (t.level < level) {
+      t.el.setAttribute('aria-expanded', 'true');
+      level = t.level;
+    }
+  }
+  syncTocVisibility();
 }
 
 /** Hides the entries under closed parts. */
@@ -624,7 +660,7 @@ async function toggleScreenReaderMode(): Promise<void> {
     await showPlain(plain.ready ? plain.caret : undefined);
   }
   // Move focus first, so the screen reader doesn't cut the message short.
-  const fromToggle = document.activeElement === ui.srToggle;
+  const fromToggle = document.activeElement === ui.srToggle || document.activeElement?.id === 'ui-set-sr';
   if (mode !== 'audio' && !fromToggle) focusPlace();
   setTimeout(
     () =>
@@ -1006,6 +1042,7 @@ function updateNow(): void {
     }
     if (el.getAttribute('aria-current') === 'location') continue;
     el.setAttribute('aria-current', 'location');
+    if (el.hidden) revealTocItem(tocItems.findIndex((t) => t.el === el));
     // Tabbing into the contents lands on the current entry, which is kept in view.
     if (!inTree && !el.hidden) {
       for (const t of tocItems) t.el.tabIndex = -1;
@@ -1036,12 +1073,42 @@ function whereAmI(): void {
 
 // ---- settings -----------------------------------------------------------------------
 
-function setRate(next: number): void {
+function setRate(next: number, quiet = false): void {
   rate = next;
   recorded?.setRate(rate);
   speech.setRate(rate);
   ui.speed.value = String(rate);
-  announce(`Speed ${rate}`);
+  settings.rate = rate;
+  saveSettings();
+  if (!quiet) announce(`Speed ${rate}`);
+}
+
+function setHeadingDepth(level: number, quiet = false): void {
+  headingLevel = level;
+  settings.headingLevel = level;
+  saveSettings();
+  $<HTMLSelectElement>('ui-set-depth').value = String(level);
+  window.reader.headingDepthChanged(level);
+  if (!quiet) announce(level === 0 ? 'Headings: all levels' : level === 1 ? 'Headings: level 1 only' : `Headings: levels 1 to ${level}`);
+}
+
+function fillVoices(): void {
+  const select = $<HTMLSelectElement>('ui-set-voice');
+  const voices = speechSynthesis.getVoices();
+  select.replaceChildren(new Option("Automatic (matches the book's language)", ''));
+  for (const v of voices) select.add(new Option(`${v.name} (${v.lang})`, v.name));
+  select.value = voices.some((v) => v.name === settings.voice) ? settings.voice : '';
+}
+
+function showSettings(): void {
+  const dialog = $<HTMLDialogElement>('ui-settings-dialog');
+  fillVoices();
+  ui.speed.value = String(rate);
+  $<HTMLSelectElement>('ui-set-depth').value = String(headingLevel);
+  $<HTMLSelectElement>('ui-set-toc-depth').value = String(settings.tocDepth);
+  $<HTMLInputElement>('ui-set-sr').checked = srMode;
+  if (!dialog.open) dialog.showModal();
+  $('ui-settings-title').focus();
 }
 
 function stepRate(direction: 1 | -1): void {
@@ -1070,11 +1137,8 @@ async function openFromDialog(): Promise<void> {
 }
 
 function handle(command: Command): void {
-  if (command.startsWith('level-')) {
-    headingLevel = Number(command.slice(6));
-    announce(headingLevel ? `Navigate by heading level ${headingLevel} and above` : 'Navigate by all heading levels');
-    return;
-  }
+  if (command.startsWith('level-')) return setHeadingDepth(Number(command.slice(6)));
+  if (command === 'settings') return showSettings();
   if (command === 'open') return void openFromDialog();
   if (command === 'library') return void library.open();
   if (command === 'catalogs') return openLibrary();
@@ -1130,8 +1194,30 @@ function handle(command: Command): void {
 // The page carries a warning for when it is opened outside the app (e.g. in a plain browser).
 document.getElementById('ui-not-app')?.remove();
 
-for (const r of RATES) ui.speed.add(new Option(`${r}×`, String(r), r === 1, r === 1));
+for (const r of RATES) ui.speed.add(new Option(r === 1 ? 'Normal (1×)' : `${r}×`, String(r)));
 ui.speed.addEventListener('change', () => setRate(Number(ui.speed.value)));
+setRate(rate, true);
+setHeadingDepth(headingLevel, true);
+speech.voice = settings.voice;
+$<HTMLButtonElement>('ui-settings').addEventListener('click', () => handle('settings'));
+$('ui-set-depth').addEventListener('change', (e) => setHeadingDepth(Number((e.target as HTMLSelectElement).value)));
+$('ui-set-voice').addEventListener('change', (e) => {
+  settings.voice = (e.target as HTMLSelectElement).value;
+  speech.voice = settings.voice;
+  saveSettings();
+});
+speechSynthesis.addEventListener('voiceschanged', () => {
+  if ($<HTMLDialogElement>('ui-settings-dialog').open) fillVoices();
+});
+$('ui-set-toc-depth').addEventListener('change', (e) => {
+  settings.tocDepth = Number((e.target as HTMLSelectElement).value);
+  saveSettings();
+  renderToc();
+  if (book) updateNow();
+});
+$('ui-set-sr').addEventListener('change', (e) => {
+  if ((e.target as HTMLInputElement).checked !== srMode) void toggleScreenReaderMode();
+});
 ui.library.addEventListener('click', () => handle('library'));
 ui.open.addEventListener('click', () => handle('open'));
 ui.catalogs.addEventListener('click', () => handle('catalogs'));

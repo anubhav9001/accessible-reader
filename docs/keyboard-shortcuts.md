@@ -32,7 +32,7 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | Next page | Alt+Page Down |
 | Previous page | Alt+Page Up |
 | Go to page | Ctrl+G |
-| Heading level for navigation | Playback menu |
+| Heading depth for navigation | Settings, or Navigate menu |
 
 ## Moving around the window
 
@@ -41,6 +41,7 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | Table of contents | Ctrl+T |
 | Book text, at your place | Ctrl+E |
 | Where am I? | Ctrl+I |
+| Settings | Ctrl+Comma |
 | Reading commands (help) | F1 |
 | Zoom in, zoom out, reset zoom | Ctrl+Plus, Ctrl+Minus, Ctrl+0 |
 | Screen reader mode on or off | Ctrl+Shift+R |

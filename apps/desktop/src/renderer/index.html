@@ -23,13 +23,13 @@
         <button id="ui-library" type="button" aria-keyshortcuts="Control+B">My books</button>
         <button id="ui-open" type="button" aria-keyshortcuts="Control+O">Open book</button>
         <button id="ui-catalogs" type="button" aria-keyshortcuts="Control+L">Online libraries</button>
+        <button id="ui-settings" type="button" aria-keyshortcuts="Control+,">Settings</button>
         <button id="ui-play" type="button" aria-keyshortcuts="Control+Space">Play</button>
         <button id="ui-prev-heading" type="button" aria-keyshortcuts="Alt+ArrowUp">Previous heading</button>
         <button id="ui-prev-phrase" type="button" aria-keyshortcuts="Alt+ArrowLeft">Previous phrase</button>
         <button id="ui-next-phrase" type="button" aria-keyshortcuts="Alt+ArrowRight">Next phrase</button>
         <button id="ui-next-heading" type="button" aria-keyshortcuts="Alt+ArrowDown">Next heading</button>
         <button id="ui-goto" type="button" aria-keyshortcuts="Control+G">Go to page</button>
-        <label>Speed <select id="ui-speed"></select></label>
       </div>
       <fieldset id="ui-modes" class="ui-modes">
         <legend>Reading mode</legend>
@@ -119,7 +119,7 @@
           <tr><th scope="row">Next / previous heading</th><td>Alt+Down / Alt+Up</td><td>Jumps to the next or previous chapter or section heading.</td></tr>
           <tr><th scope="row">Next / previous page</th><td>Alt+Page Down / Alt+Page Up</td><td>Moves by printed page.</td></tr>
           <tr><th scope="row">Go to page</th><td>Ctrl+G</td><td>Goes to a printed page number.</td></tr>
-          <tr><th scope="row">Heading level</th><td>Playback menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
+          <tr><th scope="row">Heading depth</th><td>Settings, or Navigate menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
         </tbody>
       </table>
       <table>
@@ -129,6 +129,7 @@
           <tr><th scope="row">Table of contents</th><td>Ctrl+T</td><td>Moves to the contents list; choose an entry to go there.</td></tr>
           <tr><th scope="row">Book text</th><td>Ctrl+E</td><td>Moves to your place in the book text, for reading with your screen reader. Tabbing into the text lands there too.</td></tr>
           <tr><th scope="row">Where am I?</th><td>Ctrl+I</td><td>Announces the heading, page, time, mode and speed.</td></tr>
+          <tr><th scope="row">Settings</th><td>Ctrl+Comma</td><td>Reading speed, voice, heading depth, how much of the contents is shown open, and screen reader mode.</td></tr>
           <tr><th scope="row">Reading commands</th><td>F1</td><td>Shows this list.</td></tr>
         </tbody>
       </table>
@@ -157,6 +158,42 @@
       </table>
       <p>The reader remembers your place in each book, including where your screen reader read up to; in screen reader mode, down to the character. Play starts from there.</p>
       <p class="ui-version" data-version></p>
+      <form method="dialog"><button value="close">Close</button></form>
+    </dialog>
+    <dialog id="ui-settings-dialog" class="ui-help ui-settings" aria-labelledby="ui-settings-title">
+      <h2 id="ui-settings-title" tabindex="-1">Settings</h2>
+      <p>Changes take effect straight away and are remembered.</p>
+      <fieldset>
+        <legend>Reading</legend>
+        <label for="ui-speed">Reading speed</label>
+        <select id="ui-speed"></select>
+        <label for="ui-set-voice">Voice for reading aloud (books without narration)</label>
+        <select id="ui-set-voice"></select>
+      </fieldset>
+      <fieldset>
+        <legend>Navigation</legend>
+        <label for="ui-set-depth">Heading depth: which headings next and previous heading stop at</label>
+        <select id="ui-set-depth">
+          <option value="0">All levels</option>
+          <option value="1">Level 1 only</option>
+          <option value="2">Levels 1 to 2</option>
+          <option value="3">Levels 1 to 3</option>
+          <option value="4">Levels 1 to 4</option>
+          <option value="5">Levels 1 to 5</option>
+          <option value="6">Levels 1 to 6</option>
+        </select>
+        <label for="ui-set-toc-depth">Table of contents: levels shown open</label>
+        <select id="ui-set-toc-depth">
+          <option value="0">All levels</option>
+          <option value="1">Level 1 only</option>
+          <option value="2">Levels 1 to 2</option>
+          <option value="3">Levels 1 to 3</option>
+        </select>
+      </fieldset>
+      <fieldset>
+        <legend>Screen reader</legend>
+        <label class="ui-sr-toggle"><input id="ui-set-sr" type="checkbox" /> Screen reader mode (plain text, like Paperback)</label>
+      </fieldset>
       <form method="dialog"><button value="close">Close</button></form>
     </dialog>
     <dialog id="ui-table-dialog" class="ui-help ui-table-dialog" aria-labelledby="ui-table-title">

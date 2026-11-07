@@ -13,6 +13,8 @@ export class SpeechPlayer {
   private utterance: SpeechSynthesisUtterance | undefined;
   private rate = 1;
   private lang = '';
+  /** A chosen Windows voice by name; empty picks one matching the book's language. */
+  voice = '';
   /** The document the loaded blocks belong to. */
   docPath: string | undefined;
 
@@ -75,6 +77,8 @@ export class SpeechPlayer {
     const u = new SpeechSynthesisUtterance((el.innerText || el.textContent || '').trim());
     u.rate = this.rate;
     if (this.lang) u.lang = this.lang;
+    const voice = this.voice ? speechSynthesis.getVoices().find((v) => v.name === this.voice) : undefined;
+    if (voice) u.voice = voice;
     // cancel() fires `end` on the old utterance too; only the current one may advance.
     u.onend = () => {
       if (this.utterance !== u || !this.playing) return;

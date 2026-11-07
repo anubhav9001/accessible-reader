@@ -26,13 +26,25 @@ Removing a book you downloaded deletes its file. Removing a book you opened from
 
 From top to bottom:
 
-1. The book title, a toolbar with My books, Open book, Online libraries, Play, the phrase and heading buttons and Go to page, and the reading speed.
+1. The book title, and a toolbar with My books, Open book, Online libraries, Settings, Play, the phrase and heading buttons and Go to page.
 2. The reading mode choice.
 3. The table of contents, under the heading Contents. It is a tree: one Tab stop, then Up and Down to move, Right and Left to open and close a part, Home and End, a letter to jump to an entry starting with it, and Enter to go there. The entry you are reading is marked as current.
 4. Where you are: the heading, page and time.
 5. The book text.
 
 Every command is also in the menu bar; press Alt to reach it. Press F1 for the full list, or see [keyboard shortcuts](keyboard-shortcuts.md).
+
+## Settings
+
+Press Ctrl+Comma, choose **Settings** in the toolbar, or **File → Settings**. Changes take effect straight away, and Reader remembers them:
+
+- **Reading speed:** half speed to three times normal. Ctrl+] and Ctrl+[ change it too.
+- **Voice:** the Windows voice used to read aloud books without narration, or Automatic to match the book's language.
+- **Heading depth:** which headings next and previous heading stop at: all levels, level 1 only, or levels 1 to 2 up to 1 to 6. Also in the **Navigate** menu.
+- **Table of contents:** how many levels of the contents are shown open. You can still open any part with the Right arrow.
+- **Screen reader mode.**
+
+**Help → Report a problem** opens the form for reporting a bug, and **Help → About Reader** shows the version.
 
 ## Read and listen
 

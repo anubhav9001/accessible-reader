@@ -16,6 +16,7 @@ const api: ReaderApi = {
   },
   modeChanged: (state) => ipcRenderer.send('mode-changed', state),
   screenReaderModeChanged: (on) => ipcRenderer.send('sr-mode-changed', on),
+  headingDepthChanged: (level) => ipcRenderer.send('heading-depth-changed', level),
   bookReady: () => ipcRenderer.send('book-ready'),
 };
 

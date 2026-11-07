@@ -32,6 +32,7 @@ export const COMMANDS = [
   'focus-text',
   'where-am-i',
   'sr-mode',
+  'settings',
   'help',
 ] as const;
 export type Command = (typeof COMMANDS)[number];
@@ -76,5 +77,7 @@ export interface ReaderApi {
   modeChanged(state: ModeState): void;
   /** Keeps the View menu's Screen reader mode tick in step. */
   screenReaderModeChanged(on: boolean): void;
+  /** Heading depth for navigation changed (0 = all levels), so the menu shows it. */
+  headingDepthChanged(level: number): void;
   bookReady(): void;
 }

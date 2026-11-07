@@ -397,6 +397,23 @@ dialog input {
   white-space: nowrap;
 }
 
+.ui-settings fieldset {
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.ui-settings label {
+  display: block;
+  margin-top: 8px;
+}
+
+.ui-settings select {
+  display: block;
+  margin-top: 4px;
+  max-width: 100%;
+}
+
 .ui-table-dialog #ui-table-body td,
 .ui-table-dialog #ui-table-body th {
   white-space: normal;

@@ -1,6 +1,6 @@
 import { SUGAMYA_API, isSugamyaPath, openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, shell, type MenuItemConstructorOptions } from 'electron';
 import { mkdtempSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -181,6 +181,8 @@ function buildMenu(): void {
         item('&Open book…', 'open', 'CmdOrCtrl+O'),
         item('Online &libraries…', 'catalogs', 'CmdOrCtrl+L'),
         { type: 'separator' },
+        item('&Settings…', 'settings', 'CmdOrCtrl+,'),
+        { type: 'separator' },
         { role: 'quit', label: 'E&xit' },
       ],
     },
@@ -207,14 +209,6 @@ function buildMenu(): void {
         item('Next pa&ge', 'next-page', 'Alt+PageDown'),
         item('Previous pag&e', 'prev-page', 'Alt+PageUp'),
         item('&Go to page…', 'goto-page', 'CmdOrCtrl+G'),
-        { type: 'separator' },
-        {
-          label: 'Heading &level for navigation',
-          submenu: [
-            radio('level-0', '&All levels', 'level-0'),
-            ...[1, 2, 3, 4, 5, 6].map((n) => radio(`level-${n}`, `Level &${n} and above`, `level-${n}` as Command)),
-          ],
-        },
       ],
     },
     {
@@ -223,6 +217,15 @@ function buildMenu(): void {
         item('&Table of contents', 'focus-toc', 'CmdOrCtrl+T'),
         item('Book &text', 'focus-text', 'CmdOrCtrl+E'),
         item('&Where am I?', 'where-am-i', 'CmdOrCtrl+I'),
+        { type: 'separator' },
+        {
+          label: 'Heading &depth',
+          submenu: [
+            radio('level-0', '&All levels', 'level-0'),
+            radio('level-1', 'Level &1 only', 'level-1'),
+            ...[2, 3, 4, 5, 6].map((n) => radio(`level-${n}`, `Levels 1 to &${n}`, `level-${n}` as Command)),
+          ],
+        },
       ],
     },
     {
@@ -233,10 +236,18 @@ function buildMenu(): void {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { role: 'resetZoom' },
-        { role: 'toggleDevTools' },
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' } as MenuItemConstructorOptions]),
       ],
     },
-    { label: '&Help', submenu: [item('&Reading commands', 'help', 'F1')] },
+    {
+      label: '&Help',
+      submenu: [
+        item('&Reading commands', 'help', 'F1'),
+        { type: 'separator' },
+        { label: 'Report a &problem…', click: () => void shell.openExternal('https://github.com/anubhav9001/accessible-reader/issues/new/choose') },
+        { label: '&About Reader', click: () => void dialog.showMessageBox({ title: 'About Reader', message: `Reader version ${app.getVersion()}`, detail: 'An accessible reader for DAISY and EPUB books.' }) },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -306,6 +317,11 @@ ipcMain.on('mode-changed', (_event, state: ModeState) => {
     entry.enabled = state.available[mode];
     entry.checked = state.mode === mode;
   }
+});
+
+ipcMain.on('heading-depth-changed', (_event, level: number) => {
+  const entry = Menu.getApplicationMenu()?.getMenuItemById(`level-${level}`);
+  if (entry) entry.checked = true;
 });
 
 ipcMain.on('sr-mode-changed', (_event, on: boolean) => {
