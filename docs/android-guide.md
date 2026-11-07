@@ -39,9 +39,18 @@ The buttons at the bottom are **Previous heading**, **Previous phrase**, **Play 
 The **Contents** button at the top lists chapters and sections. The **More reading options** menu has:
 
 - **Go to page** and **Next page** / **Previous page**, for books with printed page numbers
-- **Reading speed**, from half speed to three times normal
-- **Heading level**, to choose which headings Next and Previous heading stop at, such as chapters only
+- **Settings** (see below)
 - **Help: reading commands**, a list of every command
+
+## Settings
+
+Open **Settings** from the **More reading options** menu, or with the Settings button on the My books screen. Choices take effect when you go back, and the app remembers them for all books:
+
+- **Reading speed:** from half speed to three times normal.
+- **Voice for reading aloud:** any voice on the phone, or Automatic to match the book's language. Used for books without recorded narration.
+- **Heading depth:** which headings Next and Previous heading stop at: all levels, level 1 only (chapters), or levels 1 to 2 up to 1 to 6.
+- **Contents: levels listed:** how many levels the Contents list shows.
+- **Screen reader mode.**
 
 ## Reading with TalkBack
 

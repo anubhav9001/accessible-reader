@@ -166,6 +166,9 @@ class SpeechReader {
   Future<bool>? _ready;
   String _lang = '';
 
+  /// A chosen voice ({name, locale}); null reads each book in a voice for its language.
+  Map<String, String>? voice;
+
   /// Connects to the phone's default speech engine, retrying a few times.
   ///
   /// On some phones the first connection, made as the app starts, fails, and flutter_tts
@@ -208,7 +211,15 @@ class SpeechReader {
       onVoiceFailed();
       return;
     }
-    if (_lang.isNotEmpty) {
+    if (voice != null) {
+      try {
+        await _tts.setVoice(voice!);
+      } catch (_) {
+        // The voice has gone (uninstalled); fall back to the book's language.
+        voice = null;
+      }
+    }
+    if (voice == null && _lang.isNotEmpty) {
       try {
         await _tts.setLanguage(_lang);
       } catch (_) {

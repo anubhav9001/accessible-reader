@@ -13,6 +13,7 @@ import 'catalog_screen.dart';
 import 'help_screen.dart';
 import 'opds.dart';
 import 'reader_screen.dart';
+import 'settings.dart';
 import 'sugamya.dart';
 import 'sugamya_screen.dart';
 
@@ -143,6 +144,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text('My books'),
         actions: [
           IconButton(tooltip: 'Online libraries', icon: const Icon(Icons.travel_explore), onPressed: _browseOnline),
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () async {
+              final settings = await AppSettings.load();
+              if (!context.mounted) return;
+              await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(settings: settings)));
+            },
+          ),
           IconButton(
             tooltip: 'Help: reading commands',
             icon: const Icon(Icons.help_outline),

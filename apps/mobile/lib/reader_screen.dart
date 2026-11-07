@@ -16,8 +16,7 @@ import 'help_screen.dart';
 import 'models.dart';
 import 'players.dart';
 import 'reader_bridge.dart';
-
-const _rates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+import 'settings.dart';
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({super.key, required this.store, required this.server, required this.book});
@@ -48,6 +47,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _clipIndex = 0;
   TextDoc? _doc;
   int _headingLevel = 0;
+  int _contentsDepth = 0;
   double _rate = 1;
   bool _playing = false;
   String _heading = '';
@@ -79,7 +79,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final byLower = {for (final f in files) f.toLowerCase(): f};
       final dir = widget.store.folder(widget.book.id).path;
       await _bridge.load(widget.server.readerUrl);
-      _textOnly = (await SharedPreferences.getInstance()).getBool(_textOnlyKey) ?? false;
+      final settings = await AppSettings.load();
+      _textOnly = settings.screenReaderMode;
+      _headingLevel = settings.headingDepth;
+      _contentsDepth = settings.contentsDepth;
+      _rate = settings.rate;
+      _speech.voice = settings.voice;
+      await _speech.setRate(_rate);
       final opened =
           await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files, _textOnly]);
       final book = OpenedBook.fromJson(opened!);
@@ -99,6 +105,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ..authors = book.authors;
         await widget.store.save();
       }
+      await _recorded!.setRate(_rate);
 
       final saved = await _loadPosition();
       _clipIndex = (saved?['clipIndex'] as int?) ?? 0;
@@ -480,7 +487,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _showContents() async {
-    final entries = [for (final e in _book?.toc ?? const <NavEntry>[]) ...e.flatten()];
+    final entries = [
+      for (final e in _book?.toc ?? const <NavEntry>[]) ...e.flatten(),
+    ].where((e) => _contentsDepth == 0 || e.level <= _contentsDepth).toList();
     final chosen = await showModalBottomSheet<NavEntry>(
       context: context,
       isScrollControlled: true,
@@ -516,42 +525,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (chosen != null) await _goTo(clipIndex: chosen.clipIndex, target: chosen.target, label: chosen.label);
   }
 
-  Future<void> _chooseSpeed() async {
-    final rate = await showDialog<double>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Reading speed'),
-        children: [
-          for (final r in _rates)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, r),
-              child: Text('$r×${r == _rate ? ' (current)' : ''}'),
-            ),
-        ],
-      ),
-    );
-    if (rate == null) return;
-    _rate = rate;
-    await _recorded?.setRate(rate);
-    await _speech.setRate(rate);
-    _announce('Speed $rate');
-  }
-
-  Future<void> _chooseHeadingLevel() async {
-    final level = await showDialog<int>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Move by headings of'),
-        children: [
-          for (var l = 0; l <= 6; l++)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, l),
-              child: Text('${l == 0 ? 'All levels' : 'Level $l and above'}${l == _headingLevel ? ' (current)' : ''}'),
-            ),
-        ],
-      ),
-    );
-    if (level != null) setState(() => _headingLevel = level);
+  Future<void> _openSettings() async {
+    final settings = await AppSettings.load();
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(settings: settings)));
+    if (!mounted) return;
+    if (settings.rate != _rate) {
+      _rate = settings.rate;
+      await _recorded?.setRate(_rate);
+      await _speech.setRate(_rate);
+    }
+    _speech.voice = settings.voice;
+    setState(() {
+      _headingLevel = settings.headingDepth;
+      _contentsDepth = settings.contentsDepth;
+    });
+    await _setTextOnly(settings.screenReaderMode);
   }
 
   // ---- location -----------------------------------------------------------------------
@@ -602,8 +591,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               'page' => _goToPage(),
               'next-page' => _stepPage(1),
               'prev-page' => _stepPage(-1),
-              'speed' => _chooseSpeed(),
-              'level' => _chooseHeadingLevel(),
+              'settings' => _openSettings(),
               'help' => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
               _ => null,
             },
@@ -611,8 +599,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               const PopupMenuItem(value: 'page', child: Text('Go to page')),
               const PopupMenuItem(value: 'next-page', child: Text('Next page')),
               const PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
-              const PopupMenuItem(value: 'speed', child: Text('Reading speed')),
-              const PopupMenuItem(value: 'level', child: Text('Heading level')),
+              const PopupMenuItem(value: 'settings', child: Text('Settings')),
               const PopupMenuItem(value: 'help', child: Text('Help: reading commands')),
             ],
           ),
