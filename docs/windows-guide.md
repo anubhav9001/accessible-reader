@@ -28,8 +28,8 @@ Removing a book you downloaded deletes its file. Removing a book you opened from
 
 From top to bottom:
 
-1. The book title, and a toolbar of icon buttons: My books, Open book, Online libraries, Settings, Play, the phrase and heading buttons and Go to page. Settings can show their text too.
-2. The reading mode choice.
+1. The book title, and a toolbar of icon buttons: My books, Open book, Online libraries, Settings, Play, the phrase and heading buttons and Go to page. Settings can show their text too. The toolbar is one Tab stop: use Left and Right to move between its buttons, and Home and End for the first and last.
+2. The reading mode choice, with the Screen reader mode checkbox in the same group.
 3. The table of contents, under the heading Contents. It is a tree: one Tab stop, then Up and Down to move, Right and Left to open and close a part, Home and End, a letter to jump to an entry starting with it, and Enter to go there. The entry you are reading is marked as current.
 4. Where you are: the heading, page and time.
 5. The book text.

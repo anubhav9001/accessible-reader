@@ -19,7 +19,7 @@
         <h1 id="ui-title">No book open</h1>
         <p id="ui-meta">Press Control B for My books, or Control O to open an EPUB or DAISY book.</p>
       </div>
-      <div class="ui-controls" role="group" aria-label="Reading controls">
+      <div class="ui-controls" role="toolbar" aria-label="Reading controls">
         <button id="ui-library" type="button" aria-keyshortcuts="Control+B">My books</button>
         <button id="ui-open" type="button" aria-keyshortcuts="Control+O">Open book</button>
         <button id="ui-catalogs" type="button" aria-keyshortcuts="Control+L">Online libraries</button>
@@ -36,8 +36,9 @@
         <label><input type="radio" name="mode" value="text" /> Text only</label>
         <label><input type="radio" name="mode" value="audio" /> Audio only</label>
         <label><input type="radio" name="mode" value="textAudio" /> Text and audio</label>
+        <span class="ui-modes-divider" aria-hidden="true"></span>
+        <label><input id="ui-sr-mode" type="checkbox" aria-keyshortcuts="Control+Shift+R" /> Screen reader mode (plain text)</label>
       </fieldset>
-      <label class="ui-sr-toggle"><input id="ui-sr-mode" type="checkbox" aria-keyshortcuts="Control+Shift+R" /> Screen reader mode (plain text)</label>
     </header>
     <div class="ui-layout">
       <nav id="ui-toc" aria-labelledby="ui-toc-heading" tabindex="-1">
@@ -194,11 +195,11 @@
       </fieldset>
       <fieldset>
         <legend>Appearance</legend>
-        <label class="ui-sr-toggle"><input id="ui-set-toolbar-text" type="checkbox" /> Show text on toolbar buttons (otherwise icons only)</label>
+        <label class="ui-check"><input id="ui-set-toolbar-text" type="checkbox" /> Show text on toolbar buttons (otherwise icons only)</label>
       </fieldset>
       <fieldset>
         <legend>Screen reader</legend>
-        <label class="ui-sr-toggle"><input id="ui-set-sr" type="checkbox" /> Screen reader mode (plain text)</label>
+        <label class="ui-check"><input id="ui-set-sr" type="checkbox" /> Screen reader mode (plain text)</label>
       </fieldset>
       <form method="dialog"><button value="close">Close</button></form>
     </dialog>

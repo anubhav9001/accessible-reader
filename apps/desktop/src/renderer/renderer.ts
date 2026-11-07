@@ -1296,6 +1296,33 @@ for (const [button, label, icon] of [
   setButton(button, label, icon);
 }
 applyToolbarText();
+// The toolbar is one Tab stop; Left and Right (and Home, End) move between its buttons.
+{
+  const toolbar = $('ui-library').parentElement!;
+  const tools = () => [...toolbar.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.disabled);
+  const current = (b: HTMLButtonElement) => {
+    for (const t of tools()) t.tabIndex = t === b ? 0 : -1;
+  };
+  current(tools()[0]!);
+  toolbar.addEventListener('focusin', (e) => {
+    if (e.target instanceof HTMLButtonElement) current(e.target);
+  });
+  toolbar.addEventListener('keydown', (e) => {
+    const list = tools();
+    const i = list.indexOf(document.activeElement as HTMLButtonElement);
+    if (i < 0) return;
+    const next =
+      e.key === 'ArrowRight' ? list[(i + 1) % list.length]
+      : e.key === 'ArrowLeft' ? list[(i - 1 + list.length) % list.length]
+      : e.key === 'Home' ? list[0]
+      : e.key === 'End' ? list[list.length - 1]
+      : undefined;
+    if (!next || e.altKey || e.ctrlKey) return;
+    e.preventDefault();
+    current(next);
+    next.focus();
+  });
+}
 $('ui-set-toolbar-text').addEventListener('change', (e) => {
   settings.toolbarText = (e.target as HTMLInputElement).checked;
   saveSettings();

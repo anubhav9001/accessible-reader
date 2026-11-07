@@ -110,6 +110,17 @@ input {
   min-height: 36px;
 }
 
+/* Tick boxes and radio buttons: their own size, centred on their label's text. */
+input[type='checkbox'],
+input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
 button {
   padding: 4px 12px;
   border: 1px solid var(--border);
@@ -170,22 +181,35 @@ button {
 
 .ui-modes {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
   margin: 0;
+  padding: 6px 14px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
+}
+
+.ui-modes legend {
+  padding: 0 4px;
+}
+
+.ui-modes label,
+.ui-check {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
 }
 
 .ui-modes label:has(input:disabled) {
   opacity: 0.55;
 }
 
-.ui-sr-toggle {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  margin-top: 10px;
-  cursor: pointer;
+.ui-modes-divider {
+  align-self: stretch;
+  width: 1px;
+  background: var(--border);
 }
 
 .ui-version {
@@ -447,20 +471,28 @@ dialog input {
 }
 
 .ui-settings fieldset {
-  margin: 0 0 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 16px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 8px 14px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
 }
 
-.ui-settings label {
-  display: block;
-  margin-top: 8px;
+.ui-settings label,
+.ui-settings select {
+  margin: 0;
 }
 
 .ui-settings select {
-  display: block;
-  margin-top: 4px;
-  max-width: 100%;
+  width: min(22em, 100%);
+}
+
+.ui-settings label.ui-check {
+  display: flex;
+  grid-column: 1 / -1;
 }
 
 .ui-table-dialog #ui-table-body td,
