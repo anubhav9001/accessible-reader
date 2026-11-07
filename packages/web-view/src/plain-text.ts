@@ -27,6 +27,8 @@ export interface PlainItem {
   target?: TextRef;
   /** Rows of a table, or items of a list. */
   count?: number;
+  /** A table's own markup, cleaned (structure, text and spans only), for showing as a table. */
+  html?: string;
 }
 
 /** One readable block, matching DocumentView.blocks() of its document, so places carry across. */
@@ -68,6 +70,8 @@ class TextWriter {
   length = 0;
   private atLineStart = true;
   private pendingSpace = false;
+  /** Inside a table cell, so line breaks become spaces and each row stays on one line. */
+  inCell = 0;
 
   text(raw: string, pre: boolean): void {
     if (pre) {
@@ -90,11 +94,16 @@ class TextWriter {
 
   /** Text that belongs to the app, not the book (a list bullet, a table cell divider). */
   marker(s: string): void {
+    if (s.startsWith(' ')) this.pendingSpace = false;
     this.flushSpace();
     this.push(s);
   }
 
   newline(): void {
+    if (this.inCell) {
+      if (!this.atLineStart) this.pendingSpace = true;
+      return;
+    }
     this.pendingSpace = false;
     if (!this.atLineStart) this.push('\n');
   }
@@ -122,6 +131,38 @@ class TextWriter {
 }
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+// What a table keeps when it is shown on its own: its structure and simple text styling.
+const TABLE_TAGS = new Set([
+  'table', 'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+  'p', 'br', 'b', 'strong', 'i', 'em', 'sub', 'sup', 'ul', 'ol', 'li',
+]);
+const TABLE_ATTRIBUTES = ['colspan', 'rowspan', 'scope', 'span'];
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** A table rebuilt from scratch with only safe elements and attributes, as markup. */
+function tableMarkup(table: Element): string {
+  const walk = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) {
+      return escapeHtml((node as CharacterData).data);
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const el = node as Element;
+    const tag = el.localName.toLowerCase();
+    if (SKIPPED.has(tag) || el.hasAttribute('hidden')) return '';
+    if (tag === 'img' || tag === 'image') {
+      const alt = clean(el.getAttribute('alt') ?? el.getAttribute('aria-label'));
+      return alt ? `[${escapeHtml(alt)}]` : '';
+    }
+    const inner = Array.from(el.childNodes).map(walk).join('');
+    if (!TABLE_TAGS.has(tag)) return inner;
+    const attributes = TABLE_ATTRIBUTES.filter((a) => /^[a-z0-9 -]{1,20}$/i.test(el.getAttribute(a) ?? ''))
+      .map((a) => ` ${a}="${escapeHtml(el.getAttribute(a)!)}"`)
+      .join('');
+    return tag === 'br' || tag === 'col' ? `<${tag}${attributes}>` : `<${tag}${attributes}>${inner}</${tag}>`;
+  };
+  return walk(table);
+}
 
 function addDocument(path: string, body: Element, w: TextWriter, book: Omit<PlainBook, 'text'>): void {
   for (const el of Array.from(body.querySelectorAll(REMOVED))) el.remove();
@@ -155,7 +196,8 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
       return;
     }
     if (tag === 'br') {
-      w.newline();
+      if (w.inCell) w.text(' ', false);
+      else w.newline();
       return;
     }
     if (tag === 'hr') {
@@ -185,8 +227,11 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     }
 
     const start = w.here;
+    const cell = tag === 'td' || tag === 'th' || tag === 'caption';
     if (tag === 'pre') pre++;
+    if (cell) w.inCell++;
     for (const child of Array.from(el.childNodes)) visit(child);
+    if (cell) w.inCell--;
     if (tag === 'pre') pre--;
     const end = w.length;
 
@@ -206,7 +251,7 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     } else if (tag === 'table') {
       const rows = el.querySelectorAll('tr').length;
       const caption = clean(el.querySelector('caption')?.textContent);
-      book.items.push({ kind: 'table', start, end, count: rows, label: caption });
+      book.items.push({ kind: 'table', start, end, count: rows, label: caption, html: tableMarkup(el) });
     } else if (tag === 'ul' || tag === 'ol' || tag === 'dl') {
       const count = Array.from(el.children).filter((c) => /^(li|dt)$/i.test(c.localName)).length;
       book.items.push({ kind: 'list', start, end, count, label: '' });

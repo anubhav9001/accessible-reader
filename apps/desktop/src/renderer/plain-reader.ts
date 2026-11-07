@@ -5,6 +5,8 @@ export interface PlainReaderEvents {
   /** The reader moved the cursor (arrow keys, navigation keys, a followed link). */
   caret(offset: number, block: PlainBlock | undefined): void;
   announce(message: string): void;
+  /** Enter on a table: show it as a real table, for the screen reader's table commands. */
+  table(item: PlainItem): void;
 }
 
 /** Single-letter navigation keys, as in browse mode and Paperback. Shift goes backwards. */
@@ -24,14 +26,17 @@ const KEYS: Record<string, { kind: PlainKind; name: string; plural?: string }> =
  * The most characters the text box holds at once. NVDA reads the whole of a text field when
  * it gets focus; a whole book (over a million characters) froze it for more than ten seconds.
  */
-const WINDOW_SIZE = 30_000;
+const WINDOW_SIZE = 20_000;
+/** When the cursor comes this close to either end of the box, the box moves on quietly. */
+const MARGIN = 5_000;
 
 /**
  * Screen reader mode: the book as plain text in a text box. The screen reader's own cursor is
  * the reading position, so arrow keys, say all and the screen reader's review commands all
- * work, and the app remembers exactly where the cursor is. The box holds one chapter (or part
- * of a long one) at a time; arrowing past either end moves to the next or previous part, and
- * the navigation keys search the whole book. Offsets are always into the whole book's text.
+ * work, and the app remembers exactly where the cursor is. The box holds about 20,000
+ * characters around the cursor; as the reader moves towards either end, it moves on with them
+ * before they get there, so reading goes straight on. The navigation keys search the whole
+ * book. Offsets are always into the whole book's text.
  */
 export class PlainReader {
   book: PlainBook | undefined;
@@ -40,9 +45,8 @@ export class PlainReader {
   private quiet = false;
   private caretTimer: ReturnType<typeof setTimeout> | undefined;
   private lastCaret = -1;
-  /** The parts of the book the box can show, and which one it shows. */
-  private windows: { start: number; end: number }[] = [];
-  private shown = -1;
+  /** The part of the book's text in the box. */
+  private win: { start: number; end: number } | undefined;
 
   constructor(
     readonly area: HTMLTextAreaElement,
@@ -57,10 +61,10 @@ export class PlainReader {
     for (const type of ['paste', 'cut', 'drop'] as const) area.addEventListener(type, (event) => event.preventDefault());
     // And if anything still gets through, put the book's text back where it was.
     area.addEventListener('input', () => {
-      const w = this.windows[this.shown];
+      const w = this.win;
       if (!this.book || !w || area.value === this.book.text.slice(w.start, w.end)) return;
       const at = this.lastCaret >= 0 ? this.lastCaret : this.caret;
-      this.shown = -1;
+      this.win = undefined;
       this.place(at);
     });
     for (const type of ['keyup', 'mouseup', 'focus', 'select', 'selectionchange'] as const) {
@@ -70,7 +74,7 @@ export class PlainReader {
 
   /** The cursor, as an offset into the whole book. */
   get caret(): number {
-    return (this.windows[this.shown]?.start ?? 0) + this.area.selectionStart;
+    return (this.win?.start ?? 0) + this.area.selectionStart;
   }
 
   get ready(): boolean {
@@ -83,8 +87,7 @@ export class PlainReader {
     this.building = undefined;
     this.area.value = '';
     this.lastCaret = -1;
-    this.windows = [];
-    this.shown = -1;
+    this.win = undefined;
   }
 
   /** Reads the book in (once per book); resolves when the text is in the box. */
@@ -96,8 +99,7 @@ export class PlainReader {
     this.building = buildPlainBook(documents, url).then((book) => {
       if (generation !== this.generation) return undefined;
       this.book = book;
-      this.windows = splitIntoWindows(book);
-      this.shown = -1;
+      this.win = undefined;
       this.place(0);
       return book;
     });
@@ -115,22 +117,40 @@ export class PlainReader {
     this.scrollToCaret();
   }
 
-  /** Shows the part of the book holding `offset`, if it isn't shown, and puts the cursor there. */
+  /** Puts the cursor at `offset`, first moving the box on if it is outside or near an end. */
   private setCaret(offset: number): void {
     if (!this.book) return;
-    let i = this.windows.length - 1;
-    while (i > 0 && this.windows[i]!.start > offset) i--;
-    const w = this.windows[i];
-    if (!w) return;
-    if (i !== this.shown) {
-      const quiet = this.quiet;
-      this.quiet = true;
-      this.area.value = this.book.text.slice(w.start, w.end);
-      this.shown = i;
-      this.quiet = quiet;
-    }
+    if (!this.win || this.nearEdge(offset)) this.showAround(offset);
+    const w = this.win!;
     const local = Math.max(0, Math.min(offset - w.start, w.end - w.start));
     this.area.setSelectionRange(local, local);
+  }
+
+  /** Whether `offset` is outside the box, or close to an end of it that isn't the book's. */
+  private nearEdge(offset: number): boolean {
+    const w = this.win;
+    if (!w || !this.book) return true;
+    if (offset < w.start || offset > w.end) return true;
+    return (w.start > 0 && offset - w.start < MARGIN) || (w.end < this.book.text.length && w.end - offset < MARGIN);
+  }
+
+  /** Fills the box with about WINDOW_SIZE characters around `offset`, cut at line breaks. */
+  private showAround(offset: number): void {
+    if (!this.book) return;
+    const text = this.book.text;
+    const from = Math.max(0, Math.min(offset - WINDOW_SIZE / 2, text.length - WINDOW_SIZE));
+    const start = from > 0 ? Math.min(text.lastIndexOf('\n', from) + 1, offset) : 0;
+    let end = Math.min(text.length, start + WINDOW_SIZE);
+    if (end < text.length) {
+      const cut = text.lastIndexOf('\n', end);
+      end = cut >= offset ? cut : end;
+    }
+    if (this.win && this.win.start === start && this.win.end === end) return;
+    const quiet = this.quiet;
+    this.quiet = true;
+    this.area.value = text.slice(start, end);
+    this.win = { start, end };
+    this.quiet = quiet;
   }
 
   focus(): void {
@@ -218,7 +238,7 @@ export class PlainReader {
 
   private onKey(event: KeyboardEvent): void {
     if (!this.book || event.ctrlKey || event.altKey || event.metaKey) return;
-    if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !event.shiftKey && this.crossPart(event.key === 'ArrowDown' ? 1 : -1)) {
+    if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !event.shiftKey && this.crossEdge(event.key === 'ArrowDown' ? 1 : -1)) {
       event.preventDefault();
       return;
     }
@@ -242,28 +262,33 @@ export class PlainReader {
   }
 
   /**
-   * Down on the last line of the part shown moves to the start of the next part, and Up on its
-   * first line to the last line of the previous one, so reading line by line goes straight on.
+   * The box normally moves on before the cursor reaches an end. If the reader still gets to
+   * its last line (or first) and the book goes on, move to the next (or previous) line here.
    */
-  private crossPart(direction: 1 | -1): boolean {
-    if (!this.book) return false;
+  private crossEdge(direction: 1 | -1): boolean {
+    if (!this.book || !this.win) return false;
     const value = this.area.value;
     const local = this.area.selectionStart;
-    const next = this.windows[this.shown + direction];
-    if (!next) return false;
+    const text = this.book.text;
+    if (direction > 0 ? this.win.end >= text.length : this.win.start <= 0) return false;
     const onEdge = direction > 0 ? value.indexOf('\n', local) < 0 : value.lastIndexOf('\n', local - 1) < 0;
     if (!onEdge) return false;
-    const text = this.book.text;
-    const target = direction > 0 ? next.start : text.lastIndexOf('\n', next.end - 1) + 1;
-    this.moveTo(Math.max(next.start, target));
-    this.events.announce(this.lineAt(this.caret) || 'Blank');
+    const caret = this.caret;
+    const target =
+      direction > 0 ? text.indexOf('\n', caret) + 1 : text.lastIndexOf('\n', text.lastIndexOf('\n', caret - 1) - 1) + 1;
+    this.moveTo(target);
+    this.events.announce(this.lineAt(target) || 'Blank');
     return true;
   }
 
   private followLink(): void {
     if (!this.book) return;
     const link = itemAt(this.book, this.caret, 'link');
-    if (!link) return this.events.announce('No link here');
+    if (!link) {
+      const table = itemAt(this.book, this.caret, 'table');
+      if (table?.html) return this.events.table(table);
+      return this.events.announce('No link or table here');
+    }
     if (!link.target) return this.events.announce(`${link.label}. This link goes outside the book.`);
     const offset = this.anchorOffset(link.target);
     if (offset === undefined) return this.events.announce('That part of the book could not be found.');
@@ -281,6 +306,12 @@ export class PlainReader {
     clearTimeout(this.caretTimer);
     if (!this.book || this.quiet) return;
     const offset = this.caret;
+    // Move the box on quietly before the reader reaches an end of it.
+    if (this.area.selectionStart === this.area.selectionEnd && this.nearEdge(offset)) {
+      this.quiet = true;
+      this.setCaret(offset);
+      this.quiet = false;
+    }
     if (offset === this.lastCaret) return;
     this.lastCaret = offset;
     this.events.caret(offset, blockAt(this.book, offset));
@@ -290,38 +321,4 @@ export class PlainReader {
   flush(): void {
     if (this.caretTimer !== undefined) this.reportCaret();
   }
-}
-
-/**
- * Splits the book into parts of at most WINDOW_SIZE characters, at chapter files and headings
- * where possible, otherwise at the end of a line. A part never ends with its line break.
- */
-function splitIntoWindows(book: PlainBook): { start: number; end: number }[] {
-  const text = book.text;
-  const breaks = [
-    ...new Set([
-      0,
-      ...book.items.filter((i) => i.kind === 'section' || (i.kind === 'heading' && (i.level ?? 9) <= 3)).map((i) => i.start),
-      text.length,
-    ]),
-  ].sort((a, b) => a - b);
-  const windows: { start: number; end: number }[] = [];
-  let start = 0;
-  while (start < text.length) {
-    // The furthest break that keeps the part within the limit.
-    let end = start;
-    for (const b of breaks) {
-      if (b <= start) continue;
-      if (b - start > WINDOW_SIZE) break;
-      end = b;
-    }
-    if (end === start) {
-      // One section longer than the limit: cut it at the last line break that fits.
-      const cut = text.lastIndexOf('\n', start + WINDOW_SIZE);
-      end = cut > start ? cut + 1 : Math.min(text.length, start + WINDOW_SIZE);
-    }
-    windows.push({ start, end: text[end - 1] === '\n' ? end - 1 : end });
-    start = end;
-  }
-  return windows.length ? windows : [{ start: 0, end: 0 }];
 }

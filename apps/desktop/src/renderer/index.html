@@ -136,12 +136,12 @@
         <caption>Screen reader mode (like Paperback)</caption>
         <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Screen reader mode</th><td>Ctrl+Shift+R</td><td>Turns it on or off (also the checkbox and the View menu). The book is shown as plain text, one chapter at a time; Down on the last line goes on to the next chapter, and Up on the first line goes back. Read with the arrow keys and say all (say all stops at each chapter end); Reader remembers exactly where your cursor is, and puts it back there when you open the book again.</td></tr>
+          <tr><th scope="row">Screen reader mode</th><td>Ctrl+Shift+R</td><td>Turns it on or off (also the checkbox and the View menu). The book is shown as plain text. Read with the arrow keys and say all (say all may stop after a few pages; press it again); Reader remembers exactly where your cursor is, and puts it back there when you open the book again.</td></tr>
           <tr><th scope="row">Next / previous heading</th><td>H / Shift+H</td><td>Anywhere in the book.</td></tr>
           <tr><th scope="row">Heading at a level</th><td>1 to 6 / Shift+1 to Shift+6</td><td>Next or previous heading at that level.</td></tr>
           <tr><th scope="row">Page</th><td>P / Shift+P</td><td>Next or previous printed page.</td></tr>
           <tr><th scope="row">Link</th><td>K / Shift+K</td><td>Next or previous link. Enter or Space follows a link inside the book.</td></tr>
-          <tr><th scope="row">Table</th><td>T / Shift+T</td><td>Next or previous table. Each row is a line, cells divided by a bar.</td></tr>
+          <tr><th scope="row">Table</th><td>T / Shift+T</td><td>Next or previous table. Each row is a line, cells divided by a bar. Enter on a table opens it as a real table, for your screen reader's table commands.</td></tr>
           <tr><th scope="row">List, list item</th><td>L / Shift+L, I / Shift+I</td><td>Next or previous list, or list item.</td></tr>
           <tr><th scope="row">Image, figure, separator</th><td>G, F, S (Shift goes back)</td><td>Next or previous image, figure or separator.</td></tr>
           <tr><th scope="row">Section</th><td>] / [</td><td>Next or previous section (a part or chapter file of the book).</td></tr>
@@ -157,6 +157,12 @@
       </table>
       <p>The reader remembers your place in each book, including where your screen reader read up to; in screen reader mode, down to the character. Play starts from there.</p>
       <p class="ui-version" data-version></p>
+      <form method="dialog"><button value="close">Close</button></form>
+    </dialog>
+    <dialog id="ui-table-dialog" class="ui-help ui-table-dialog" aria-labelledby="ui-table-title">
+      <h2 id="ui-table-title" tabindex="-1">Table</h2>
+      <p>Read it with your screen reader's table commands (in NVDA, Control+Alt+arrow keys). Escape goes back to the text.</p>
+      <div id="ui-table-body"></div>
       <form method="dialog"><button value="close">Close</button></form>
     </dialog>
     <dialog id="ui-goto-dialog" aria-labelledby="ui-goto-title">

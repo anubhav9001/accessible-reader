@@ -396,3 +396,9 @@ dialog input {
 .ui-help td:nth-child(2) {
   white-space: nowrap;
 }
+
+.ui-table-dialog #ui-table-body td,
+.ui-table-dialog #ui-table-body th {
+  white-space: normal;
+  border: 1px solid var(--border);
+}

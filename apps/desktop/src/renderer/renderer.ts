@@ -147,8 +147,8 @@ libraryChoice.addEventListener('change', () => {
 
 // ---- screen reader mode -------------------------------------------------------------
 
-// Screen reader mode works like Paperback: the book as plain text in a text box, one chapter
-// at a time (see PlainReader). The screen reader's own cursor is the reading position, so Reader saves the exact
+// Screen reader mode works like Paperback: the book as plain text in a text box that holds
+// the part around the cursor (see PlainReader). The screen reader's own cursor is the reading position, so Reader saves the exact
 // character and comes back to it. Single keys (H, 1 to 6, K, T, L, I, P, G, F, S, [ and ])
 // move the cursor through the book's structure, as in Paperback. The formatted chapter stays
 // loaded, hidden, underneath, so playback, the contents and saved places keep working.
@@ -163,7 +163,20 @@ let srMode = (() => {
 const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
   announce: (message) => announce(message),
+  table: (item) => showTable(item.html ?? '', item.label, item.count ?? 0),
 });
+
+/** Shows a table from screen reader mode as a real table, so table commands work in it. */
+function showTable(html: string, caption: string, rows: number): void {
+  const dialog = $<HTMLDialogElement>('ui-table-dialog');
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const body = $('ui-table-body');
+  body.replaceChildren(template.content);
+  $('ui-table-title').textContent = caption ? `Table: ${caption}` : `Table with ${rows} row${rows === 1 ? '' : 's'}`;
+  if (!dialog.open) dialog.showModal();
+  $('ui-table-title').focus();
+}
 /** True while the place is being moved to follow the text cursor, so the cursor isn't moved back. */
 let followingCaret = false;
 
@@ -617,7 +630,7 @@ async function toggleScreenReaderMode(): Promise<void> {
     () =>
       announce(
         srMode
-          ? 'Screen reader mode on. The book is plain text, one chapter at a time. Read with the arrow keys; press H for the next heading, or F1 for all keys.'
+          ? 'Screen reader mode on. The book is plain text. Read with the arrow keys; press H for the next heading, or F1 for all keys.'
           : 'Screen reader mode off. The book is shown formatted, one chapter at a time.',
       ),
     400,
@@ -944,6 +957,10 @@ function goToPagePrompt(): void {
   ui.gotoInput.value = '';
   ui.gotoDialog.showModal();
 }
+
+$('ui-table-dialog').addEventListener('close', () => {
+  if (showingPlain()) plain.focus();
+});
 
 ui.gotoDialog.addEventListener('close', () => {
   if (ui.gotoDialog.returnValue !== 'go' || !book) return;

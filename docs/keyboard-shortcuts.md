@@ -68,7 +68,7 @@ These keys work in the book's text box, as in Paperback. Shift with the key goes
 | Next heading at a level | 1 to 6 |
 | Next printed page | P |
 | Next link | K (Enter or Space follows it) |
-| Next table | T |
+| Next table | T (Enter opens it as a real table) |
 | Next list / list item | L / I |
 | Next image / figure / separator | G / F / S |
 | Next / previous section | ] / [ |
