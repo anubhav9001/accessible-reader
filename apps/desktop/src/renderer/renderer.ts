@@ -309,6 +309,35 @@ function savePosition(): void {
   if (saveTimer === undefined) saveTimer = setTimeout(writePosition, 1000);
 }
 
+/** Closes the book, keeping its place, and goes back to My books. */
+async function closeBook(): Promise<void> {
+  if (!book) return announce('No book open.');
+  const title = book.metadata.title || 'the book';
+  flushPosition();
+  recorded?.stop();
+  recorded = undefined;
+  speech.pause();
+  view.clear();
+  plain.clear();
+  book = undefined;
+  timeline = new NarrationTimeline([]);
+  modes = [];
+  clipIndex = 0;
+  place = undefined;
+  blocksCache = undefined;
+  ui.title.textContent = 'No book open';
+  ui.meta.textContent = 'Press Control B for My books, or Control O to open an EPUB or DAISY book.';
+  document.title = 'Reader';
+  tocItems = [];
+  ui.tocTree.replaceChildren();
+  ui.nowHeading.textContent = '';
+  ui.nowPage.textContent = '';
+  ui.nowTime.textContent = '';
+  applyView();
+  await library.open();
+  announce(`Closed ${title}.`);
+}
+
 async function openBook(info: BookInfo): Promise<void> {
   flushPosition();
   recorded?.stop();
@@ -1142,6 +1171,7 @@ function handle(command: Command): void {
   if (command === 'settings') return showSettings();
   if (command === 'open') return void openFromDialog();
   if (command === 'library') return void library.open();
+  if (command === 'close-book') return void closeBook();
   if (command === 'catalogs') return openLibrary();
   if (command === 'help') return showHelp();
   if (command === 'sr-mode') return void toggleScreenReaderMode();

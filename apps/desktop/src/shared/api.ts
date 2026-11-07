@@ -7,6 +7,7 @@ export type BookInfo = PublicationData;
 export const COMMANDS = [
   'open',
   'library',
+  'close-book',
   'catalogs',
   'toggle-play',
   'next-phrase',

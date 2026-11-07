@@ -20,6 +20,8 @@ To uninstall, use **Settings → Apps → Installed apps → Reader**.
 
   Reader remembers which library you used last.
 
+**Close book** (Ctrl+W, or File → Close book) closes the book you are reading and goes back to My books. Your place is kept, so opening it again carries on where you stopped.
+
 Removing a book you downloaded deletes its file. Removing a book you opened from elsewhere only takes it off the list.
 
 ## The window

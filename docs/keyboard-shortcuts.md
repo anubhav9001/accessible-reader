@@ -9,6 +9,7 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | My books | Ctrl+B |
 | Open book | Ctrl+O |
 | Online libraries | Ctrl+L |
+| Close book (keeps your place) | Ctrl+W |
 
 ## Reading modes and speed
 

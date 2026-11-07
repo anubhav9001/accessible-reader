@@ -180,6 +180,7 @@ function buildMenu(): void {
         item('&My books…', 'library', 'CmdOrCtrl+B'),
         item('&Open book…', 'open', 'CmdOrCtrl+O'),
         item('Online &libraries…', 'catalogs', 'CmdOrCtrl+L'),
+        item('&Close book', 'close-book', 'CmdOrCtrl+W'),
         { type: 'separator' },
         item('&Settings…', 'settings', 'CmdOrCtrl+,'),
         { type: 'separator' },
