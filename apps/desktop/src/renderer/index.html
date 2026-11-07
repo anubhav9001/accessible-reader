@@ -119,6 +119,7 @@
           <tr><th scope="row">Next / previous phrase</th><td>Alt+Right / Alt+Left</td><td>Moves one phrase or paragraph.</td></tr>
           <tr><th scope="row">Next / previous heading</th><td>Alt+Down / Alt+Up</td><td>Jumps to the next or previous chapter or section heading.</td></tr>
           <tr><th scope="row">Next / previous page</th><td>Alt+Page Down / Alt+Page Up</td><td>Moves by printed page.</td></tr>
+          <tr><th scope="row">Next / previous section</th><td>Ctrl+Page Down / Ctrl+Page Up</td><td>Moves to the next or previous entry of the table of contents.</td></tr>
           <tr><th scope="row">Go to page</th><td>Ctrl+G</td><td>Goes to a printed page number.</td></tr>
           <tr><th scope="row">Heading depth</th><td>Settings, or Navigate menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
         </tbody>
@@ -130,7 +131,7 @@
           <tr><th scope="row">Table of contents</th><td>Ctrl+T</td><td>Moves to the contents list; choose an entry to go there.</td></tr>
           <tr><th scope="row">Book text</th><td>Ctrl+E</td><td>Moves to your place in the book text, for reading with your screen reader. Tabbing into the text lands there too.</td></tr>
           <tr><th scope="row">Where am I?</th><td>Ctrl+I</td><td>Announces the heading, page, time, mode and speed.</td></tr>
-          <tr><th scope="row">Settings</th><td>Ctrl+Comma</td><td>Reading speed, voice, heading depth, how much of the contents is shown open, and screen reader mode.</td></tr>
+          <tr><th scope="row">Settings</th><td>Ctrl+Comma</td><td>Reading speed, voice, heading depth, how much of the contents is shown open, text on the toolbar buttons, and screen reader mode.</td></tr>
           <tr><th scope="row">Reading commands</th><td>F1</td><td>Shows this list.</td></tr>
         </tbody>
       </table>
@@ -190,6 +191,10 @@
           <option value="2">Levels 1 to 2</option>
           <option value="3">Levels 1 to 3</option>
         </select>
+      </fieldset>
+      <fieldset>
+        <legend>Appearance</legend>
+        <label class="ui-sr-toggle"><input id="ui-set-toolbar-text" type="checkbox" /> Show text on toolbar buttons (otherwise icons only)</label>
       </fieldset>
       <fieldset>
         <legend>Screen reader</legend>

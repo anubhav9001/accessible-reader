@@ -32,6 +32,8 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | Previous heading | Alt+Up |
 | Next page | Alt+Page Down |
 | Previous page | Alt+Page Up |
+| Next section (contents entry) | Ctrl+Page Down |
+| Previous section | Ctrl+Page Up |
 | Go to page | Ctrl+G |
 | Heading depth for navigation | Settings, or Navigate menu |
 

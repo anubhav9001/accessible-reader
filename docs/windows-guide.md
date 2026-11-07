@@ -28,7 +28,7 @@ Removing a book you downloaded deletes its file. Removing a book you opened from
 
 From top to bottom:
 
-1. The book title, and a toolbar with My books, Open book, Online libraries, Settings, Play, the phrase and heading buttons and Go to page.
+1. The book title, and a toolbar of icon buttons: My books, Open book, Online libraries, Settings, Play, the phrase and heading buttons and Go to page. Settings can show their text too.
 2. The reading mode choice.
 3. The table of contents, under the heading Contents. It is a tree: one Tab stop, then Up and Down to move, Right and Left to open and close a part, Home and End, a letter to jump to an entry starting with it, and Enter to go there. The entry you are reading is marked as current.
 4. Where you are: the heading, page and time.
@@ -44,6 +44,7 @@ Press Ctrl+Comma, choose **Settings** in the toolbar, or **File → Settings**. 
 - **Voice:** the Windows voice used to read aloud books without narration, or Automatic to match the book's language.
 - **Heading depth:** which headings next and previous heading stop at: all levels, level 1 only, or levels 1 to 2 up to 1 to 6. Also in the **Navigate** menu.
 - **Table of contents:** how many levels of the contents are shown open. You can still open any part with the Right arrow.
+- **Show text on toolbar buttons:** the toolbar shows icons only unless this is on. Screen readers read each button's name either way.
 - **Screen reader mode.**
 
 **Help → Report a problem** opens the form for reporting a bug, and **Help → About Reader** shows the version.
@@ -56,7 +57,7 @@ Press Ctrl+Comma, choose **Settings** in the toolbar, or **File → Settings**. 
 | Audio only | Ctrl+2 | Plays the recorded narration, or the Windows voice, with the text hidden. |
 | Text and audio | Ctrl+3 | Plays the narration and highlights each phrase as it is read. |
 
-Ctrl+Space plays or pauses. Alt with the arrow keys moves by phrase (Left and Right) or by heading (Up and Down).
+Ctrl+Space plays or pauses. Alt with the arrow keys moves by phrase (Left and Right) or by heading (Up and Down). Ctrl+Page Down and Ctrl+Page Up move to the next or previous section of the table of contents.
 
 ## Reading with NVDA or JAWS
 

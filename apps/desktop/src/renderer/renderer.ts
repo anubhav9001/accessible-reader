@@ -80,9 +80,10 @@ interface Settings {
   headingLevel: number;
   voice: string;
   tocDepth: number;
+  toolbarText: boolean;
 }
 const settings: Settings = (() => {
-  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0 };
+  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
@@ -878,7 +879,7 @@ function togglePlay(): void {
 }
 
 function onPlayState(playing: boolean): void {
-  ui.play.textContent = playing ? 'Pause' : 'Play';
+  setButton(ui.play, playing ? 'Pause' : 'Play', playing ? 'pause' : 'play');
 }
 
 function onClip(index: number): void {
@@ -997,6 +998,20 @@ async function stepHeading(direction: 1 | -1): Promise<void> {
     }
   }
   announce(direction > 0 ? 'No next heading' : 'No previous heading');
+}
+
+/** Moves to the next or previous entry of the table of contents. */
+async function stepSection(direction: 1 | -1): Promise<void> {
+  if (!book) return;
+  if (!tocItems.length) return announce('This book has no table of contents.');
+  const current = currentTocItem();
+  const here = current ? tocItems.findIndex((t) => t.item === current) : -1;
+  const target = tocItems[here < 0 ? (direction > 0 ? 0 : -1) : here + direction];
+  if (!target) return announce(direction > 0 ? 'No next section' : 'No previous section');
+  const quietNav = usesClips() && !isPlaying();
+  await goToNav(target.item);
+  // goToNav already says the name when it moves through narration without playing.
+  if (!quietNav) announce(target.item.label || 'Untitled');
 }
 
 async function stepPage(direction: 1 | -1): Promise<void> {
@@ -1130,6 +1145,41 @@ function fillVoices(): void {
   select.value = voices.some((v) => v.name === settings.voice) ? settings.voice : '';
 }
 
+// Toolbar buttons show an icon; their text is still their name for screen readers, and is
+// shown beside the icon when the setting asks for it.
+const ICONS: Record<string, string> = {
+  library: 'M4 4h3v16H4zM10 4h3v16h-3zM15.5 5l2.9-.8 3.6 15-2.9.8z',
+  open: 'M3 7V5a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 9h18',
+  catalogs: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM3 12h18M12 3c3.5 3 3.5 15 0 18M12 3c-3.5 3-3.5 15 0 18',
+  settings: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4',
+  play: 'M8 5v14l11-7z',
+  pause: 'M7 5h3v14H7zM14 5h3v14h-3z',
+  'prev-heading': 'M5 4h14M12 20V8M7 13l5-5 5 5',
+  'prev-phrase': 'M6 6v12M18 6l-9 6 9 6z',
+  'next-phrase': 'M18 6v12M6 6l9 6-9 6z',
+  'next-heading': 'M5 20h14M12 4v12M7 11l5 5 5-5',
+  goto: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h4',
+};
+
+function setButton(button: HTMLButtonElement, label: string, icon: string): void {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', ICONS[icon] ?? '');
+  svg.append(path);
+  const text = document.createElement('span');
+  text.className = 'ui-btn-text';
+  text.textContent = label;
+  button.replaceChildren(svg, text);
+  button.dataset.tip = label;
+}
+
+function applyToolbarText(): void {
+  document.querySelector('.ui-controls')?.classList.toggle('icons-only', !settings.toolbarText);
+}
+
 function showSettings(): void {
   const dialog = $<HTMLDialogElement>('ui-settings-dialog');
   fillVoices();
@@ -1137,6 +1187,7 @@ function showSettings(): void {
   $<HTMLSelectElement>('ui-set-depth').value = String(headingLevel);
   $<HTMLSelectElement>('ui-set-toc-depth').value = String(settings.tocDepth);
   $<HTMLInputElement>('ui-set-sr').checked = srMode;
+  $<HTMLInputElement>('ui-set-toolbar-text').checked = settings.toolbarText;
   if (!dialog.open) dialog.showModal();
   $('ui-settings-title').focus();
 }
@@ -1184,6 +1235,7 @@ function handle(command: Command): void {
     }
     if (command === 'next-page' || command === 'prev-page') return plain.go('page', back, 'page');
   }
+  if (command === 'next-section' || command === 'prev-section') return void stepSection(command === 'next-section' ? 1 : -1);
   switch (command) {
     case 'toggle-play':
       return togglePlay();
@@ -1229,6 +1281,26 @@ for (const r of RATES) ui.speed.add(new Option(r === 1 ? 'Normal (1Ã—)' : `${r}Ã
 ui.speed.addEventListener('change', () => setRate(Number(ui.speed.value)));
 setRate(rate, true);
 setHeadingDepth(headingLevel, true);
+for (const [button, label, icon] of [
+  [ui.library, 'My books', 'library'],
+  [ui.open, 'Open book', 'open'],
+  [ui.catalogs, 'Online libraries', 'catalogs'],
+  [$<HTMLButtonElement>('ui-settings'), 'Settings', 'settings'],
+  [ui.play, 'Play', 'play'],
+  [ui.prevHeading, 'Previous heading', 'prev-heading'],
+  [ui.prevPhrase, 'Previous phrase', 'prev-phrase'],
+  [ui.nextPhrase, 'Next phrase', 'next-phrase'],
+  [ui.nextHeading, 'Next heading', 'next-heading'],
+  [ui.goto, 'Go to page', 'goto'],
+] as const) {
+  setButton(button, label, icon);
+}
+applyToolbarText();
+$('ui-set-toolbar-text').addEventListener('change', (e) => {
+  settings.toolbarText = (e.target as HTMLInputElement).checked;
+  saveSettings();
+  applyToolbarText();
+});
 speech.voice = settings.voice;
 $<HTMLButtonElement>('ui-settings').addEventListener('click', () => handle('settings'));
 $('ui-set-depth').addEventListener('change', (e) => setHeadingDepth(Number((e.target as HTMLSelectElement).value)));

@@ -16,6 +16,8 @@ export const COMMANDS = [
   'prev-heading',
   'next-page',
   'prev-page',
+  'next-section',
+  'prev-section',
   'goto-page',
   'faster',
   'slower',

@@ -119,6 +119,55 @@ button {
   cursor: pointer;
 }
 
+.ui-controls button {
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ui-controls svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ui-controls.icons-only button {
+  padding: 4px 8px;
+}
+
+/* Icons only: the text stays as the button's name for screen readers. */
+.ui-controls.icons-only .ui-btn-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* And sighted readers see the name on hover or keyboard focus. */
+.ui-controls.icons-only button:hover::after,
+.ui-controls.icons-only button:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .ui-modes {
   display: flex;
   gap: 16px;

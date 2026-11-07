@@ -209,6 +209,8 @@ function buildMenu(): void {
         item('Previous h&eading', 'prev-heading', 'Alt+Up'),
         item('Next pa&ge', 'next-page', 'Alt+PageDown'),
         item('Previous pag&e', 'prev-page', 'Alt+PageUp'),
+        item('Next se&ction', 'next-section', 'CmdOrCtrl+PageDown'),
+        item('Previous sec&tion', 'prev-section', 'CmdOrCtrl+PageUp'),
         item('&Go to page…', 'goto-page', 'CmdOrCtrl+G'),
       ],
     },
