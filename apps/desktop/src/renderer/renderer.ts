@@ -147,8 +147,8 @@ libraryChoice.addEventListener('change', () => {
 
 // ---- screen reader mode -------------------------------------------------------------
 
-// Screen reader mode works like Paperback: the whole book as plain text in one read-only text
-// box. The screen reader's own cursor is the reading position, so Reader saves the exact
+// Screen reader mode works like Paperback: the book as plain text in a text box, one chapter
+// at a time (see PlainReader). The screen reader's own cursor is the reading position, so Reader saves the exact
 // character and comes back to it. Single keys (H, 1 to 6, K, T, L, I, P, G, F, S, [ and ])
 // move the cursor through the book's structure, as in Paperback. The formatted chapter stays
 // loaded, hidden, underneath, so playback, the contents and saved places keep working.
@@ -617,7 +617,7 @@ async function toggleScreenReaderMode(): Promise<void> {
     () =>
       announce(
         srMode
-          ? 'Screen reader mode on. The book is plain text in one text box. Read with the arrow keys; press H for the next heading, or F1 for all keys.'
+          ? 'Screen reader mode on. The book is plain text, one chapter at a time. Read with the arrow keys; press H for the next heading, or F1 for all keys.'
           : 'Screen reader mode off. The book is shown formatted, one chapter at a time.',
       ),
     400,

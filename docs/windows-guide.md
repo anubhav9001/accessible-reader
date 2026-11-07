@@ -58,7 +58,9 @@ Stepping by phrase or heading with the keyboard moves your screen reader into th
 
 ## Screen reader mode
 
-Screen reader mode works like the Paperback reader: the whole book is shown as plain text in one read-only text box. Your screen reader's cursor is your reading position. Read with the arrow keys, Ctrl+arrows and say all, and Reader remembers exactly where the cursor is, down to the character, even after you open another book or close the app. When you open the book again, focus goes straight to that spot.
+Screen reader mode works like the Paperback reader: the book is shown as plain text in a text box you can read but not change. The box holds one chapter at a time (long chapters are split into parts) so that screen readers stay quick. Your screen reader's cursor is your reading position. Read with the arrow keys, Ctrl+arrows and say all, and Reader remembers exactly where the cursor is, down to the character, even after you open another book or close the app. When you open the book again, focus goes straight to that spot.
+
+Pressing Down on the last line of a chapter moves to the start of the next one, and Up on the first line goes back to the end of the previous one, so you can read line by line straight through the book. Say all stops at the end of each chapter or part; press it again to carry on.
 
 Turn it on or off with Ctrl+Shift+R, the **Screen reader mode** checkbox beside the reading modes, or **View → Screen reader mode**. Reader remembers the choice. NVDA switches to focus mode by itself when you reach the text box, as in Paperback, so the arrow keys and say all read straight away.
 
@@ -74,6 +76,8 @@ In the text box, single keys move the cursor through the book's structure, as in
 | L / I | Next list / list item |
 | G / F / S | Next image / figure / separator |
 | ] / [ | Next / previous section (a part or chapter file of the book) |
+
+These keys search the whole book, not just the chapter in the text box.
 | = | Says how far through the book you are, and the page |
 
 Ctrl+Space plays from the cursor, Alt+Up and Alt+Down move by heading, the table of contents moves the cursor to the chapter and marks the chapter you are in, and while Reader reads aloud the cursor follows the voice.
