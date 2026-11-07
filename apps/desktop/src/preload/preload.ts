@@ -10,6 +10,7 @@ const api: ReaderApi = {
   openFromLibrary: (id) => ipcRenderer.invoke('library-open', id),
   removeFromLibrary: (id) => ipcRenderer.invoke('library-remove', id),
   initialBook: () => ipcRenderer.invoke('initial-book'),
+  version: () => ipcRenderer.invoke('app-version'),
   onCommand: (listener) => {
     ipcRenderer.on('command', (_event, command: Command) => listener(command));
   },

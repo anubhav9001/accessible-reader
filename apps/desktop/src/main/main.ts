@@ -285,6 +285,8 @@ ipcMain.handle('open-book-dialog', async () => {
   }
 });
 
+ipcMain.handle('app-version', () => app.getVersion());
+
 ipcMain.handle('initial-book', async () => {
   if (!initialPath) return null;
   try {

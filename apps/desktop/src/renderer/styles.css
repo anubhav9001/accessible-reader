@@ -139,6 +139,11 @@ button {
   cursor: pointer;
 }
 
+.ui-version {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
 .ui-sr-badge {
   display: inline-block;
   padding: 2px 8px;

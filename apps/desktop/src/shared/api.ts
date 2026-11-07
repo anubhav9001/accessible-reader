@@ -70,6 +70,8 @@ export interface ReaderApi {
   removeFromLibrary(id: string): Promise<void>;
   /** The book passed on the command line, if any. */
   initialBook(): Promise<BookInfo | null>;
+  /** The app's version, e.g. "0.7.1". */
+  version(): Promise<string>;
   onCommand(listener: (command: Command) => void): void;
   modeChanged(state: ModeState): void;
   /** Keeps the View menu's Screen reader mode tick in step. */

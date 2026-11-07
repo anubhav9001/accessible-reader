@@ -1130,6 +1130,10 @@ ui.modes.addEventListener('change', (event) => {
 });
 window.reader.onCommand(handle);
 showScreenReaderMode();
+// "Version 0.7.1" in My books and in Help, so anyone can tell which build is installed.
+void window.reader.version().then((v) => {
+  for (const el of document.querySelectorAll<HTMLElement>('[data-version]')) el.textContent = `Reader version ${v}`;
+});
 ui.srToggle.addEventListener('change', () => {
   if (ui.srToggle.checked !== srMode) void toggleScreenReaderMode();
 });
