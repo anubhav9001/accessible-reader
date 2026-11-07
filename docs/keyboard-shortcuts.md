@@ -61,7 +61,7 @@ After Ctrl+T, or Tab into the contents:
 
 ## In screen reader mode
 
-These keys work in the book's text box, as in Paperback. Shift with the key goes backwards.
+These keys work in the book's text box. Shift with the key goes backwards.
 
 | Moves to | Key |
 |---|---|

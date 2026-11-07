@@ -70,13 +70,13 @@ Stepping by phrase or heading with the keyboard moves your screen reader into th
 
 ## Screen reader mode
 
-Screen reader mode works like the Paperback reader: the book is shown as plain text in a text box you can read but not change. The box holds the part of the book around your cursor and moves along with you as you read, so screen readers stay quick. Your screen reader's cursor is your reading position. Read with the arrow keys, Ctrl+arrows and say all, and Reader remembers exactly where the cursor is, down to the character, even after you open another book or close the app. When you open the book again, focus goes straight to that spot.
+In screen reader mode the book is shown as plain text in a text box you can read but not change. The box holds the part of the book around your cursor and moves along with you as you read, so screen readers stay quick. Your screen reader's cursor is your reading position. Read with the arrow keys, Ctrl+arrows and say all, and Reader remembers exactly where the cursor is, down to the character, even after you open another book or close the app. When you open the book again, focus goes straight to that spot.
 
 Reading line by line with the arrow keys goes straight on through the whole book. Say all may stop after a few pages; press it again to carry on.
 
-Turn it on or off with Ctrl+Shift+R, the **Screen reader mode** checkbox beside the reading modes, or **View → Screen reader mode**. Reader remembers the choice. NVDA switches to focus mode by itself when you reach the text box, as in Paperback, so the arrow keys and say all read straight away.
+Turn it on or off with Ctrl+Shift+R, the **Screen reader mode** checkbox beside the reading modes, or **View → Screen reader mode**. Reader remembers the choice. NVDA switches to focus mode by itself when you reach the text box, so the arrow keys and say all read straight away.
 
-In the text box, single keys move the cursor through the book's structure, as in Paperback. Shift with the key goes backwards.
+In the text box, single keys move the cursor through the book's structure. Shift with the key goes backwards.
 
 | Key | Moves to |
 |---|---|
@@ -84,7 +84,7 @@ In the text box, single keys move the cursor through the book's structure, as in
 | 1 to 6 | Next heading at that level |
 | P | Next printed page |
 | K | Next link (Enter or Space follows a link inside the book) |
-| T | Next table (each row is a line, cells divided by a bar). Enter on a table opens it as a real table, for NVDA's table commands (Ctrl+Alt+arrows); Escape comes back |
+| T | Next table. A line gives its size, each row is a line with cells divided by a bar and each cell starting with its column heading ("Date: 260 B.C. \| Name: Battle of Mylae"), and End of table follows. Enter on a table opens it as a real table, for NVDA's table commands (Ctrl+Alt+arrows); Escape comes back |
 | L / I | Next list / list item |
 | G / F / S | Next image / figure / separator |
 | ] / [ | Next / previous section (a part or chapter file of the book) |

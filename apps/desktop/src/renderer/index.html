@@ -37,7 +37,7 @@
         <label><input type="radio" name="mode" value="audio" /> Audio only</label>
         <label><input type="radio" name="mode" value="textAudio" /> Text and audio</label>
       </fieldset>
-      <label class="ui-sr-toggle"><input id="ui-sr-mode" type="checkbox" aria-keyshortcuts="Control+Shift+R" /> Screen reader mode (plain text, like Paperback)</label>
+      <label class="ui-sr-toggle"><input id="ui-sr-mode" type="checkbox" aria-keyshortcuts="Control+Shift+R" /> Screen reader mode (plain text)</label>
     </header>
     <div class="ui-layout">
       <nav id="ui-toc" aria-labelledby="ui-toc-heading" tabindex="-1">
@@ -47,7 +47,7 @@
       <main>
         <section class="ui-now" aria-labelledby="ui-now-label">
           <h2 id="ui-now-label" class="visually-hidden">Now reading</h2>
-          <p id="ui-sr-badge" class="ui-sr-badge" hidden>Screen reader mode: the book as plain text, like Paperback</p>
+          <p id="ui-sr-badge" class="ui-sr-badge" hidden>Screen reader mode: the book as plain text</p>
           <p><span id="ui-now-heading-text"></span> <span id="ui-now-page"></span></p>
           <p id="ui-now-time"></p>
         </section>
@@ -134,7 +134,7 @@
         </tbody>
       </table>
       <table>
-        <caption>Screen reader mode (like Paperback)</caption>
+        <caption>Screen reader mode</caption>
         <thead><tr><th scope="col">Command</th><th scope="col">Shortcut</th><th scope="col">What it does</th></tr></thead>
         <tbody>
           <tr><th scope="row">Screen reader mode</th><td>Ctrl+Shift+R</td><td>Turns it on or off (also the checkbox and the View menu). The book is shown as plain text. Read with the arrow keys and say all (say all may stop after a few pages; press it again); Reader remembers exactly where your cursor is, and puts it back there when you open the book again.</td></tr>
@@ -142,7 +142,7 @@
           <tr><th scope="row">Heading at a level</th><td>1 to 6 / Shift+1 to Shift+6</td><td>Next or previous heading at that level.</td></tr>
           <tr><th scope="row">Page</th><td>P / Shift+P</td><td>Next or previous printed page.</td></tr>
           <tr><th scope="row">Link</th><td>K / Shift+K</td><td>Next or previous link. Enter or Space follows a link inside the book.</td></tr>
-          <tr><th scope="row">Table</th><td>T / Shift+T</td><td>Next or previous table. Each row is a line, cells divided by a bar. Enter on a table opens it as a real table, for your screen reader's table commands.</td></tr>
+          <tr><th scope="row">Table</th><td>T / Shift+T</td><td>Next or previous table. A line before the table gives its size; each row is a line, cells divided by a bar and each cell starting with its column heading, then End of table. Enter on a table opens it as a real table, for your screen reader's table commands.</td></tr>
           <tr><th scope="row">List, list item</th><td>L / Shift+L, I / Shift+I</td><td>Next or previous list, or list item.</td></tr>
           <tr><th scope="row">Image, figure, separator</th><td>G, F, S (Shift goes back)</td><td>Next or previous image, figure or separator.</td></tr>
           <tr><th scope="row">Section</th><td>] / [</td><td>Next or previous section (a part or chapter file of the book).</td></tr>
@@ -192,7 +192,7 @@
       </fieldset>
       <fieldset>
         <legend>Screen reader</legend>
-        <label class="ui-sr-toggle"><input id="ui-set-sr" type="checkbox" /> Screen reader mode (plain text, like Paperback)</label>
+        <label class="ui-sr-toggle"><input id="ui-set-sr" type="checkbox" /> Screen reader mode (plain text)</label>
       </fieldset>
       <form method="dialog"><button value="close">Close</button></form>
     </dialog>

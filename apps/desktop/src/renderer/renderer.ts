@@ -169,7 +169,7 @@ libraryChoice.addEventListener('change', () => {
 
 // ---- screen reader mode -------------------------------------------------------------
 
-// Screen reader mode works like Paperback: the book as plain text in a text box that holds
+// Screen reader mode: the book as plain text in a text box that holds
 // the part around the cursor (see PlainReader). The screen reader's own cursor is the reading position, so Reader saves the exact
 // character and comes back to it. Single keys (H, 1 to 6, K, T, L, I, P, G, F, S, [ and ])
 // move the cursor through the book's structure, as in Paperback. The formatted chapter stays
@@ -206,6 +206,7 @@ let followingCaret = false;
 
 /** Speaks a short message through the screen reader (polite live region). */
 function announce(message: string): void {
+  if (document.activeElement === ui.plain) return plain.say(message);
   ui.status.textContent = '';
   setTimeout(() => (ui.status.textContent = message), 50);
 }

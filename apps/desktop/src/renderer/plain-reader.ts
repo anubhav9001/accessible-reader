@@ -67,6 +67,8 @@ export class PlainReader {
       this.win = undefined;
       this.place(at);
     });
+    // Back to its own name once focus leaves, so coming back says "Book text" (see say()).
+    area.addEventListener('blur', () => area.setAttribute('aria-label', 'Book text'));
     for (const type of ['keyup', 'mouseup', 'focus', 'select', 'selectionchange'] as const) {
       area.addEventListener(type, () => this.watchCaret());
     }
@@ -76,6 +78,19 @@ export class PlainReader {
   get caret(): number {
     return (this.win?.start ?? 0) + this.area.selectionStart;
   }
+
+  /**
+   * Speaks a message while the text box has focus. NVDA in focus mode on the box does not read
+   * the page's live region, but it always reads a change to the focused field's name, so the
+   * message becomes the box's name for the moment. A hair space alternates at the end so the
+   * same message twice is still a change.
+   */
+  say(message: string): void {
+    this.toggle = !this.toggle;
+    this.area.setAttribute('aria-label', message + (this.toggle ? '\u200a' : ''));
+  }
+
+  private toggle = false;
 
   get ready(): boolean {
     return !!this.book;

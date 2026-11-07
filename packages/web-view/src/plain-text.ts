@@ -81,10 +81,11 @@ class TextWriter {
     }
     const collapsed = raw.replace(/\s+/g, ' ');
     if (!collapsed.trim()) {
-      if (collapsed && !this.atLineStart) this.pendingSpace = true;
+      if (collapsed && !this.atLineStart && !this.afterSpace) this.pendingSpace = true;
       return;
     }
-    const lead = collapsed.startsWith(' ');
+    // No space straight after a marker that ends in one (" | ", "1. ").
+    const lead = collapsed.startsWith(' ') && !this.afterSpace;
     const trail = collapsed.endsWith(' ');
     if (lead && !this.atLineStart) this.pendingSpace = true;
     this.flushSpace();
@@ -101,7 +102,7 @@ class TextWriter {
 
   newline(): void {
     if (this.inCell) {
-      if (!this.atLineStart) this.pendingSpace = true;
+      if (!this.atLineStart && !this.afterSpace) this.pendingSpace = true;
       return;
     }
     this.pendingSpace = false;
@@ -122,11 +123,14 @@ class TextWriter {
     this.pendingSpace = false;
   }
 
+  private afterSpace = false;
+
   private push(s: string): void {
     if (!s) return;
     this.parts.push(s);
     this.length += s.length;
     this.atLineStart = s.endsWith('\n');
+    this.afterSpace = s.endsWith(' ');
   }
 }
 
@@ -169,6 +173,18 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
   const blockIndex = new Map(innermostBlocks(body).map((b, i) => [b as Element, i] as const));
   const pageMarkers = new Set(Array.from(body.querySelectorAll(PAGE_MARKERS)));
   let pre = 0;
+  // Column headings of each table, from its header row, so every cell can say its heading.
+  const headings = new Map<Element, { row: Element; names: string[] }>();
+  const headingsOf = (table: Element) => {
+    if (!headings.has(table)) {
+      const rows = Array.from(table.querySelectorAll('tr')).filter((tr) => tr.closest('table') === table);
+      const first = rows[0];
+      const cells = first ? Array.from(first.children).filter((c) => /^t[hd]$/i.test(c.localName)) : [];
+      const isHeader = !!first && cells.length > 1 && (first.parentElement?.localName.toLowerCase() === 'thead' || cells.every((c) => c.localName.toLowerCase() === 'th'));
+      headings.set(table, { row: isHeader ? first : table, names: isHeader ? cells.map((c) => clean(c.textContent)) : [] });
+    }
+    return headings.get(table)!;
+  };
 
   const visit = (node: Node): void => {
     if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) {
@@ -213,8 +229,26 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     const line = LINE_ELEMENTS.has(tag);
     if (line) w.newline();
 
-    // Cells of a row stay on one line, divided by a bar.
-    if ((tag === 'td' || tag === 'th') && el.previousElementSibling) w.marker(' | ');
+    // Cells of a row stay on one line, divided by a bar; in a table with a header row, each
+    // cell starts with its column heading ("Date: 260 B.C. | Name: Battle of Mylae").
+    if (tag === 'td' || tag === 'th') {
+      if (el.previousElementSibling) w.marker(' | ');
+      const table = el.closest('table');
+      const row = el.parentElement;
+      if (table && row) {
+        const { row: headerRow, names } = headingsOf(table);
+        const column = Array.from(row.children).indexOf(el);
+        const name = names[column];
+        if (row !== headerRow && name && clean(el.textContent)) w.marker(`${name}: `);
+      }
+    }
+    const introAt = w.here;
+    if (tag === 'table') {
+      const rows = Array.from(el.querySelectorAll('tr')).filter((tr) => tr.closest('table') === el).length;
+      const columns = Math.max(0, ...Array.from(el.querySelectorAll('tr')).map((tr) => tr.children.length));
+      w.marker(`Table, ${rows} row${rows === 1 ? '' : 's'}, ${columns} column${columns === 1 ? '' : 's'}. Enter opens it as a table.`);
+      w.newline();
+    }
     if (tag === 'li') {
       const list = el.parentElement;
       if (list?.localName.toLowerCase() === 'ol') {
@@ -251,7 +285,7 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     } else if (tag === 'table') {
       const rows = el.querySelectorAll('tr').length;
       const caption = clean(el.querySelector('caption')?.textContent);
-      book.items.push({ kind: 'table', start, end, count: rows, label: caption, html: tableMarkup(el) });
+      book.items.push({ kind: 'table', start: introAt, end, count: rows, label: caption, html: tableMarkup(el) });
     } else if (tag === 'ul' || tag === 'ol' || tag === 'dl') {
       const count = Array.from(el.children).filter((c) => /^(li|dt)$/i.test(c.localName)).length;
       book.items.push({ kind: 'list', start, end, count, label: '' });
@@ -263,6 +297,10 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     }
 
     if (line) w.newline();
+    if (tag === 'table') {
+      w.marker('End of table');
+      w.newline();
+    }
   };
 
   visit(body);
