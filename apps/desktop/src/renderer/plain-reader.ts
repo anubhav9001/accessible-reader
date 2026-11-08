@@ -281,6 +281,18 @@ export class PlainReader {
 
   private onKey(event: KeyboardEvent): void {
     if (!this.book || event.ctrlKey || event.altKey || event.metaKey) return;
+    // Near an end of the box, move the box on before the key does its usual job, so the
+    // screen reader hears an ordinary move to the next line rather than Reader moving the
+    // cursor and speaking for it.
+    if (/^(ArrowDown|ArrowUp|PageDown|PageUp)$/.test(event.key) && this.area.selectionStart === this.area.selectionEnd) {
+      const offset = this.caret;
+      if (this.nearEdge(offset)) {
+        const quiet = this.quiet;
+        this.quiet = true;
+        this.setCaret(offset);
+        this.quiet = quiet;
+      }
+    }
     if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !event.shiftKey && this.crossEdge(event.key === 'ArrowDown' ? 1 : -1)) {
       event.preventDefault();
       return;
