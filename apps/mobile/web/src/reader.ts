@@ -5,6 +5,7 @@ import {
   currentPage,
   defaultReadingMode,
   findPage,
+  flattenToc,
   nextHeading,
   nextPage,
   openPublication,
@@ -264,6 +265,39 @@ const methods = {
     const { book } = requireBook();
     const page = currentPage(book, clipIndex);
     return { heading: currentHeading(book, clipIndex)?.label ?? null, page: page ? `Page ${page.label}` : null };
+  },
+
+  /**
+   * The next (1) or previous (-1) entry of the table of contents from where the reader is,
+   * down to `depth` levels (0 = all). `byClip` is true for books read by clip.
+   */
+  section(direction: 1 | -1, depth: number, byClip: boolean, clipIndex: number) {
+    const { book, view } = requireBook();
+    const items = flattenToc(book.toc).filter((t) => !depth || t.level <= depth);
+    if (!items.length) return { none: true };
+    let current: (typeof items)[number] | undefined;
+    if (byClip) {
+      const h = currentHeading(book, clipIndex);
+      current = h && items.includes(h) ? h : items.filter((t) => t.clipIndex !== undefined && t.clipIndex <= clipIndex).at(-1);
+    } else if (view.currentPath) {
+      const order = book.readingOrder.map((r) => r.path.toLowerCase());
+      const here = order.indexOf(view.currentPath.toLowerCase());
+      const anchor = blocks[place] ?? view.current;
+      for (const item of items) {
+        const d = order.indexOf(item.target.path.toLowerCase());
+        if (d < 0 || d > here) continue;
+        if (d < here || !item.target.fragment) {
+          current = item;
+          continue;
+        }
+        const el = view.element(item.target.fragment);
+        if (el && anchor && (el === anchor || el.contains(anchor) || el.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING)) current = item;
+      }
+    }
+    const at = current ? items.indexOf(current) : -1;
+    const next = items[at < 0 ? (direction > 0 ? 0 : -1) : at + direction];
+    if (!next) return null;
+    return { label: next.label || 'Untitled', clipIndex: next.clipIndex ?? null, target: next.target };
   },
 
   findPage(label: string) {

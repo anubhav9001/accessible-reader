@@ -31,6 +31,8 @@ class HelpScreen extends StatelessWidget {
         ('Contents', 'Lists the book\'s chapters and sections. Choose one to go there.'),
         ('Go to page', 'In the More reading options menu. Type a printed page number to go to that page.'),
         ('Next page and Previous page', 'In the same menu. Move by printed page.'),
+        ('Next section and Previous section', 'In the same menu. Move to the next or previous entry of the contents.'),
+        ('Close book', 'In the same menu. Goes back to My books; your place is kept.'),
         ('Settings', 'In the More reading options menu, or on the My books screen. Reading speed, the voice for reading aloud, heading depth (which headings Previous and Next heading stop at, such as chapters only), how many levels the contents list shows, and screen reader mode. Remembered for all books.'),
       ],
     ),

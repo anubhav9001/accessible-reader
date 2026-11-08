@@ -457,6 +457,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _announce(r['label'] as String);
   }
 
+  /// Next (1) or previous (-1) entry of the table of contents.
+  Future<void> _stepSection(int direction) async {
+    final r = await _bridge.call<Map<String, dynamic>>('section', [direction, _contentsDepth, _usesClips, _clipIndex]);
+    if (r == null) return _announce(direction > 0 ? 'No next section' : 'No previous section');
+    if (r['none'] == true) return _announce('This book has no table of contents.');
+    await _goTo(
+      clipIndex: r['clipIndex'] as int?,
+      target: r['target'] == null ? null : TextRef.fromJson(r['target'] as Map<String, dynamic>),
+      label: r['label'] as String,
+    );
+  }
+
   Future<void> _goToPage() async {
     if (!(_book?.hasPages ?? false)) return _announce('This book has no page numbers.');
     final controller = TextEditingController();
@@ -591,7 +603,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
               'page' => _goToPage(),
               'next-page' => _stepPage(1),
               'prev-page' => _stepPage(-1),
+              'next-section' => _stepSection(1),
+              'prev-section' => _stepSection(-1),
               'settings' => _openSettings(),
+              'close' => Navigator.of(context).maybePop(),
               'help' => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
               _ => null,
             },
@@ -599,8 +614,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
               const PopupMenuItem(value: 'page', child: Text('Go to page')),
               const PopupMenuItem(value: 'next-page', child: Text('Next page')),
               const PopupMenuItem(value: 'prev-page', child: Text('Previous page')),
+              const PopupMenuItem(value: 'next-section', child: Text('Next section')),
+              const PopupMenuItem(value: 'prev-section', child: Text('Previous section')),
               const PopupMenuItem(value: 'settings', child: Text('Settings')),
               const PopupMenuItem(value: 'help', child: Text('Help: reading commands')),
+              const PopupMenuItem(value: 'close', child: Text('Close book')),
             ],
           ),
         ],
