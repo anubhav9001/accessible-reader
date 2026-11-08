@@ -22,6 +22,7 @@ import { blockAt, DocumentView } from '@accessible-reader/web-view';
 import { CatalogBrowser } from './catalog-browser';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
+import { MenuBar } from './menu-bar';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
@@ -34,6 +35,8 @@ declare global {
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+if (window.reader) new MenuBar($('ui-menubar'), window.reader);
 const ui = {
   title: $('ui-title'),
   meta: $('ui-meta'),

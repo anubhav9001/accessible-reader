@@ -1,11 +1,11 @@
 import { SUGAMYA_API, isSugamyaPath, openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, shell, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, shell, type MenuItem, type MenuItemConstructorOptions } from 'electron';
 import { mkdtempSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { BookInfo, Command, ModeState } from '../shared/api';
+import type { BookInfo, Command, MenuEntry, ModeState } from '../shared/api';
 import { FileCache, mimeType, openContainer } from './book-files';
 import { Library } from './library';
 
@@ -255,6 +255,39 @@ function buildMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// The menu bar is drawn inside the window (see menu-bar.ts) so it behaves like a Windows menu
+// with the keyboard: arrow keys only, and Escape steps back one level. The application menu
+// stays set, hidden, so its shortcut keys keep working; the window asks it for its items.
+const ROLE_KEYS: Record<string, string> = { zoomin: 'Ctrl+Plus', zoomout: 'Ctrl+Minus', resetzoom: 'Ctrl+0', toggledevtools: 'Ctrl+Shift+I' };
+
+function describe(items: MenuItem[], prefix: string): MenuEntry[] {
+  return items.map((it, i) => {
+    const path = prefix ? `${prefix}.${i}` : String(i);
+    const role = (it.role ?? '').toLowerCase();
+    return {
+      path,
+      type: it.type === 'submenu' || it.submenu ? 'submenu' : it.type === 'checkbox' || it.type === 'radio' || it.type === 'separator' ? it.type : 'normal',
+      label: it.label,
+      accelerator: String(it.accelerator ?? ROLE_KEYS[role] ?? '').replace(/CmdOrCtrl|CommandOrControl/, 'Ctrl').replace(/\+-$/, '+Minus'),
+      enabled: it.enabled,
+      checked: it.checked,
+      submenu: it.submenu ? describe(it.submenu.items, path) : undefined,
+    };
+  });
+}
+
+ipcMain.handle('menu-entries', () => describe(Menu.getApplicationMenu()?.items ?? [], ''));
+
+ipcMain.on('menu-run', (_event, path: string) => {
+  let items = Menu.getApplicationMenu()?.items ?? [];
+  let found: MenuItem | undefined;
+  for (const i of path.split('.').map(Number)) {
+    found = items[i];
+    items = found?.submenu?.items ?? [];
+  }
+  if (found && found.enabled && window) found.click(undefined, window, window.webContents);
+});
+
 function createWindow(): void {
   window = new BrowserWindow({
     width: 1200,
@@ -263,6 +296,7 @@ function createWindow(): void {
     show: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#121212' : '#ffffff',
     title: 'Reader',
+    autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -273,6 +307,8 @@ function createWindow(): void {
     },
   });
   // Links inside books must never replace the reader page or open new windows.
+  // The window draws its own menu bar; the application menu stays for its shortcut keys.
+  window.setMenuBarVisibility(false);
   window.webContents.on('will-navigate', (event) => event.preventDefault());
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (smoke || process.env.READER_MUTE === '1') window.webContents.setAudioMuted(true);

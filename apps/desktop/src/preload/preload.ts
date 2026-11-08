@@ -18,6 +18,8 @@ const api: ReaderApi = {
   screenReaderModeChanged: (on) => ipcRenderer.send('sr-mode-changed', on),
   headingDepthChanged: (level) => ipcRenderer.send('heading-depth-changed', level),
   bookReady: () => ipcRenderer.send('book-ready'),
+  menuEntries: () => ipcRenderer.invoke('menu-entries'),
+  runMenuItem: (path) => ipcRenderer.send('menu-run', path),
 };
 
 contextBridge.exposeInMainWorld('reader', api);

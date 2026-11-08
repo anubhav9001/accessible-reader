@@ -59,6 +59,19 @@ export interface LibraryEntry {
   missing: boolean;
 }
 
+/** One entry of the app's menu, as the in-window menu bar draws it. */
+export interface MenuEntry {
+  /** Position in the menu, e.g. "0.3" (File, fourth item); used to run it. */
+  path: string;
+  type: 'normal' | 'separator' | 'submenu' | 'checkbox' | 'radio';
+  /** Label with its access key marked by "&", as in "&Open book…". */
+  label: string;
+  accelerator: string;
+  enabled: boolean;
+  checked: boolean;
+  submenu?: MenuEntry[];
+}
+
 /** The API the preload script exposes to the reader window as `window.reader`. */
 export interface ReaderApi {
   openBookDialog(): Promise<BookInfo | null>;
@@ -83,4 +96,8 @@ export interface ReaderApi {
   /** Heading depth for navigation changed (0 = all levels), so the menu shows it. */
   headingDepthChanged(level: number): void;
   bookReady(): void;
+  /** The menu as it is right now (ticks and greyed items included). */
+  menuEntries(): Promise<MenuEntry[]>;
+  /** Runs a menu item, by its path. */
+  runMenuItem(path: string): void;
 }

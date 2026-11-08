@@ -34,7 +34,7 @@ From top to bottom:
 4. Where you are: the heading, page and time.
 5. The book text.
 
-Every command is also in the menu bar; press Alt to reach it. Press F1 for the full list, or see [keyboard shortcuts](keyboard-shortcuts.md).
+Every command is also in the menu bar. Press Alt or F10 to reach it, or Alt with a menu's underlined letter (Alt+F for File) to open that menu. Use the arrow keys to move; Tab stays in the menu. Escape goes back one step: from a submenu to its menu, from a menu to the menu bar, then back to where you were. Press F1 for the full list, or see [keyboard shortcuts](keyboard-shortcuts.md).
 
 ## Settings
 
