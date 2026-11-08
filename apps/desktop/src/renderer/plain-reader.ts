@@ -1,3 +1,4 @@
+import { log } from './log';
 import type { TextRef } from '@accessible-reader/engine';
 import { blockAt, buildPlainBook, findItem, itemAt, type PlainBlock, type PlainBook, type PlainItem, type PlainKind } from '@accessible-reader/web-view';
 
@@ -168,6 +169,7 @@ export class PlainReader {
     const quiet = this.quiet;
     this.quiet = true;
     this.area.value = text.slice(start, end);
+    log(`Text box now holds ${start} to ${end} of ${text.length} (cursor ${offset})`);
     this.win = { start, end };
     this.quiet = quiet;
   }
@@ -199,6 +201,7 @@ export class PlainReader {
 
   /** Moves to the next or previous item of a kind and says what is there. */
   go(kind: PlainKind, direction: 1 | -1, name: string, level?: number, maxLevel?: number): void {
+    log(`Screen reader mode key: ${direction > 0 ? 'next' : 'previous'} ${name}${level ? ` ${level}` : ''} from ${this.caret}`);
     if (!this.book) return;
     const item = findItem(this.book, this.caret, kind, direction, level, maxLevel);
     const what = level ? `${name} at level ${level}` : maxLevel ? `${name} at level ${maxLevel} or above` : name;
@@ -309,6 +312,7 @@ export class PlainReader {
    */
   private stepSentence(direction: 1 | -1): void {
     if (!this.book) return;
+    log(`Screen reader mode key: ${direction > 0 ? 'next' : 'previous'} sentence from ${this.caret}`);
     const text = this.book.text;
     const starts = (from: number, to: number) => {
       const list: number[] = [];

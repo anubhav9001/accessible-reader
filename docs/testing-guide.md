@@ -38,6 +38,15 @@ Thank you for testing Reader. Use it the way you would normally read, and tell u
 | What happened | What you heard or saw |
 | What you expected instead | What should have happened |
 
+### Sending the app log
+
+Tester builds (versions below 1.0) keep a log of what the app did: when it started, which book you opened, the commands and menu choices you used, what it said to your screen reader, and any errors. It helps us find the cause of a problem much faster, so please include it when you can.
+
+- **Windows:** **Help → Open log folder** opens the folder. Attach `reader.log` (and `reader.old.log` if there is one) to your report or email.
+- **Android:** **Help → Copy the app log, for a problem report**, then paste it into your report or email. The log is also in the phone's storage, in `Android/data/org.saksham.accessible_reader/files/logs`.
+
+The log never contains the book's text or full file paths. It does list book titles and what the app said aloud. Each file is kept below 1 MB.
+
 For something Reader doesn't do yet, **[suggest an idea](https://github.com/anubhav9001/accessible-reader/issues/new?template=feature-idea.yml)** instead.
 
 Before reporting, check the [known issues](releases/0.3.0.md#known-issues) in the release notes; it may already be listed.

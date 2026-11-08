@@ -8,6 +8,7 @@ import path from 'node:path';
 import type { BookInfo, Command, MenuEntry, ModeState } from '../shared/api';
 import { FileCache, mimeType, openContainer } from './book-files';
 import { Library } from './library';
+import { AppLog, isPreRelease } from './log';
 
 // One custom scheme serves both the reader UI (reader://app/…) and the open book's files
 // (reader://book/…), so audio can stream with range requests and text can be fetched.
@@ -23,6 +24,10 @@ const initialPath = smoke ? process.argv[smokeIndex + 1] : process.argv.slice(ap
 // The smoke test starts from a fresh profile, so no remembered reading position skews it.
 if (smoke) app.setPath('userData', mkdtempSync(path.join(tmpdir(), 'reader-smoke-')));
 
+const log = new AppLog(path.join(app.getPath('userData'), 'logs'), isPreRelease(app.getVersion(), app.isPackaged) && !smoke);
+process.on('uncaughtException', (err) => log.error('main', `Uncaught: ${err.stack ?? err}`));
+process.on('unhandledRejection', (err) => log.error('main', `Unhandled rejection: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`));
+
 let window: BrowserWindow | undefined;
 let container: Container | undefined;
 const cache = new FileCache();
@@ -34,6 +39,12 @@ async function loadBook(file: string): Promise<BookInfo> {
   const { container: c, ...info } = await openPublication(opened, xmldomPlatform);
   container = c;
   cache.clear();
+  log.info(
+    'book',
+    `Opened "${info.metadata.title || path.basename(file)}" (${path.basename(file)}): ${info.format}, ` +
+      `${info.readingOrder.length} documents, ${info.toc.length} top contents entries, ` +
+      `${info.pageList.length} pages, ${info.narration.length} narration clips.`,
+  );
   window?.setTitle(`${info.metadata.title || path.basename(file)} – Reader`);
   if (!smoke) await library?.record(file, info);
   return info;
@@ -75,6 +86,7 @@ async function catalogFetch(url: string, accept: string): Promise<globalThis.Res
       if (err instanceof Error && err.message.startsWith('The library answered')) throw err;
       failure = 'Could not reach the library. Check the internet connection and try again.';
     }
+    log.info('network', `Catalogue request failed (attempt ${attempt + 1}): ${failure}`);
     if (attempt === 2) throw new Error(failure);
     await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
   }
@@ -250,6 +262,9 @@ function buildMenu(): void {
         item('&Reading commands', 'help', 'F1'),
         { type: 'separator' },
         { label: 'Report a &problem…', click: () => void shell.openExternal('https://github.com/anubhav9001/accessible-reader/issues/new/choose') },
+        ...(log.enabled
+          ? [{ label: 'Open &log folder', click: () => void shell.openPath(log.dir) } as MenuItemConstructorOptions]
+          : []),
         { label: '&About Reader', click: () => void dialog.showMessageBox({ title: 'About Reader', message: `Reader version ${app.getVersion()}`, detail: 'An accessible reader for DAISY and EPUB books.' }) },
       ],
     },
@@ -278,6 +293,8 @@ function describe(items: MenuItem[], prefix: string): MenuEntry[] {
   });
 }
 
+ipcMain.on('log', (_event, level: 'info' | 'warn' | 'error', message: string) => log.write(level, 'window', String(message)));
+
 ipcMain.handle('menu-entries', () => describe(Menu.getApplicationMenu()?.items ?? [], ''));
 
 ipcMain.on('menu-run', (_event, path: string) => {
@@ -287,6 +304,7 @@ ipcMain.on('menu-run', (_event, path: string) => {
     found = items[i];
     items = found?.submenu?.items ?? [];
   }
+  log.info('menu', `${(found?.label ?? path).replace(/&/g, '')}`);
   if (found && found.enabled && window) found.click(undefined, window, window.webContents);
 });
 
@@ -312,6 +330,13 @@ function createWindow(): void {
   // The window draws its own menu bar; the application menu stays for its shortcut keys.
   window.setMenuBarVisibility(false);
   window.webContents.on('will-navigate', (event) => event.preventDefault());
+  // Errors and warnings from the page, and the page crashing or hanging, go to the log too.
+  window.webContents.on('console-message', (event) => {
+    if (event.level === 'warning' || event.level === 'error') log.write(event.level === 'error' ? 'error' : 'warn', 'console', `${event.message} (${path.basename(event.sourceId || '')}:${event.lineNumber})`);
+  });
+  window.webContents.on('render-process-gone', (_e, details) => log.error('window', `Page process gone: ${details.reason} (exit ${details.exitCode})`));
+  window.on('unresponsive', () => log.error('window', 'The window stopped responding.'));
+  window.on('responsive', () => log.info('window', 'The window is responding again.'));
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (smoke || process.env.READER_MUTE === '1') window.webContents.setAudioMuted(true);
   if (!smoke) window.once('ready-to-show', () => window?.show());
@@ -332,6 +357,7 @@ ipcMain.handle('open-book-dialog', async () => {
   try {
     return await loadBook(file);
   } catch (err) {
+    log.error('book', `Could not open ${path.basename(file)}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
     dialog.showErrorBox('Could not open book', err instanceof Error ? err.message : String(err));
     return null;
   }
@@ -391,10 +417,14 @@ async function runSmokeTest(): Promise<void> {
 }
 
 app.whenReady().then(() => {
+  log.start(app.getVersion(), process.versions);
   library = new Library(path.join(app.getPath('userData'), 'library.json'), booksDir());
   registerProtocol();
   buildMenu();
   createWindow();
 });
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => {
+  log.info('app', 'Reader closed.');
+  app.quit();
+});

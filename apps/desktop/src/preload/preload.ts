@@ -20,6 +20,7 @@ const api: ReaderApi = {
   bookReady: () => ipcRenderer.send('book-ready'),
   menuEntries: () => ipcRenderer.invoke('menu-entries'),
   runMenuItem: (path) => ipcRenderer.send('menu-run', path),
+  log: (level, message) => ipcRenderer.send('log', level, message),
 };
 
 contextBridge.exposeInMainWorld('reader', api);

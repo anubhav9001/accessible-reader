@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
+import 'app_log.dart';
 import 'app_version.dart';
 
 /// "Reading commands": what every button and menu item in the app does.
@@ -83,6 +85,22 @@ class HelpScreen extends StatelessWidget {
               ),
           ],
           const Padding(padding: EdgeInsets.only(top: 24), child: AppVersionText()),
+          // Tester builds keep a log; copying it lets a tester paste it into a report.
+          if (AppLog.enabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.copy),
+                label: const Text('Copy the app log, for a problem report'),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: AppLog.read()));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(const SnackBar(content: Text('App log copied. Paste it into your email or report.')));
+                  }
+                },
+              ),
+            ),
         ],
       ),
     );

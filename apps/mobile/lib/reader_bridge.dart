@@ -1,3 +1,4 @@
+import 'app_log.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -50,12 +51,15 @@ class ReaderBridge {
         final completer = _pending.remove(msg['id'] as int);
         if (completer == null) return;
         if (msg['error'] != null) {
+          AppLog.write('error', 'web', 'Bridge call failed: ${msg['error']}');
           completer.completeError(Exception(msg['error']));
         } else {
           completer.complete(msg['value']);
         }
       case 'link':
         onLink(TextRef.fromJson(msg['target'] as Map<String, dynamic>));
+      case 'log':
+        AppLog.write(msg['level'] as String? ?? 'info', 'web', msg['message'] as String? ?? '');
       case 'place':
         onPlace(msg['path'] as String, msg['index'] as int, msg['clip'] as int?);
     }

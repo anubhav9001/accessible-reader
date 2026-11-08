@@ -40,6 +40,13 @@ interface TextDoc {
 }
 
 const post = (message: object) => window.ReaderChannel?.postMessage(JSON.stringify(message));
+// Errors in the reading page go to the app's tester log.
+window.addEventListener('error', (e) =>
+  post({ type: 'log', level: 'error', message: `${e.message} (${e.filename?.split('/').pop()}:${e.lineno}) ${e.error?.stack ?? ''}` }),
+);
+window.addEventListener('unhandledrejection', (e) =>
+  post({ type: 'log', level: 'error', message: `Unhandled rejection: ${e.reason instanceof Error ? (e.reason.stack ?? e.reason.message) : String(e.reason)}` }),
+);
 const textEl = document.getElementById('text')!;
 
 let book: PublicationData | undefined;

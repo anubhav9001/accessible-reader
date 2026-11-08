@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'app_log.dart';
 import 'book_server.dart';
 import 'app_version.dart';
 import 'book_store.dart';
@@ -19,6 +22,17 @@ import 'sugamya_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLog.init();
+  // Every error goes to the tester log as well.
+  final showError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    AppLog.error('flutter', details.exception, details.stack);
+    showError?.call(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppLog.error('app', error, stack);
+    return false;
+  };
   final docs = await getApplicationDocumentsDirectory();
   final store = await BookStore.open(Directory(p.join(docs.path, 'books')));
   final server = BookServer(
@@ -126,6 +140,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _open(StoredBook book) async {
+    AppLog.info('book', 'Opening "${book.title}"');
     (await AppSettings.load()).lastBookId = book.id;
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(

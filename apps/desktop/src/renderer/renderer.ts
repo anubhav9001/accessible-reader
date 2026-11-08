@@ -23,6 +23,7 @@ import { CatalogBrowser } from './catalog-browser';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
 import { MenuBar } from './menu-bar';
+import { log } from './log';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
@@ -212,6 +213,7 @@ let followingCaret = false;
 
 /** Speaks a short message through the screen reader (polite live region). */
 function announce(message: string): void {
+  log(`Said: ${message}`);
   if (document.activeElement === ui.plain) return plain.say(message);
   ui.status.textContent = '';
   setTimeout(() => (ui.status.textContent = message), 50);
@@ -679,6 +681,7 @@ async function onPlainCaret(_offset: number, block: { path: string; index: numbe
 
 async function toggleScreenReaderMode(): Promise<void> {
   srMode = !srMode;
+  log(`Screen reader mode ${srMode ? 'on' : 'off'}`);
   try {
     localStorage.setItem(SR_MODE_KEY, srMode ? '1' : '0');
   } catch {
@@ -1240,6 +1243,7 @@ async function openFromDialog(): Promise<void> {
 }
 
 function handle(command: Command): void {
+  log(`Command: ${command}`);
   if (command.startsWith('level-')) return setHeadingDepth(Number(command.slice(6)));
   if (command === 'settings') return showSettings();
   if (command === 'open') return void openFromDialog();

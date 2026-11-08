@@ -1,3 +1,4 @@
+import 'app_log.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -89,6 +90,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final opened =
           await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files, _textOnly]);
       final book = OpenedBook.fromJson(opened!);
+      AppLog.info('book',
+          'Opened "${book.title}": ${book.narration.length} narration clips, ${book.toc.length} top contents entries, screen reader mode ${_textOnly ? 'on' : 'off'}.');
 
       _recorded = RecordedPlayer(
         clips: book.narration,
@@ -119,7 +122,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       } else {
         _announce('${book.title}. ${_mode.label} mode.');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLog.error('book', 'Could not open this book: $e', stack);
       setState(() => _error = 'Could not open this book: $e');
     }
   }
@@ -155,7 +159,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   final _announcer = Announcer();
 
+  /// Notes a menu choice in the tester log, and gives it back.
+  String _logged(String choice) {
+    AppLog.info('reader', 'Menu: $choice');
+    return choice;
+  }
+
   void _announce(String message) {
+    AppLog.info('reader', 'Said: $message');
     if (mounted) _announcer.say(context, message);
   }
 
@@ -182,6 +193,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   bool _textOnly = false;
 
   Future<void> _setTextOnly(bool on) async {
+    AppLog.info('reader', 'Screen reader mode ${on ? 'on' : 'off'}');
     if (on == _textOnly) return;
     await _pauseAll();
     setState(() => _textOnly = on);
@@ -229,6 +241,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   /// [restore] is for opening the book: it returns to the saved place, putting the screen reader there.
   Future<void> _setMode(ReadingMode next, {bool restore = false, String? savedBlockPath, int? savedBlock}) async {
+    AppLog.info('reader', 'Mode: ${next.name}${restore ? ' (restored)' : ''}');
     final book = _book;
     if (book == null) return;
     final option = book.option(next);
@@ -600,7 +613,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           PopupMenuButton<String>(
             tooltip: 'More reading options',
             enabled: book != null,
-            onSelected: (choice) => switch (choice) {
+            onSelected: (choice) => switch (_logged(choice)) {
               'page' => _goToPage(),
               'next-page' => _stepPage(1),
               'prev-page' => _stepPage(-1),

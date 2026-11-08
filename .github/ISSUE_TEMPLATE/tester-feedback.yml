@@ -62,3 +62,13 @@ body:
     id: expected
     attributes:
       label: What you expected instead
+  - type: textarea
+    id: log
+    attributes:
+      label: App log (optional)
+      description: >-
+        Tester builds keep a log of what the app did, which helps us find the cause.
+        Windows: Help, Open log folder, then attach reader.log (drag it here).
+        Android: Help, Copy the app log, then paste it here.
+        The log has no book text and no full file paths, but it does list book titles and what the app said aloud.
+      render: text

@@ -100,4 +100,6 @@ export interface ReaderApi {
   menuEntries(): Promise<MenuEntry[]>;
   /** Runs a menu item, by its path. */
   runMenuItem(path: string): void;
+  /** Adds a line to the tester log (pre-release builds only; see main/log.ts). */
+  log(level: 'info' | 'warn' | 'error', message: string): void;
 }
