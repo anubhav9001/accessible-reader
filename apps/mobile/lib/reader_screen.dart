@@ -580,7 +580,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     if (!mounted) return;
     setState(() {
-      _heading = heading;
+      // Headings can hold line breaks, which TalkBack would read out.
+      _heading = heading.replaceAll(RegExp(r'\s+'), ' ').trim();
       _page = page;
       _time = time;
     });

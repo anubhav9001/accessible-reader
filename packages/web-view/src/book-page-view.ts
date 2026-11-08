@@ -3,11 +3,13 @@ import { innermostBlocks, PAGE_MARKERS, parseBookDocument, REMOVED } from './doc
 
 // Structure kept in the text-only page, so a screen reader can still move by heading, list,
 // table and link. Everything else (styling, pictures, layout boxes) is left out.
+// Inline styling (italics, bold, spans) and line breaks are left out too: each one splits a
+// paragraph into pieces that TalkBack stops on one by one after reading the whole paragraph,
+// and a line break is read as "new line". Without them a paragraph is one piece of text.
 const KEPT = new Set([
-  'a', 'abbr', 'address', 'article', 'aside', 'b', 'blockquote', 'br', 'caption', 'cite', 'code', 'dd', 'div',
-  'dl', 'dt', 'em', 'figcaption', 'figure', 'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'i',
-  'li', 'main', 'nav', 'ol', 'p', 'pre', 'q', 's', 'section', 'small', 'span', 'strong', 'sub', 'sup', 'table',
-  'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
+  'a', 'address', 'article', 'aside', 'blockquote', 'caption', 'dd', 'div', 'dl', 'dt', 'figcaption', 'figure',
+  'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section',
+  'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul',
 ]);
 const KEPT_ATTRIBUTES = ['colspan', 'rowspan', 'scope', 'headers', 'lang', 'start', 'reversed', 'title'];
 const DROPPED = new Set(['audio', 'video', 'canvas', 'svg', 'math', 'head', 'title', 'template', 'object', 'picture', 'source']);
@@ -137,7 +139,8 @@ export class BookPageView {
     const section = this.sections.get(path.toLowerCase())?.el;
     if (!section) return undefined;
     if (!fragment) return section.querySelector<HTMLElement>('[data-block]') ?? section;
-    return section.querySelector<HTMLElement>(`[data-id="${CSS.escape(fragment)}"]`) ?? undefined;
+    const id = CSS.escape(fragment);
+    return section.querySelector<HTMLElement>(`[data-id="${id}"], [data-ids~="${id}"]`) ?? undefined;
   }
 
   /** A text-only copy of one document's body. */
@@ -146,7 +149,8 @@ export class BookPageView {
     const blockIndex = new Map(innermostBlocks(body).map((b, i) => [b as Element, i] as const));
     const markers = new Set(Array.from(body.querySelectorAll(PAGE_MARKERS)));
 
-    const copy = (node: Node, into: Node): void => {
+    // `block` is the block being copied into, which takes the ids of what is left out inside it.
+    const copy = (node: Node, into: Node, block?: HTMLElement): void => {
       if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) {
         into.appendChild(document.createTextNode((node as CharacterData).data));
         return;
@@ -155,6 +159,10 @@ export class BookPageView {
       const src = node as Element;
       const tag = src.localName.toLowerCase();
       if (DROPPED.has(tag) || src.hasAttribute('hidden')) return;
+      if (tag === 'br') {
+        into.appendChild(document.createTextNode(' '));
+        return;
+      }
 
       if (markers.has(src)) {
         const label = clean(src.getAttribute('aria-label') ?? src.getAttribute('title')) || `Page ${clean(src.textContent)}`;
@@ -177,7 +185,9 @@ export class BookPageView {
         return;
       }
 
-      const out: Node = KEPT.has(tag) ? document.createElement(tag) : document.createDocumentFragment();
+      // An anchor without a link (a page or note target) is left out too; its block takes its id.
+      const kept = KEPT.has(tag) && !(tag === 'a' && !src.hasAttribute('href'));
+      const out: Node = kept ? document.createElement(tag) : document.createDocumentFragment();
       if (out instanceof HTMLElement) {
         for (const name of KEPT_ATTRIBUTES) {
           const value = src.getAttribute(name);
@@ -185,21 +195,34 @@ export class BookPageView {
         }
         if (tag === 'div' && src.classList.contains('dtb-line')) out.className = 'dtb-line';
         this.keepId(src, out, n);
-        const block = blockIndex.get(src);
-        if (block !== undefined) out.dataset.block = String(block);
+        const index = blockIndex.get(src);
+        if (index !== undefined) {
+          out.dataset.block = String(index);
+          block = out;
+        }
         if (tag === 'a') this.keepLink(src, out as HTMLAnchorElement, path);
-      } else if (src.getAttribute('id')) {
-        // An unwrapped element's id still has to be reachable (links, narration clips).
-        const anchor = document.createElement('span');
-        this.keepId(src, anchor, n);
-        into.appendChild(anchor);
+      } else if (src.getAttribute('id') ?? (tag === 'a' ? src.getAttribute('name') : null)) {
+        // A left-out element's id still has to be reachable (links, narration clips): its
+        // block answers for it, so no empty element splits the text.
+        const id = (src.getAttribute('id') ?? src.getAttribute('name'))!;
+        if (block) {
+          block.dataset.ids = `${block.dataset.ids ?? ''} ${id}`.trim();
+        } else {
+          const anchor = document.createElement('span');
+          this.keepId(src, anchor, n);
+          into.appendChild(anchor);
+        }
       }
-      for (const child of Array.from(src.childNodes)) copy(child, out);
+      if (tag === 'q') out.appendChild(document.createTextNode('“'));
+      for (const child of Array.from(src.childNodes)) copy(child, out, block);
+      if (tag === 'q') out.appendChild(document.createTextNode('”'));
       into.appendChild(out);
     };
 
     const fragment = document.createDocumentFragment();
     for (const child of Array.from(body.childNodes)) copy(child, fragment);
+    // Neighbouring pieces of text become one, so each paragraph is read as one piece.
+    fragment.normalize();
     return fragment;
   }
 
