@@ -195,6 +195,10 @@ const plain = new PlainReader(ui.plain, {
   table: (item) => showTable(item.html ?? '', item.label, item.count ?? 0),
 });
 
+// A smaller text box while Narrator runs (see PlainReader.setSmall).
+window.reader?.onNarrator((running) => plain.setSmall(running));
+void window.reader?.narratorRunning().then((running) => plain.setSmall(running));
+
 /** Shows a table from screen reader mode as a real table, so table commands work in it. */
 function showTable(html: string, caption: string, rows: number): void {
   const dialog = $<HTMLDialogElement>('ui-table-dialog');

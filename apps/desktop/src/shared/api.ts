@@ -102,4 +102,7 @@ export interface ReaderApi {
   runMenuItem(path: string): void;
   /** Adds a line to the tester log (pre-release builds only; see main/log.ts). */
   log(level: 'info' | 'warn' | 'error', message: string): void;
+  /** Whether Narrator is running now, and when that changes. */
+  narratorRunning(): Promise<boolean>;
+  onNarrator(listener: (running: boolean) => void): void;
 }

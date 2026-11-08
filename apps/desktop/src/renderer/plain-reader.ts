@@ -23,13 +23,14 @@ const KEYS: Record<string, { kind: PlainKind; name: string; plural?: string }> =
   s: { kind: 'separator', name: 'separator' },
 };
 
-/**
- * The most characters the text box holds at once. NVDA reads the whole of a text field when
- * it gets focus; a whole book (over a million characters) froze it for more than ten seconds.
- */
-const WINDOW_SIZE = 20_000;
-/** When the cursor comes this close to either end of the box, the box moves on quietly. */
-const MARGIN = 5_000;
+// Box sizes, in characters, and how close to an end the cursor gets before the box moves on.
+// The box never holds the whole book: NVDA reads the whole of a text field when it gets focus,
+// and a whole book (over a million characters) froze it for more than ten seconds.
+// Narrator asks the box questions (formatting, the part on screen) whose answers take longer
+// the more text the box holds: about 1.4 s at 20,000 characters, 0.2 s at 4,000. So while
+// Narrator is running the box is small; otherwise it is large, so say all reads further.
+const LARGE = { size: 20_000, margin: 5_000 };
+const SMALL = { size: 4_000, margin: 1_000 };
 /** The end of a sentence: . ! ? (with closing quotes or brackets) and a space, or a line break. */
 const SENTENCE_START = /(?:[.!?…]+["'”’)\]]*[ \t]+|\n+)/g;
 /** How long the cursor must stay still before the box moves on (ms). */
@@ -153,16 +154,34 @@ export class PlainReader {
     const w = this.win;
     if (!w || !this.book) return true;
     if (offset < w.start || offset > w.end) return true;
-    return (w.start > 0 && offset - w.start < MARGIN) || (w.end < this.book.text.length && w.end - offset < MARGIN);
+    return (w.start > 0 && offset - w.start < this.box.margin) || (w.end < this.book.text.length && w.end - offset < this.box.margin);
   }
 
-  /** Fills the box with about WINDOW_SIZE characters around `offset`, cut at line breaks. */
+  private box = LARGE;
+
+  /** A small box while Narrator is running (see LARGE and SMALL). */
+  setSmall(small: boolean): void {
+    const box = small ? SMALL : LARGE;
+    if (box === this.box) return;
+    this.box = box;
+    log(`Text box size ${box.size} (${small ? 'Narrator is running' : 'Narrator is not running'})`);
+    if (!this.book || !this.win || this.area.selectionStart !== this.area.selectionEnd) return;
+    const offset = this.caret;
+    this.win = undefined;
+    const quiet = this.quiet;
+    this.quiet = true;
+    this.setCaret(offset);
+    this.quiet = quiet;
+  }
+
+  /** Fills the box with about `box.size` characters around `offset`, cut at line breaks. */
   private showAround(offset: number): void {
     if (!this.book) return;
     const text = this.book.text;
-    const from = Math.max(0, Math.min(offset - WINDOW_SIZE / 2, text.length - WINDOW_SIZE));
+    const size = this.box.size;
+    const from = Math.max(0, Math.min(offset - size / 2, text.length - size));
     const start = from > 0 ? Math.min(text.lastIndexOf('\n', from) + 1, offset) : 0;
-    let end = Math.min(text.length, start + WINDOW_SIZE);
+    let end = Math.min(text.length, start + size);
     if (end < text.length) {
       const cut = text.lastIndexOf('\n', end);
       end = cut >= offset ? cut : end;

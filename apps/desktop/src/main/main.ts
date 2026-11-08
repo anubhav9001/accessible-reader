@@ -1,6 +1,7 @@
 import { SUGAMYA_API, isSugamyaPath, openPublication, type Container } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, shell, type MenuItem, type MenuItemConstructorOptions } from 'electron';
+import { execFile } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -416,8 +417,31 @@ async function runSmokeTest(): Promise<void> {
   app.exit(ok ? 0 : 1);
 }
 
+/**
+ * Tells the window whether Narrator is running (checked every few seconds), because the
+ * screen reader mode text box is kept smaller for Narrator (see plain-reader.ts).
+ */
+let narrator: boolean | undefined;
+function watchNarrator(): void {
+  if (process.platform !== 'win32' || smoke) return;
+  const check = () =>
+    execFile('tasklist', ['/FI', 'IMAGENAME eq Narrator.exe', '/NH', '/FO', 'CSV'], { windowsHide: true }, (err, out) => {
+      // READER_FAKE_NARRATOR=1 lets tests try the Narrator-sized box without Narrator.
+      const running = process.env.READER_FAKE_NARRATOR === '1' || (!err && /narrator\.exe/i.test(out));
+      if (running === narrator) return;
+      narrator = running;
+      log.info('app', `Narrator ${running ? 'is running' : 'is not running'}`);
+      window?.webContents.send('narrator', running);
+    });
+  check();
+  setInterval(check, 4000);
+}
+
+ipcMain.handle('narrator-running', () => narrator ?? false);
+
 app.whenReady().then(() => {
   log.start(app.getVersion(), process.versions);
+  watchNarrator();
   library = new Library(path.join(app.getPath('userData'), 'library.json'), booksDir());
   registerProtocol();
   buildMenu();

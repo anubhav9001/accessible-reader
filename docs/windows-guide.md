@@ -97,3 +97,5 @@ These keys search the whole book, not just the chapter in the text box.
 | = | Says how far through the book you are, and the page |
 
 Ctrl+Space plays from the cursor, H and Shift+H move by heading (Alt+Up and Alt+Down are left to your screen reader here, so add-ons such as sentenceNav can use them for sentences), the table of contents moves the cursor to the chapter and marks the chapter you are in, and while Reader reads aloud the cursor follows the voice.
+
+With Narrator, the text box holds less of the book at a time (about a page), because Narrator responds slowly to a large text box. Reading by arrow keys is not affected; Narrator's read-all stops sooner, so start it again to read on.

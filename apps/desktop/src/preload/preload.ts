@@ -21,6 +21,10 @@ const api: ReaderApi = {
   menuEntries: () => ipcRenderer.invoke('menu-entries'),
   runMenuItem: (path) => ipcRenderer.send('menu-run', path),
   log: (level, message) => ipcRenderer.send('log', level, message),
+  narratorRunning: () => ipcRenderer.invoke('narrator-running'),
+  onNarrator: (listener) => {
+    ipcRenderer.on('narrator', (_event, running: boolean) => listener(running));
+  },
 };
 
 contextBridge.exposeInMainWorld('reader', api);
