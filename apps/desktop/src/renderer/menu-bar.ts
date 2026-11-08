@@ -43,6 +43,8 @@ export class MenuBar {
   private readonly entryOf = new WeakMap<HTMLElement, MenuEntry>();
   private readonly ownerOf = new WeakMap<HTMLElement, HTMLElement>();
   private returnTo: HTMLElement | null = null;
+  /** Told when menus open (true) and when the last one closes (false). */
+  onMenus: ((open: boolean) => void) | undefined;
   private altAlone = false;
 
   constructor(
@@ -165,10 +167,27 @@ export class MenuBar {
 
   /** Closes the open menus from `level` inwards. */
   private closeFrom(level: number): void {
+    const had = this.menus.length > 0;
     for (const menu of this.menus.splice(level)) {
       this.ownerOf.get(menu)?.setAttribute('aria-expanded', 'false');
       menu.remove();
     }
+    if (had && !this.menus.length) this.onMenus?.(false);
+  }
+
+  /** Alt, F10 or Alt with a letter pressed where the page doesn't see it (the native text box). */
+  fromOutside(letter: string | undefined): void {
+    if (this.modalOpen()) return;
+    if (!this.active) this.returnTo = document.activeElement as HTMLElement | null;
+    const back = this.returnTo;
+    if (letter === undefined) {
+      void this.enter(0).then(() => (this.returnTo = back));
+      return;
+    }
+    const i = this.entries.findIndex((t) => parseLabel(t.label).key === letter);
+    if (i < 0) return;
+    this.bar.classList.add('keys');
+    void this.openTop(i);
   }
 
   private async openTop(i: number, last = false): Promise<void> {
@@ -239,6 +258,7 @@ export class MenuBar {
     }
     owner.setAttribute('aria-expanded', 'true');
     this.ownerOf.set(menu, owner);
+    if (!this.menus.length) this.onMenus?.(true);
     this.menus.push(menu);
     document.body.append(menu);
     return menu;

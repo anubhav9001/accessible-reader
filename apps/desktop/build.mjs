@@ -21,7 +21,7 @@ await Promise.all([
     platform: 'node',
     format: 'cjs',
     target: 'node22',
-    external: ['electron'],
+    external: ['electron', 'koffi'],
     define: { __SUGAMYA_API_KEY__: JSON.stringify(sugamyaKey) },
   }),
   build({

@@ -105,4 +105,21 @@ export interface ReaderApi {
   /** Whether Narrator is running now, and when that changes. */
   narratorRunning(): Promise<boolean>;
   onNarrator(listener: (running: boolean) => void): void;
+  /** Screen reader mode's native Windows text box (see main/native-box.ts). */
+  native: {
+    available(): Promise<boolean>;
+    setText(text: string): Promise<void>;
+    setCaret(offset: number): void;
+    layout(visible: boolean, x: number, y: number, w: number, h: number): void;
+    style(fg: string, bg: string, face: string, px: number): void;
+    focus(): void;
+    say(message: string): void;
+    onCaret(listener: (offset: number) => void): void;
+    onKey(listener: (key: { key: string; code: string; shift: boolean; caret: number }) => void): void;
+    onTab(listener: (shift: boolean) => void): void;
+    onMenu(listener: (letter: string | null) => void): void;
+    onFocused(listener: (focused: boolean) => void): void;
+  };
+  /** Gives the keyboard back to the page when the native box has it. */
+  focusPage(why?: string): void;
 }

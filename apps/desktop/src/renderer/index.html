@@ -55,6 +55,7 @@
         </section>
         <article id="ui-text" tabindex="-1" aria-label="Book text"></article>
         <textarea id="ui-plain" class="ui-plain" hidden aria-label="Book text" spellcheck="false" autocomplete="off"></textarea>
+        <div id="ui-plain-native" class="ui-plain" hidden tabindex="0" aria-label="Book text"></div>
         <div id="ui-audio-only" class="ui-audio-only" hidden>
           <p>Audio only mode: the text is hidden. Use the Playback menu or its shortcuts to move through the book.</p>
         </div>
@@ -206,6 +207,7 @@
       <fieldset>
         <legend>Screen reader</legend>
         <label class="ui-check"><input id="ui-set-sr" type="checkbox" /> Screen reader mode (plain text)</label>
+        <label class="ui-check"><input id="ui-set-native" type="checkbox" /> Use the Windows text box (faster, especially with Narrator)</label>
       </fieldset>
       <form method="dialog"><button value="close">Close</button></form>
     </dialog>

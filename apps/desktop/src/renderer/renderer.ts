@@ -23,6 +23,7 @@ import { CatalogBrowser } from './catalog-browser';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
 import { MenuBar } from './menu-bar';
+import { NativeHost } from './native-host';
 import { log } from './log';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
@@ -37,7 +38,9 @@ declare global {
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
-if (window.reader) new MenuBar($('ui-menubar'), window.reader);
+const menuBar = window.reader ? new MenuBar($('ui-menubar'), window.reader) : undefined;
+/** Screen reader mode's native Windows text box, once made (see chooseTextBox). */
+let nativeHost: NativeHost | undefined;
 const ui = {
   title: $('ui-title'),
   meta: $('ui-meta'),
@@ -87,9 +90,11 @@ interface Settings {
   toolbarText: boolean;
   /** Open the last book read when Reader starts, instead of My books. */
   openLast: boolean;
+  /** Screen reader mode uses the native Windows text box (when available). */
+  nativeBox: boolean;
 }
 const settings: Settings = (() => {
-  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false, openLast: false };
+  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false, openLast: false, nativeBox: true };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
@@ -195,6 +200,47 @@ const plain = new PlainReader(ui.plain, {
   table: (item) => showTable(item.html ?? '', item.label, item.count ?? 0),
 });
 
+// ---- the native Windows text box for screen reader mode (native-host.ts) ----
+
+/** Uses the native box when Settings asks for it and it can be made; the page's box otherwise. */
+async function chooseTextBox(): Promise<void> {
+  const want = settings.nativeBox && !!window.reader && (await window.reader.native.available());
+  if (want && !nativeHost) nativeHost = new NativeHost(window.reader.native, $('ui-plain-native'));
+  plain.useNative(want ? nativeHost : undefined);
+  applyView();
+}
+
+if (window.reader) {
+  const api = window.reader;
+  api.native.onKey((key) => plain.nativeKey(key));
+  api.native.onCaret((offset) => plain.nativeCaret(offset));
+  api.native.onMenu((letter) => menuBar?.fromOutside(letter ?? undefined));
+  api.native.onTab((shift) => {
+    // Tab and Shift+Tab leave the box for the page's next or previous control.
+    const all = [...document.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]')].filter(
+      (el) => el.tabIndex >= 0 && !el.hidden && !(el as HTMLButtonElement).disabled && el.offsetParent !== null && !el.closest('[hidden], dialog:not([open])'),
+    );
+    const here = all.indexOf($('ui-plain-native'));
+    const next = all[(here + (shift ? -1 : 1) + all.length) % all.length];
+    next?.focus();
+  });
+  if (menuBar) menuBar.onMenus = (open) => nativeHost?.cover(open);
+  // A click on the page puts the keyboard there, not back in the box.
+  document.addEventListener(
+    'mousedown',
+    (e) => {
+      if (nativeHost?.active && (e.target as HTMLElement | null)?.id !== 'ui-plain-native') api.focusPage('click');
+    },
+    true,
+  );
+  // Focus moving to the page while the native box has the keyboard: give the page the keyboard.
+  const focus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    if (nativeHost?.focused && this.id !== 'ui-plain-native') api.focusPage(`${this.tagName.toLowerCase()}#${this.id || this.className}`);
+    return focus.call(this, options);
+  };
+}
+
 // A smaller text box while Narrator runs (see PlainReader.setSmall).
 window.reader?.onNarrator((running) => plain.setSmall(running));
 void window.reader?.narratorRunning().then((running) => plain.setSmall(running));
@@ -218,7 +264,7 @@ let followingCaret = false;
 /** Speaks a short message through the screen reader (polite live region). */
 function announce(message: string): void {
   log(`Said: ${message}`);
-  if (document.activeElement === ui.plain) return plain.say(message);
+  if (plain.hasFocus) return plain.say(message);
   ui.status.textContent = '';
   setTimeout(() => (ui.status.textContent = message), 50);
 }
@@ -641,7 +687,8 @@ function showingPlain(): boolean {
 /** Shows the formatted text, the plain-text box, or (audio only mode) neither. */
 function applyView(): void {
   ui.text.hidden = mode === 'audio' || srMode;
-  ui.plain.hidden = !showingPlain();
+  ui.plain.hidden = !showingPlain() || plain.usingNative;
+  nativeHost?.setActive(showingPlain() && plain.usingNative);
   ui.audioOnly.hidden = mode !== 'audio';
 }
 
@@ -789,7 +836,7 @@ function isOnScreen(el: HTMLElement): boolean {
 document.addEventListener('keydown', (event) => {
   if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-  if (event.target === ui.plain || document.querySelector('dialog:modal')) return;
+  if (event.target === ui.plain || plain.hasFocus || document.querySelector('dialog:modal')) return;
   event.preventDefault();
   handle(event.key === 'ArrowDown' ? 'next-heading' : 'prev-heading');
 });
@@ -1222,6 +1269,7 @@ function showSettings(): void {
   $<HTMLInputElement>('ui-set-sr').checked = srMode;
   $<HTMLInputElement>('ui-set-toolbar-text').checked = settings.toolbarText;
   $<HTMLInputElement>('ui-set-open-last').checked = settings.openLast;
+  $<HTMLInputElement>('ui-set-native').checked = settings.nativeBox;
   if (!dialog.open) dialog.showModal();
   $('ui-settings-title').focus();
 }
@@ -1358,6 +1406,11 @@ applyToolbarText();
     next.focus();
   });
 }
+$('ui-set-native').addEventListener('change', (e) => {
+  settings.nativeBox = (e.target as HTMLInputElement).checked;
+  saveSettings();
+  void chooseTextBox();
+});
 $('ui-set-open-last').addEventListener('change', (e) => {
   settings.openLast = (e.target as HTMLInputElement).checked;
   saveSettings();
@@ -1426,6 +1479,8 @@ window.readerDebug = {
     highlighted: view.current?.id,
   }),
 };
+
+void chooseTextBox();
 
 // Start where the reader left off: the book given on the command line; else, if Settings
 // asks for it, the last book read, at its saved place; else My books.

@@ -10,6 +10,7 @@ import type { BookInfo, Command, MenuEntry, ModeState } from '../shared/api';
 import { FileCache, mimeType, openContainer } from './book-files';
 import { Library } from './library';
 import { AppLog, isPreRelease } from './log';
+import { NativeBox } from './native-box';
 
 // One custom scheme serves both the reader UI (reader://app/…) and the open book's files
 // (reader://book/…), so audio can stream with range requests and text can be fetched.
@@ -298,6 +299,85 @@ ipcMain.on('log', (_event, level: 'info' | 'warn' | 'error', message: string) =>
 
 ipcMain.handle('menu-entries', () => describe(Menu.getApplicationMenu()?.items ?? [], ''));
 
+// ---- screen reader mode's native text box (see native-box.ts) ----
+
+let nativeBox: NativeBox | undefined;
+
+/** Menu items by their accelerator, in NativeBox's spelling ("ctrl+shift+r"), for keys pressed in the native box. */
+function menuAccelerator(accelerator: string): (() => void) | undefined {
+  if (!accelerator) return undefined;
+  const find = (items: MenuItem[]): MenuItem | undefined => {
+    for (const it of items) {
+      if (it.submenu) {
+        const inner = find(it.submenu.items);
+        if (inner) return inner;
+      } else if (it.accelerator && it.enabled && it.registerAccelerator !== false) {
+        const parts = String(it.accelerator).toLowerCase().replace(/cmdorctrl|commandorcontrol/, 'ctrl').split('+');
+        const key = parts.pop()!;
+        const spelled = [parts.includes('ctrl') && 'ctrl', parts.includes('alt') && 'alt', parts.includes('shift') && 'shift', key].filter(Boolean).join('+');
+        if (spelled === accelerator) return it;
+      }
+    }
+    return undefined;
+  };
+  const item = find(Menu.getApplicationMenu()?.items ?? []);
+  if (!item || !window) return undefined;
+  return () => {
+    log.info('native', `Shortcut ${accelerator}: ${item.label.replace(/&/g, '')}`);
+    // The page gets the keyboard first, so a command that moves focus there can; focus on the
+    // placeholder (the book text) comes back to the box (see native-host.ts).
+    if (nativeBox) nativeBox.wanted = false;
+    window?.webContents.focus();
+    item.click(undefined, window, window?.webContents);
+  };
+}
+
+function ensureNativeBox(): NativeBox | undefined {
+  if (nativeBox || !window) return nativeBox;
+  const send = (channel: string, ...args: unknown[]) => window?.webContents.send(channel, ...args);
+  nativeBox = NativeBox.create(
+    window,
+    {
+      caret: (offset) => send('native-caret', offset),
+      key: (key) => send('native-key', key),
+      tab: (shift) => {
+        if (nativeBox) nativeBox.wanted = false;
+        window?.webContents.focus();
+        send('native-tab', shift);
+      },
+      menu: (letter) => {
+        if (nativeBox) nativeBox.wanted = false;
+        window?.webContents.focus();
+        send('native-menu', letter ?? null);
+      },
+      focus: (focused) => send('native-focused', focused),
+    },
+    menuAccelerator,
+    log,
+  );
+  return nativeBox;
+}
+
+ipcMain.handle('native-available', () => !!ensureNativeBox());
+ipcMain.handle('native-text', (_e, text: string) => {
+  const t0 = Date.now();
+  ensureNativeBox()?.setText(text);
+  log.info('native', `Text set: ${text.length} characters in ${Date.now() - t0} ms`);
+});
+ipcMain.on('native-set-caret', (_e, offset: number) => nativeBox?.setCaret(offset));
+ipcMain.on('native-layout', (_e, visible: boolean, x: number, y: number, w: number, h: number) => nativeBox?.layout(visible, x, y, w, h));
+ipcMain.on('native-style', (_e, fg: string, bg: string, face: string, px: number) =>
+  nativeBox?.style(fg, bg, face, px * 0.75 * (window?.webContents.getZoomFactor() ?? 1)),
+);
+ipcMain.on('native-focus', () => nativeBox?.focus());
+ipcMain.on('native-say', (_e, message: string) => nativeBox?.say(message));
+ipcMain.on('focus-page', (_e, why?: string) => {
+  if (!nativeBox) return;
+  log.info('native', `Page takes the keyboard (${why ?? 'focus moved'})`);
+  nativeBox.wanted = false;
+  if (nativeBox.focused) window?.webContents.focus();
+});
+
 ipcMain.on('menu-run', (_event, path: string) => {
   let items = Menu.getApplicationMenu()?.items ?? [];
   let found: MenuItem | undefined;
@@ -341,6 +421,24 @@ function createWindow(): void {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (smoke || process.env.READER_MUTE === '1') window.webContents.setAudioMuted(true);
   if (!smoke) window.once('ready-to-show', () => window?.show());
+  // Coming back to the window: the native box gets the keyboard back if it had it.
+  // Coming back to the window, Chromium gives its page the keyboard: hand it back to the native
+  // box if the box had it (a click on the page says otherwise first; see renderer.ts).
+  const backToBox = () => {
+    if (!nativeBox?.wanted) return;
+    setTimeout(() => {
+      if (nativeBox?.wanted && !nativeBox.focused) {
+        log.info('native', 'Keyboard back to the box');
+        nativeBox.focus();
+      }
+    }, 80);
+  };
+  window.on('focus', backToBox);
+  window.webContents.on('focus', backToBox);
+  window.on('closed', () => {
+    nativeBox?.destroy();
+    nativeBox = undefined;
+  });
   window.loadURL('reader://app/index.html');
 }
 

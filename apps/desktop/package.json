@@ -59,6 +59,12 @@
         "role": "Viewer"
       }
     ],
-    "electronVersion": "45.2.1"
+    "electronVersion": "45.2.1",
+    "asarUnpack": [
+      "**/node_modules/koffi/**"
+    ]
+  },
+  "dependencies": {
+    "koffi": "^3.3.7"
   }
 }

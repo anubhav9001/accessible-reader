@@ -1,3 +1,4 @@
+import type { NativeHost } from './native-host';
 import { log } from './log';
 import type { TextRef } from '@accessible-reader/engine';
 import { blockAt, buildPlainBook, findItem, itemAt, type PlainBlock, type PlainBook, type PlainItem, type PlainKind } from '@accessible-reader/web-view';
@@ -82,8 +83,50 @@ export class PlainReader {
     }
   }
 
+  /**
+   * The native Windows text box, when screen reader mode uses it (see native-host.ts). It holds
+   * the whole book, so the box never has to move on.
+   */
+  private native: NativeHost | undefined;
+
+  /** Switches between the native box and the page's own text box, keeping the cursor. */
+  useNative(host: NativeHost | undefined): void {
+    if (host === this.native) return;
+    const at = this.book ? this.caret : 0;
+    this.native?.setActive(false);
+    this.native = host;
+    this.area.hidden = !!host || this.area.hidden;
+    this.win = undefined;
+    if (host) host.setActive(true);
+    if (this.book) this.place(at);
+  }
+
+  get usingNative(): boolean {
+    return !!this.native;
+  }
+
+  /** Whether the reader's keyboard is in the book text (either box). */
+  get hasFocus(): boolean {
+    return this.native ? this.native.focused : document.activeElement === this.area;
+  }
+
+  /** A key of Reader's own pressed in the native box. */
+  nativeKey(k: { key: string; code: string; shift: boolean; caret: number }): void {
+    if (!this.native) return;
+    this.native.caret = k.caret;
+    this.onKey({ key: k.key, code: k.code, shiftKey: k.shift, ctrlKey: false, altKey: false, metaKey: false, preventDefault() {} } as KeyboardEvent);
+  }
+
+  /** The native box's cursor moved (arrow keys, mouse). */
+  nativeCaret(offset: number): void {
+    if (!this.native) return;
+    this.native.caret = offset;
+    this.watchCaret();
+  }
+
   /** The cursor, as an offset into the whole book. */
   get caret(): number {
+    if (this.native) return this.native.caret;
     return (this.win?.start ?? 0) + this.area.selectionStart;
   }
 
@@ -94,6 +137,7 @@ export class PlainReader {
    * same message twice is still a change.
    */
   say(message: string): void {
+    if (this.native) return this.native.say(message);
     this.toggle = !this.toggle;
     this.area.setAttribute('aria-label', message + (this.toggle ? '\u200a' : ''));
   }
@@ -109,6 +153,7 @@ export class PlainReader {
     this.book = undefined;
     this.building = undefined;
     this.area.value = '';
+    if (this.native) void this.native.setText('');
     this.lastCaret = -1;
     this.win = undefined;
   }
@@ -143,6 +188,11 @@ export class PlainReader {
   /** Puts the cursor at `offset`, first moving the box on if it is outside or near an end. */
   private setCaret(offset: number): void {
     if (!this.book) return;
+    if (this.native) {
+      if (!this.win) this.showAround(offset);
+      this.native.setCaret(offset);
+      return;
+    }
     if (!this.win || this.nearEdge(offset)) this.showAround(offset);
     const w = this.win!;
     const local = Math.max(0, Math.min(offset - w.start, w.end - w.start));
@@ -151,6 +201,7 @@ export class PlainReader {
 
   /** Whether `offset` is outside the box, or close to an end of it that isn't the book's. */
   private nearEdge(offset: number): boolean {
+    if (this.native) return false;
     const w = this.win;
     if (!w || !this.book) return true;
     if (offset < w.start || offset > w.end) return true;
@@ -165,7 +216,7 @@ export class PlainReader {
     if (box === this.box) return;
     this.box = box;
     log(`Text box size ${box.size} (${small ? 'Narrator is running' : 'Narrator is not running'})`);
-    if (!this.book || !this.win || this.area.selectionStart !== this.area.selectionEnd) return;
+    if (!this.book || !this.win || this.native || this.area.selectionStart !== this.area.selectionEnd) return;
     const offset = this.caret;
     this.win = undefined;
     const quiet = this.quiet;
@@ -178,6 +229,12 @@ export class PlainReader {
   private showAround(offset: number): void {
     if (!this.book) return;
     const text = this.book.text;
+    if (this.native) {
+      // The native box holds the whole book.
+      this.win = { start: 0, end: text.length };
+      void this.native.setText(text).then(() => this.native?.setCaret(this.native.caret));
+      return;
+    }
     const size = this.box.size;
     const from = Math.max(0, Math.min(offset - size / 2, text.length - size));
     const start = from > 0 ? Math.min(text.lastIndexOf('\n', from) + 1, offset) : 0;
@@ -196,6 +253,7 @@ export class PlainReader {
   }
 
   focus(): void {
+    if (this.native) return this.native.focus();
     this.area.focus();
   }
 
@@ -273,7 +331,7 @@ export class PlainReader {
    * reading aloud), scroll roughly to the cursor's line so sighted helpers can follow.
    */
   private scrollToCaret(): void {
-    if (document.activeElement === this.area || !this.book) return;
+    if (this.native || document.activeElement === this.area || !this.book) return;
     const length = this.area.value.length;
     const ratio = length ? this.area.selectionStart / length : 0;
     this.area.scrollTop = Math.max(0, ratio * this.area.scrollHeight - this.area.clientHeight / 3);
@@ -284,7 +342,7 @@ export class PlainReader {
     // Near an end of the box, move the box on before the key does its usual job, so the
     // screen reader hears an ordinary move to the next line rather than Reader moving the
     // cursor and speaking for it.
-    if (/^(ArrowDown|ArrowUp|PageDown|PageUp)$/.test(event.key) && this.area.selectionStart === this.area.selectionEnd) {
+    if (!this.native && /^(ArrowDown|ArrowUp|PageDown|PageUp)$/.test(event.key) && this.area.selectionStart === this.area.selectionEnd) {
       const offset = this.caret;
       if (this.nearEdge(offset)) {
         const quiet = this.quiet;
@@ -323,7 +381,7 @@ export class PlainReader {
    * its last line (or first) and the book goes on, move to the next (or previous) line here.
    */
   private crossEdge(direction: 1 | -1): boolean {
-    if (!this.book || !this.win) return false;
+    if (!this.book || !this.win || this.native) return false;
     const value = this.area.value;
     const local = this.area.selectionStart;
     const text = this.book.text;
@@ -418,7 +476,7 @@ export class PlainReader {
   private edgeTimer: ReturnType<typeof setTimeout> | undefined;
 
   private moveBoxOn(): void {
-    if (!this.book || this.quiet || this.area.selectionStart !== this.area.selectionEnd) return;
+    if (!this.book || this.quiet || this.native || this.area.selectionStart !== this.area.selectionEnd) return;
     const offset = this.caret;
     if (!this.nearEdge(offset)) return;
     this.quiet = true;

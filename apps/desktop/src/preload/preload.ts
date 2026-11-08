@@ -22,6 +22,21 @@ const api: ReaderApi = {
   runMenuItem: (path) => ipcRenderer.send('menu-run', path),
   log: (level, message) => ipcRenderer.send('log', level, message),
   narratorRunning: () => ipcRenderer.invoke('narrator-running'),
+  native: {
+    available: () => ipcRenderer.invoke('native-available'),
+    setText: (text) => ipcRenderer.invoke('native-text', text),
+    setCaret: (offset) => ipcRenderer.send('native-set-caret', offset),
+    layout: (visible, x, y, w, h) => ipcRenderer.send('native-layout', visible, x, y, w, h),
+    style: (fg, bg, face, px) => ipcRenderer.send('native-style', fg, bg, face, px),
+    focus: () => ipcRenderer.send('native-focus'),
+    say: (message) => ipcRenderer.send('native-say', message),
+    onCaret: (listener) => void ipcRenderer.on('native-caret', (_e, offset: number) => listener(offset)),
+    onKey: (listener) => void ipcRenderer.on('native-key', (_e, key) => listener(key)),
+    onTab: (listener) => void ipcRenderer.on('native-tab', (_e, shift: boolean) => listener(shift)),
+    onMenu: (listener) => void ipcRenderer.on('native-menu', (_e, letter: string | null) => listener(letter)),
+    onFocused: (listener) => void ipcRenderer.on('native-focused', (_e, focused: boolean) => listener(focused)),
+  },
+  focusPage: (why) => ipcRenderer.send('focus-page', why),
   onNarrator: (listener) => {
     ipcRenderer.on('narrator', (_event, running: boolean) => listener(running));
   },

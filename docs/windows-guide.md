@@ -45,6 +45,7 @@ Press Ctrl+Comma, choose **Settings** in the toolbar, or **File → Settings**. 
 - **Heading depth:** which headings next and previous heading stop at: all levels, level 1 only, or levels 1 to 2 up to 1 to 6. Also in the **Navigate** menu.
 - **Table of contents:** how many levels of the contents are shown open. You can still open any part with the Right arrow.
 - **Open the last book read when Reader starts:** instead of My books, Reader opens the book you read last, at your place.
+- **Use the Windows text box (screen reader mode):** on by default. The book text is a native Windows text box, which screen readers read fastest. Turn it off only if it causes a problem.
 - **Show text on toolbar buttons:** the toolbar shows icons only unless this is on. Screen readers read each button's name either way.
 - **Screen reader mode.**
 
@@ -98,4 +99,4 @@ These keys search the whole book, not just the chapter in the text box.
 
 Ctrl+Space plays from the cursor, H and Shift+H move by heading (Alt+Up and Alt+Down are left to your screen reader here, so add-ons such as sentenceNav can use them for sentences), the table of contents moves the cursor to the chapter and marks the chapter you are in, and while Reader reads aloud the cursor follows the voice.
 
-With Narrator, the text box holds less of the book at a time (about a page), because Narrator responds slowly to a large text box. Reading by arrow keys is not affected; Narrator's read-all stops sooner, so start it again to read on.
+Screen reader mode uses a native Windows text box, like other Windows reading apps, so NVDA, JAWS and Narrator respond straight away and the whole book is in one box: say all and Narrator's read-all go on to the end. If Narrator's scan mode is on, it catches the arrow keys; press Caps Lock+Space to turn scan mode off in the book text. To use the earlier text box instead, turn off **Use the Windows text box** in Settings, under Screen reader.
