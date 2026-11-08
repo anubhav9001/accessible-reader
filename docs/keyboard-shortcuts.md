@@ -30,9 +30,12 @@ Every command is also in the menu bar (press Alt), and F1 shows this list inside
 | Previous phrase | Alt+Left |
 | Next heading | Alt+Down |
 | Previous heading | Alt+Up |
+
+In the book's text box in screen reader mode, Alt+Down and Alt+Up are left to your screen reader (for example the next and previous sentence commands of NVDA's sentenceNav add-on). Use H and Shift+H there to move by heading.
+
 | Next page | Alt+Page Down |
 | Previous page | Alt+Page Up |
-| Next section (contents entry) | Ctrl+Page Down |
+| Next section (same level of the contents, skipping sub-sections) | Ctrl+Page Down |
 | Previous section | Ctrl+Page Up |
 | Go to page | Ctrl+G |
 | Heading depth for navigation | Settings, or Navigate menu |
@@ -76,4 +79,5 @@ These keys work in the book's text box. Shift with the key goes backwards.
 | Next list / list item | L / I |
 | Next image / figure / separator | G / F / S |
 | Next / previous section | ] / [ |
+| Next / previous sentence (reads it) | . (full stop) / Shift+. |
 | How far through the book | = |

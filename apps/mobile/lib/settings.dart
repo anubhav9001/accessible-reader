@@ -49,6 +49,14 @@ class AppSettings {
   bool get screenReaderMode => _prefs.getBool('screenReaderMode') ?? false;
   set screenReaderMode(bool value) => _prefs.setBool('screenReaderMode', value);
 
+  /// Open the last book read when the app starts, instead of My books.
+  bool get openLastBook => _prefs.getBool('openLastBook') ?? false;
+  set openLastBook(bool value) => _prefs.setBool('openLastBook', value);
+
+  /// The book opened most recently, for [openLastBook].
+  String? get lastBookId => _prefs.getString('lastBookId');
+  set lastBookId(String? value) => value == null ? _prefs.remove('lastBookId') : _prefs.setString('lastBookId', value);
+
   static String speedLabel(double r) => r == 1.0 ? 'Normal (1×)' : '$r×';
 
   static String depthLabel(int level) => switch (level) {
@@ -182,6 +190,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('The whole book as one page of plain text, for TalkBack and VoiceOver'),
             value: _s.screenReaderMode,
             onChanged: (on) => setState(() => _s.screenReaderMode = on),
+          ),
+          SwitchListTile(
+            title: const Text('Open the last book when the app starts'),
+            subtitle: const Text('Instead of starting at My books'),
+            value: _s.openLastBook,
+            onChanged: (on) => setState(() => _s.openLastBook = on),
           ),
         ],
       ),

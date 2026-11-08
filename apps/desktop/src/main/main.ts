@@ -205,8 +205,10 @@ function buildMenu(): void {
         { type: 'separator' },
         item('&Next phrase', 'next-phrase', 'Alt+Right'),
         item('P&revious phrase', 'prev-phrase', 'Alt+Left'),
-        item('Next &heading', 'next-heading', 'Alt+Down'),
-        item('Previous h&eading', 'prev-heading', 'Alt+Up'),
+        // Shown here but handled by the page (see renderer.ts), so in the book's text box in
+        // screen reader mode they are left to the screen reader's own sentence commands.
+        { ...item('Next &heading', 'next-heading', 'Alt+Down'), registerAccelerator: false },
+        { ...item('Previous h&eading', 'prev-heading', 'Alt+Up'), registerAccelerator: false },
         item('Next pa&ge', 'next-page', 'Alt+PageDown'),
         item('Previous pag&e', 'prev-page', 'Alt+PageUp'),
         item('Next se&ction', 'next-section', 'CmdOrCtrl+PageDown'),

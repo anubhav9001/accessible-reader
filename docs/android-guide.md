@@ -39,7 +39,7 @@ The buttons at the bottom are **Previous heading**, **Previous phrase**, **Play 
 The **Contents** button at the top lists chapters and sections. The **More reading options** menu has:
 
 - **Go to page** and **Next page** / **Previous page**, for books with printed page numbers
-- **Next section** / **Previous section**: the next or previous entry of the contents
+- **Next section** / **Previous section**: the next or previous section of the contents at the same level, skipping its sub-sections (for example, chapter to chapter)
 - **Close book**: back to My books, keeping your place
 - **Settings** (see below)
 - **Help: reading commands**, a list of every command

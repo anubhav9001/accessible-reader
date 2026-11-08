@@ -61,6 +61,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _importing = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Settings can ask to go straight back into the last book read.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final settings = await AppSettings.load();
+      final id = settings.lastBookId;
+      if (!mounted || !settings.openLastBook || id == null) return;
+      final book = widget.store.books.where((b) => b.id == id).firstOrNull;
+      if (book != null) await _open(book);
+    });
+  }
+
+  @override
   void dispose() {
     _catalogClient.close();
     super.dispose();
@@ -113,6 +126,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _open(StoredBook book) async {
+    (await AppSettings.load()).lastBookId = book.id;
+    if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => ReaderScreen(store: widget.store, server: widget.server, book: book),
     ));

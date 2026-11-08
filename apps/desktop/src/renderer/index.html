@@ -119,9 +119,9 @@
         <tbody>
           <tr><th scope="row">Play or pause</th><td>Ctrl+Space</td><td>Starts or stops reading from the current phrase.</td></tr>
           <tr><th scope="row">Next / previous phrase</th><td>Alt+Right / Alt+Left</td><td>Moves one phrase or paragraph.</td></tr>
-          <tr><th scope="row">Next / previous heading</th><td>Alt+Down / Alt+Up</td><td>Jumps to the next or previous chapter or section heading.</td></tr>
+          <tr><th scope="row">Next / previous heading</th><td>Alt+Down / Alt+Up</td><td>Jumps to the next or previous chapter or section heading. In screen reader mode's text box, use H and Shift+H instead: Alt+Down and Alt+Up are left to your screen reader there.</td></tr>
           <tr><th scope="row">Next / previous page</th><td>Alt+Page Down / Alt+Page Up</td><td>Moves by printed page.</td></tr>
-          <tr><th scope="row">Next / previous section</th><td>Ctrl+Page Down / Ctrl+Page Up</td><td>Moves to the next or previous entry of the table of contents.</td></tr>
+          <tr><th scope="row">Next / previous section</th><td>Ctrl+Page Down / Ctrl+Page Up</td><td>Moves to the next or previous section of the table of contents at the same level, skipping its sub-sections (for example, chapter to chapter). Next heading stops at every heading instead.</td></tr>
           <tr><th scope="row">Go to page</th><td>Ctrl+G</td><td>Goes to a printed page number.</td></tr>
           <tr><th scope="row">Heading depth</th><td>Settings, or Navigate menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
         </tbody>
@@ -144,6 +144,7 @@
           <tr><th scope="row">Screen reader mode</th><td>Ctrl+Shift+R</td><td>Turns it on or off (also the checkbox and the View menu). The book is shown as plain text. Read with the arrow keys and say all (say all may stop after a few pages; press it again); Reader remembers exactly where your cursor is, and puts it back there when you open the book again.</td></tr>
           <tr><th scope="row">Next / previous heading</th><td>H / Shift+H</td><td>Anywhere in the book.</td></tr>
           <tr><th scope="row">Heading at a level</th><td>1 to 6 / Shift+1 to Shift+6</td><td>Next or previous heading at that level.</td></tr>
+          <tr><th scope="row">Sentence</th><td>. (full stop) / Shift+.</td><td>Next or previous sentence, and reads it. Works with any screen reader, including Narrator.</td></tr>
           <tr><th scope="row">Page</th><td>P / Shift+P</td><td>Next or previous printed page.</td></tr>
           <tr><th scope="row">Link</th><td>K / Shift+K</td><td>Next or previous link. Enter or Space follows a link inside the book.</td></tr>
           <tr><th scope="row">Table</th><td>T / Shift+T</td><td>Next or previous table. A line before the table gives its size; each row is a line, cells divided by a bar and each cell starting with its column heading, then End of table. Enter on a table opens it as a real table, for your screen reader's table commands.</td></tr>
@@ -193,6 +194,10 @@
           <option value="2">Levels 1 to 2</option>
           <option value="3">Levels 1 to 3</option>
         </select>
+      </fieldset>
+      <fieldset>
+        <legend>Starting up</legend>
+        <label class="ui-check"><input id="ui-set-open-last" type="checkbox" /> Open the last book read when Reader starts</label>
       </fieldset>
       <fieldset>
         <legend>Appearance</legend>

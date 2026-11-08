@@ -84,9 +84,11 @@ interface Settings {
   voice: string;
   tocDepth: number;
   toolbarText: boolean;
+  /** Open the last book read when Reader starts, instead of My books. */
+  openLast: boolean;
 }
 const settings: Settings = (() => {
-  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false };
+  const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false, openLast: false };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
@@ -774,6 +776,17 @@ function isOnScreen(el: HTMLElement): boolean {
   return box.bottom > area.top && box.top < area.bottom;
 }
 
+// Alt+Down and Alt+Up move by heading everywhere except the book's text box in screen
+// reader mode, where screen reader add-ons use them (NVDA's sentenceNav: next and previous
+// sentence). There H and Shift+H move by heading instead.
+document.addEventListener('keydown', (event) => {
+  if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  if (event.target === ui.plain || document.querySelector('dialog:modal')) return;
+  event.preventDefault();
+  handle(event.key === 'ArrowDown' ? 'next-heading' : 'prev-heading');
+});
+
 let tabbing = false;
 document.addEventListener('keydown', (event) => (tabbing = event.key === 'Tab'), true);
 document.addEventListener('mousedown', () => (tabbing = false), true);
@@ -1003,13 +1016,18 @@ async function stepHeading(direction: 1 | -1): Promise<void> {
   announce(direction > 0 ? 'No next heading' : 'No previous heading');
 }
 
-/** Moves to the next or previous entry of the table of contents. */
+/** Moves to the next or previous table of contents entry at the same level or higher. */
 async function stepSection(direction: 1 | -1): Promise<void> {
   if (!book) return;
   if (!tocItems.length) return announce('This book has no table of contents.');
   const current = currentTocItem();
   const here = current ? tocItems.findIndex((t) => t.item === current) : -1;
-  const target = tocItems[here < 0 ? (direction > 0 ? 0 : -1) : here + direction];
+  // A section's own sub-sections are skipped: the next section is the next entry at the same
+  // level or higher (Next heading is the one that goes into sub-sections).
+  const level = here < 0 ? Infinity : tocItems[here]!.item.level;
+  const later = tocItems.slice(here + 1).find((t) => t.item.level <= level);
+  const earlier = tocItems.slice(0, Math.max(0, here)).reverse().find((t) => t.item.level <= level);
+  const target = here < 0 ? tocItems.at(direction > 0 ? 0 : -1) : direction > 0 ? later : earlier;
   if (!target) return announce(direction > 0 ? 'No next section' : 'No previous section');
   const quietNav = usesClips() && !isPlaying();
   await goToNav(target.item);
@@ -1191,6 +1209,7 @@ function showSettings(): void {
   $<HTMLSelectElement>('ui-set-toc-depth').value = String(settings.tocDepth);
   $<HTMLInputElement>('ui-set-sr').checked = srMode;
   $<HTMLInputElement>('ui-set-toolbar-text').checked = settings.toolbarText;
+  $<HTMLInputElement>('ui-set-open-last').checked = settings.openLast;
   if (!dialog.open) dialog.showModal();
   $('ui-settings-title').focus();
 }
@@ -1326,6 +1345,10 @@ applyToolbarText();
     next.focus();
   });
 }
+$('ui-set-open-last').addEventListener('change', (e) => {
+  settings.openLast = (e.target as HTMLInputElement).checked;
+  saveSettings();
+});
 $('ui-set-toolbar-text').addEventListener('change', (e) => {
   settings.toolbarText = (e.target as HTMLInputElement).checked;
   saveSettings();
@@ -1391,8 +1414,19 @@ window.readerDebug = {
   }),
 };
 
-// Start where the reader left off: the book given on the command line, or else My books.
+// Start where the reader left off: the book given on the command line; else, if Settings
+// asks for it, the last book read, at its saved place; else My books.
 void window.reader.initialBook().then(async (info) => {
-  if (info) await openBook(info);
-  else await library.open(true);
+  if (info) return openBook(info);
+  if (settings.openLast) {
+    const last = (await window.reader.listLibrary())[0];
+    if (last) {
+      try {
+        return await openBook(await window.reader.openFromLibrary(last.id));
+      } catch {
+        // Moved or deleted: My books says so when it is opened from there.
+      }
+    }
+  }
+  await library.open(true);
 });

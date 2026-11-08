@@ -295,7 +295,14 @@ const methods = {
       }
     }
     const at = current ? items.indexOf(current) : -1;
-    const next = items[at < 0 ? (direction > 0 ? 0 : -1) : at + direction];
+    // Sub-sections are skipped: the next section is the next entry at the same level or higher.
+    const level = at < 0 ? Infinity : items[at]!.level;
+    const next =
+      at < 0
+        ? items.at(direction > 0 ? 0 : -1)
+        : direction > 0
+          ? items.slice(at + 1).find((t) => t.level <= level)
+          : items.slice(0, at).reverse().find((t) => t.level <= level);
     if (!next) return null;
     return { label: next.label || 'Untitled', clipIndex: next.clipIndex ?? null, target: next.target };
   },

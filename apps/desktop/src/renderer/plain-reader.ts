@@ -29,6 +29,10 @@ const KEYS: Record<string, { kind: PlainKind; name: string; plural?: string }> =
 const WINDOW_SIZE = 20_000;
 /** When the cursor comes this close to either end of the box, the box moves on quietly. */
 const MARGIN = 5_000;
+/** The end of a sentence: . ! ? (with closing quotes or brackets) and a space, or a line break. */
+const SENTENCE_START = /(?:[.!?…]+["'”’)\]]*[ \t]+|\n+)/g;
+/** How long the cursor must stay still before the box moves on (ms). */
+const EDGE_WAIT = 1_000;
 
 /**
  * Screen reader mode: the book as plain text in a text box. The screen reader's own cursor is
@@ -264,6 +268,8 @@ export class PlainReader {
       this.go('heading', back, 'heading', Number(digit[1]));
     } else if (event.key === ']' || event.key === '[') {
       this.go('section', event.key === ']' ? 1 : -1, 'section');
+    } else if (event.code === 'Period') {
+      this.stepSentence(back);
     } else if (event.key === '=') {
       this.events.announce(this.whereAmI());
     } else if (event.key === 'Enter' || event.key === ' ') {
@@ -296,6 +302,44 @@ export class PlainReader {
     return true;
   }
 
+  /**
+   * Full stop moves to the next sentence and reads it; Shift+full stop to the previous one.
+   * Reader's own sentence keys, for screen readers whose sentence commands don't work well
+   * in a text box (Narrator's skips text there).
+   */
+  private stepSentence(direction: 1 | -1): void {
+    if (!this.book) return;
+    const text = this.book.text;
+    const starts = (from: number, to: number) => {
+      const list: number[] = [];
+      SENTENCE_START.lastIndex = from;
+      for (let m = SENTENCE_START.exec(text); m && m.index < to; m = SENTENCE_START.exec(text)) list.push(m.index + m[0].length);
+      return list;
+    };
+    const caret = this.caret;
+    let target: number | undefined;
+    if (direction > 0) {
+      target = starts(caret, Math.min(text.length, caret + 5_000)).find((s) => s > caret && s < text.length);
+    } else {
+      // The start of the sentence the cursor is in, then the one before it.
+      const before = starts(Math.max(0, caret - 5_000), caret).filter((s) => s <= caret);
+      if (caret - 5_000 <= 0) before.unshift(0);
+      // At a sentence's start, go to the one before; in the middle of one, go to its start.
+      const current = before.at(-1);
+      target = current === undefined || current === caret || this.blankBetween(current, caret) ? before.at(-2) : current;
+    }
+    if (target === undefined) return this.events.announce(direction > 0 ? 'No next sentence' : 'No previous sentence');
+    this.moveTo(target);
+    SENTENCE_START.lastIndex = target;
+    const end = SENTENCE_START.exec(text);
+    const sentence = text.slice(target, end ? end.index + end[0].length : text.length).trim();
+    this.events.announce(sentence.length > 600 ? `${sentence.slice(0, 600)}…` : sentence || 'Blank');
+  }
+
+  private blankBetween(from: number, to: number): boolean {
+    return !this.book!.text.slice(from, to).trim();
+  }
+
   private followLink(): void {
     if (!this.book) return;
     const link = itemAt(this.book, this.caret, 'link');
@@ -321,15 +365,25 @@ export class PlainReader {
     clearTimeout(this.caretTimer);
     if (!this.book || this.quiet) return;
     const offset = this.caret;
-    // Move the box on quietly before the reader reaches an end of it.
-    if (this.area.selectionStart === this.area.selectionEnd && this.nearEdge(offset)) {
-      this.quiet = true;
-      this.setCaret(offset);
-      this.quiet = false;
-    }
+    // Move the box on before the reader reaches an end of it, but only once the cursor has
+    // been still for a moment: changing the text while a screen reader command (such as a
+    // sentence command) is still reading it makes the screen reader read the wrong place.
+    clearTimeout(this.edgeTimer);
+    if (this.nearEdge(offset)) this.edgeTimer = setTimeout(() => this.moveBoxOn(), EDGE_WAIT);
     if (offset === this.lastCaret) return;
     this.lastCaret = offset;
     this.events.caret(offset, blockAt(this.book, offset));
+  }
+
+  private edgeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private moveBoxOn(): void {
+    if (!this.book || this.quiet || this.area.selectionStart !== this.area.selectionEnd) return;
+    const offset = this.caret;
+    if (!this.nearEdge(offset)) return;
+    this.quiet = true;
+    this.setCaret(offset);
+    this.quiet = false;
   }
 
   /** Reports a cursor move not yet reported (before saving on quit). */

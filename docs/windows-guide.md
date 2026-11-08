@@ -44,6 +44,7 @@ Press Ctrl+Comma, choose **Settings** in the toolbar, or **File → Settings**. 
 - **Voice:** the Windows voice used to read aloud books without narration, or Automatic to match the book's language.
 - **Heading depth:** which headings next and previous heading stop at: all levels, level 1 only, or levels 1 to 2 up to 1 to 6. Also in the **Navigate** menu.
 - **Table of contents:** how many levels of the contents are shown open. You can still open any part with the Right arrow.
+- **Open the last book read when Reader starts:** instead of My books, Reader opens the book you read last, at your place.
 - **Show text on toolbar buttons:** the toolbar shows icons only unless this is on. Screen readers read each button's name either way.
 - **Screen reader mode.**
 
@@ -57,7 +58,7 @@ Press Ctrl+Comma, choose **Settings** in the toolbar, or **File → Settings**. 
 | Audio only | Ctrl+2 | Plays the recorded narration, or the Windows voice, with the text hidden. |
 | Text and audio | Ctrl+3 | Plays the narration and highlights each phrase as it is read. |
 
-Ctrl+Space plays or pauses. Alt with the arrow keys moves by phrase (Left and Right) or by heading (Up and Down). Ctrl+Page Down and Ctrl+Page Up move to the next or previous section of the table of contents.
+Ctrl+Space plays or pauses. Alt with the arrow keys moves by phrase (Left and Right) or by heading (Up and Down). Ctrl+Page Down and Ctrl+Page Up move to the next or previous section of the table of contents at the same level, skipping its sub-sections (chapter to chapter, say), while Alt+Down and Alt+Up stop at every heading.
 
 ## Reading with NVDA or JAWS
 
@@ -95,4 +96,4 @@ In the text box, single keys move the cursor through the book's structure. Shift
 These keys search the whole book, not just the chapter in the text box.
 | = | Says how far through the book you are, and the page |
 
-Ctrl+Space plays from the cursor, Alt+Up and Alt+Down move by heading, the table of contents moves the cursor to the chapter and marks the chapter you are in, and while Reader reads aloud the cursor follows the voice.
+Ctrl+Space plays from the cursor, H and Shift+H move by heading (Alt+Up and Alt+Down are left to your screen reader here, so add-ons such as sentenceNav can use them for sentences), the table of contents moves the cursor to the chapter and marks the chapter you are in, and while Reader reads aloud the cursor follows the voice.
