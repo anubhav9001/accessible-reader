@@ -34,6 +34,8 @@ const MARGIN = 5_000;
 const SENTENCE_START = /(?:[.!?…]+["'”’)\]]*[ \t]+|\n+)/g;
 /** How long the cursor must stay still before the box moves on (ms). */
 const EDGE_WAIT = 1_000;
+/** How long the cursor must rest before the app follows it (ms). */
+const CARET_REST = 500;
 
 /**
  * Screen reader mode: the book as plain text in a text box. The screen reader's own cursor is
@@ -362,7 +364,10 @@ export class PlainReader {
   private watchCaret(): void {
     if (this.quiet) return;
     clearTimeout(this.caretTimer);
-    this.caretTimer = setTimeout(() => this.reportCaret(), 150);
+    // Wait until the cursor rests: the app updates the page (heading, contents, saved place)
+    // for each report, and doing that between quick arrow presses makes screen readers,
+    // Narrator especially, fall behind the cursor.
+    this.caretTimer = setTimeout(() => this.reportCaret(), CARET_REST);
   }
 
   private reportCaret(): void {

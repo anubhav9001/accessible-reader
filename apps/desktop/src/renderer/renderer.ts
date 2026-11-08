@@ -1097,11 +1097,16 @@ function location(): { heading?: string; page?: string; time?: string } {
   return { heading: domHeading() };
 }
 
+/** Sets an element's text only when it changes: each change is an event screen readers process. */
+function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
+}
+
 function updateNow(): void {
   const { heading, page, time } = location();
-  ui.nowHeading.textContent = heading ?? '';
-  ui.nowPage.textContent = page ?? '';
-  ui.nowTime.textContent = time ?? '';
+  setText(ui.nowHeading, heading ?? '');
+  setText(ui.nowPage, page ?? '');
+  setText(ui.nowTime, time ?? '');
   const current = currentTocItem();
   const inTree = ui.tocTree.contains(document.activeElement);
   for (const { item, el } of tocItems) {
