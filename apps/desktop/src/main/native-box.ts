@@ -73,6 +73,10 @@ export class NativeBox {
   private k: Koffi;
   private api: ReturnType<NativeBox['bind']>;
   private hwnd: unknown;
+  /** The window's own handle (the box's parent), where the page's keyboard focus lives. */
+  private parent: unknown;
+  /** Whether the box is showing (it hides while a dialog or menu is over it). */
+  shown = false;
   private provider: unknown;
   private altAlone = false;
   private subclass: unknown;
@@ -159,7 +163,7 @@ export class NativeBox {
 
   private create(): void {
     const { k, api } = this;
-    const parent = k.decode(this.window.getNativeWindowHandle(), 'void*');
+    const parent = (this.parent = k.decode(this.window.getNativeWindowHandle(), 'void*'));
     // Layered (WS_EX_LAYERED): Chromium's window has no drawing surface of its own for child
     // windows (WS_EX_NOREDIRECTIONBITMAP), so an ordinary child window would never show its text.
     this.hwnd = api.CreateWindowExW(0x80000, 'RICHEDIT50W', 'Book text',
@@ -227,7 +231,8 @@ export class NativeBox {
 
   /** Where the box goes, in the window's pixels, or hidden. */
   layout(visible: boolean, x: number, y: number, w: number, h: number): void {
-    if (!visible || w <= 0 || h <= 0) {
+    this.shown = visible && w > 0 && h > 0;
+    if (!this.shown) {
       this.api.ShowWindow(this.hwnd, SW_HIDE);
       return;
     }
@@ -261,6 +266,22 @@ export class NativeBox {
   focus(): void {
     this.wanted = true;
     this.api.SetFocus(this.hwnd);
+  }
+
+  /** Whether Windows' keyboard focus is in the box now (not just what the box was last told). */
+  get hasKeyboard(): boolean {
+    const now = this.api.GetFocus();
+    return !!now && !!this.hwnd && this.k.address(now) === this.k.address(this.hwnd);
+  }
+
+  /**
+   * Gives the keyboard back to the page. Chromium's own focus call does nothing while it thinks
+   * its window still has the keyboard, which left keys going to the hidden box (the contents,
+   * tables and dialogs then didn't respond to the arrow keys).
+   */
+  release(): void {
+    this.wanted = false;
+    if (this.hasKeyboard) this.api.SetFocus(this.parent);
   }
 
   /** Speaks a message through the screen reader (a UI Automation notification from the box). */

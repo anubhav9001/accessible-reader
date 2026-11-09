@@ -326,10 +326,29 @@ function menuAccelerator(accelerator: string): (() => void) | undefined {
     log.info('native', `Shortcut ${accelerator}: ${item.label.replace(/&/g, '')}`);
     // The page gets the keyboard first, so a command that moves focus there can; focus on the
     // placeholder (the book text) comes back to the box (see native-host.ts).
-    if (nativeBox) nativeBox.wanted = false;
-    window?.webContents.focus();
+    toPage();
     item.click(undefined, window, window?.webContents);
   };
+}
+
+/**
+ * Puts the keyboard back in the native box, shortly, when the box should have it and the page took
+ * it on its own. Tab, the menu bar, shortcuts and clicks say first that the page should have it.
+ */
+function backToBox(): void {
+  if (!nativeBox?.wanted) return;
+  setTimeout(() => {
+    if (nativeBox?.wanted && nativeBox.shown && !nativeBox.hasKeyboard && window?.isFocused()) {
+      log.info('native', 'Keyboard back to the box');
+      nativeBox.focus();
+    }
+  }, 120);
+}
+
+/** Moves the keyboard from the native box to the page. */
+function toPage(): void {
+  nativeBox?.release();
+  window?.webContents.focus();
 }
 
 function ensureNativeBox(): NativeBox | undefined {
@@ -341,16 +360,19 @@ function ensureNativeBox(): NativeBox | undefined {
       caret: (offset) => send('native-caret', offset),
       key: (key) => send('native-key', key),
       tab: (shift) => {
-        if (nativeBox) nativeBox.wanted = false;
-        window?.webContents.focus();
+        toPage();
         send('native-tab', shift);
       },
       menu: (letter) => {
-        if (nativeBox) nativeBox.wanted = false;
-        window?.webContents.focus();
+        toPage();
         send('native-menu', letter ?? null);
       },
-      focus: (focused) => send('native-focused', focused),
+      focus: (focused) => {
+        send('native-focused', focused);
+        // Chromium sometimes takes the keyboard for its page without anyone asking (closing a
+        // dialog, coming back to the window): give it back to the box if that's where it was.
+        if (!focused) backToBox();
+      },
     },
     menuAccelerator,
     log,
@@ -374,8 +396,7 @@ ipcMain.on('native-say', (_e, message: string) => nativeBox?.say(message));
 ipcMain.on('focus-page', (_e, why?: string) => {
   if (!nativeBox) return;
   log.info('native', `Page takes the keyboard (${why ?? 'focus moved'})`);
-  nativeBox.wanted = false;
-  if (nativeBox.focused) window?.webContents.focus();
+  toPage();
 });
 
 ipcMain.on('menu-run', (_event, path: string) => {
@@ -424,15 +445,6 @@ function createWindow(): void {
   // Coming back to the window: the native box gets the keyboard back if it had it.
   // Coming back to the window, Chromium gives its page the keyboard: hand it back to the native
   // box if the box had it (a click on the page says otherwise first; see renderer.ts).
-  const backToBox = () => {
-    if (!nativeBox?.wanted) return;
-    setTimeout(() => {
-      if (nativeBox?.wanted && !nativeBox.focused) {
-        log.info('native', 'Keyboard back to the box');
-        nativeBox.focus();
-      }
-    }, 80);
-  };
   window.on('focus', backToBox);
   window.webContents.on('focus', backToBox);
   window.on('closed', () => {

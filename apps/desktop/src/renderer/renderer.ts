@@ -253,8 +253,61 @@ function showTable(html: string, caption: string, rows: number): void {
   const body = $('ui-table-body');
   body.replaceChildren(template.content);
   $('ui-table-title').textContent = caption ? `Table: ${caption}` : `Table with ${rows} row${rows === 1 ? '' : 's'}`;
+  // Closing the dialog puts the page's focus back where it was before: the book text, not
+  // whatever the page last had (which was announced on the way back to the text).
+  if (!dialog.open && plain.usingNative) nativeHost?.placeholder.focus();
   if (!dialog.open) dialog.showModal();
-  $('ui-table-title').focus();
+  const first = makeGrid(body.querySelector('table'), $('ui-table-title').textContent ?? '');
+  (first ?? $('ui-table-title')).focus();
+}
+
+/**
+ * Makes a table a grid read cell by cell with the arrow keys, so it works without a screen
+ * reader's browse or scan mode (Narrator keeps scan mode off after the book's text box). Ctrl+Home
+ * and Ctrl+End go to the first and last cells; Home and End to the ends of the row. Returns the
+ * first cell.
+ */
+function makeGrid(table: HTMLTableElement | null, label: string): HTMLElement | undefined {
+  if (!table) return undefined;
+  const rows = [...table.rows].filter((r) => r.cells.length > 0);
+  if (!rows.length) return undefined;
+  table.setAttribute('role', 'grid');
+  table.setAttribute('aria-readonly', 'true');
+  if (!table.caption && !table.hasAttribute('aria-label')) table.setAttribute('aria-label', label);
+  for (const row of rows) {
+    row.setAttribute('role', 'row');
+    for (const cell of row.cells) {
+      cell.setAttribute('role', cell.tagName === 'TH' ? (cell.closest('thead') || cell.scope === 'col' ? 'columnheader' : 'rowheader') : 'gridcell');
+      cell.tabIndex = -1;
+    }
+  }
+  const first = rows[0]!.cells[0]!;
+  first.tabIndex = 0;
+  table.addEventListener('keydown', (e) => {
+    const cell = (e.target as HTMLElement).closest('td, th') as HTMLTableCellElement | null;
+    if (!cell) return;
+    const r = rows.indexOf(cell.parentElement as HTMLTableRowElement);
+    const c = cell.cellIndex;
+    const at = (row: number, col: number) => {
+      const cells = rows[Math.max(0, Math.min(rows.length - 1, row))]!.cells;
+      return cells[Math.max(0, Math.min(cells.length - 1, col))];
+    };
+    const target =
+      e.key === 'ArrowDown' ? at(r + 1, c)
+      : e.key === 'ArrowUp' ? at(r - 1, c)
+      : e.key === 'ArrowRight' ? at(r, c + 1)
+      : e.key === 'ArrowLeft' ? at(r, c - 1)
+      : e.key === 'Home' ? at(e.ctrlKey ? 0 : r, 0)
+      : e.key === 'End' ? at(e.ctrlKey ? rows.length - 1 : r, 1e9)
+      : undefined;
+    if (!target) return;
+    e.preventDefault();
+    if (target === cell) return announce(e.key === 'ArrowDown' || e.key === 'ArrowUp' ? 'Edge of the table' : 'Edge of the row');
+    cell.tabIndex = -1;
+    target.tabIndex = 0;
+    target.focus();
+  });
+  return first;
 }
 /** True while the place is being moved to follow the text cursor, so the cursor isn't moved back. */
 let followingCaret = false;
@@ -540,6 +593,11 @@ function onTocKey(event: KeyboardEvent): void {
   const expanded = here.el.getAttribute('aria-expanded');
   let handled = true;
   switch (event.key) {
+    case 'Escape':
+      // Back to the book where it is now.
+      if (showingPlain()) plain.focus();
+      else handled = false;
+      break;
     case 'ArrowDown':
       focusTocItem(step(1));
       break;

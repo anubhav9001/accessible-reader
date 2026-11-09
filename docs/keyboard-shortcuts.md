@@ -75,7 +75,7 @@ These keys work in the book's text box. Shift with the key goes backwards.
 | Next heading at a level | 1 to 6 |
 | Next printed page | P |
 | Next link | K (Enter or Space follows it) |
-| Next table | T (Enter opens it as a real table) |
+| Next table | T (Enter opens it as a real table, read cell by cell with the arrow keys) |
 | Next list / list item | L / I |
 | Next image / figure / separator | G / F / S |
 | Next / previous section | ] / [ |

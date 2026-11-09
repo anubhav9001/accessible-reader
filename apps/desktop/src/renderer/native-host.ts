@@ -6,6 +6,9 @@ import type { ReaderApi } from '../shared/api';
  * in the page's colours, and hidden whenever something of the page must show over it
  * (dialogs, the menu bar's menus). Focusing the placeholder hands the keyboard to the box.
  */
+/** How long after the page's focus moves to the book text the box takes the keyboard (ms). */
+const HAND_ON = 150;
+
 export class NativeHost {
   /** The box's cursor, as last reported or set (offsets into the whole book). */
   caret = 0;
@@ -22,11 +25,13 @@ export class NativeHost {
     api.onFocused((focused) => (this.focused = focused));
     api.onCaret((offset) => (this.caret = offset));
     // Focus on the placeholder goes on to the box, unless it was only passing through (a
-    // command run from the box moves focus elsewhere straight after).
+    // command run from the box moves focus elsewhere straight after). Not at once: Chromium tells
+    // screen readers about the page's focus a moment later, and NVDA follows whichever it hears
+    // last, staying in the page (in browse mode, taking the arrow keys) if that was the page.
     const handOn = () =>
       setTimeout(() => {
         if (this.active && document.hasFocus() && document.activeElement === placeholder) api.focus();
-      }, 50);
+      }, HAND_ON);
     placeholder.addEventListener('focus', handOn);
     // The page getting the keyboard back (switching back to the window) with the book text as
     // its focus: on to the box.
@@ -63,8 +68,13 @@ export class NativeHost {
   }
 
   focus(): void {
-    this.placeholder.focus();
-    this.api.focus();
+    // The box (or another window) has the keyboard: nothing of the page to wait for.
+    if (!document.hasFocus()) return this.api.focus();
+    // The page has it: focus moves to the placeholder first, then on to the box (see handOn).
+    if (document.activeElement !== this.placeholder) this.placeholder.focus();
+    setTimeout(() => {
+      if (this.active && document.activeElement === this.placeholder) this.api.focus();
+    }, HAND_ON);
   }
 
   say(message: string): void {
