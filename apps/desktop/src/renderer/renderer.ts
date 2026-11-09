@@ -245,13 +245,8 @@ if (window.reader) {
 }
 
 // A smaller text box while Narrator runs (see PlainReader.setSmall).
-let narratorRunning = false;
-const onNarrator = (running: boolean) => {
-  narratorRunning = running;
-  plain.setSmall(running);
-};
-window.reader?.onNarrator(onNarrator);
-void window.reader?.narratorRunning().then(onNarrator);
+window.reader?.onNarrator((running) => plain.setSmall(running));
+void window.reader?.narratorRunning().then((running) => plain.setSmall(running));
 
 /** Shows a table from screen reader mode as a real table, so table commands work in it. */
 function showTable(html: string, caption: string, rows: number): void {
@@ -361,9 +356,10 @@ let followingCaret = false;
 /** Speaks a short message through the screen reader (polite live region). */
 function announce(message: string): void {
   log(`Said: ${message}`);
-  // In the book text, the text box speaks for itself. Except NVDA in the native box: NVDA takes no
-  // UI Automation messages from rich edit boxes, but does read the page's live region meanwhile.
-  if (plain.hasFocus && (!plain.usingNative || narratorRunning)) return plain.say(message);
+  // In the page's own text box, the box speaks for itself (see PlainReader.say). Not the native
+  // box: its UI Automation notifications reach no screen reader (NVDA ignores rich edit boxes'
+  // and Narrator never got them), but both read the page's live region while it has the keyboard.
+  if (plain.hasFocus && !plain.usingNative) return plain.say(message);
   ui.status.textContent = '';
   setTimeout(() => (ui.status.textContent = message), 50);
 }
