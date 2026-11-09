@@ -44,7 +44,7 @@
     <div class="ui-layout">
       <nav id="ui-toc" aria-labelledby="ui-toc-heading" tabindex="-1">
         <h2 id="ui-toc-heading">Contents</h2>
-        <div id="ui-toc-tree"></div>
+        <div id="ui-toc-tree" role="application" aria-roledescription="contents"></div>
       </nav>
       <main>
         <section class="ui-now" aria-labelledby="ui-now-label">
@@ -214,7 +214,7 @@
     <dialog id="ui-table-dialog" class="ui-help ui-table-dialog" aria-labelledby="ui-table-title">
       <h2 id="ui-table-title" tabindex="-1">Table</h2>
       <p>Move from cell to cell with the arrow keys; Home and End go to the ends of a row, Control+Home and Control+End to the first and last cells. Your screen reader's table commands work too. Escape goes back to the text.</p>
-      <div id="ui-table-body"></div>
+      <div id="ui-table-body" role="application" aria-roledescription="table window"></div>
       <form method="dialog"><button value="close">Close</button></form>
     </dialog>
     <dialog id="ui-goto-dialog" aria-labelledby="ui-goto-title">

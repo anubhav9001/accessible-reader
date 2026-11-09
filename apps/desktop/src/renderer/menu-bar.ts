@@ -107,7 +107,7 @@ export class MenuBar {
   }
 
   private modalOpen(): boolean {
-    return !!document.querySelector('dialog:modal');
+    return !!document.querySelector('dialog:modal, dialog[aria-modal="true"][open]');
   }
 
   private onGlobalKey(e: KeyboardEvent): void {

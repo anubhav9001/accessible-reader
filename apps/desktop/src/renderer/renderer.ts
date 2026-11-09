@@ -216,9 +216,12 @@ if (window.reader) {
   api.native.onCaret((offset) => plain.nativeCaret(offset));
   api.native.onMenu((letter) => menuBar?.fromOutside(letter ?? undefined));
   api.native.onTab((shift) => {
-    // Tab and Shift+Tab leave the box for the page's next or previous control.
+    // Tab and Shift+Tab leave the box for the page's next or previous control (going round past
+    // the "Skip to book text" link, which would only lead back here).
     const all = [...document.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]')].filter(
-      (el) => el.tabIndex >= 0 && !el.hidden && !(el as HTMLButtonElement).disabled && el.offsetParent !== null && !el.closest('[hidden], dialog:not([open])'),
+      (el) =>
+        el.tabIndex >= 0 && !el.hidden && !(el as HTMLButtonElement).disabled && el.offsetParent !== null &&
+        !el.closest('[hidden], dialog:not([open]), .skip-link'),
     );
     const here = all.indexOf($('ui-plain-native'));
     const next = all[(here + (shift ? -1 : 1) + all.length) % all.length];
@@ -242,8 +245,13 @@ if (window.reader) {
 }
 
 // A smaller text box while Narrator runs (see PlainReader.setSmall).
-window.reader?.onNarrator((running) => plain.setSmall(running));
-void window.reader?.narratorRunning().then((running) => plain.setSmall(running));
+let narratorRunning = false;
+const onNarrator = (running: boolean) => {
+  narratorRunning = running;
+  plain.setSmall(running);
+};
+window.reader?.onNarrator(onNarrator);
+void window.reader?.narratorRunning().then(onNarrator);
 
 /** Shows a table from screen reader mode as a real table, so table commands work in it. */
 function showTable(html: string, caption: string, rows: number): void {
@@ -253,10 +261,13 @@ function showTable(html: string, caption: string, rows: number): void {
   const body = $('ui-table-body');
   body.replaceChildren(template.content);
   $('ui-table-title').textContent = caption ? `Table: ${caption}` : `Table with ${rows} row${rows === 1 ? '' : 's'}`;
-  // Closing the dialog puts the page's focus back where it was before: the book text, not
-  // whatever the page last had (which was announced on the way back to the text).
-  if (!dialog.open && plain.usingNative) nativeHost?.placeholder.focus();
-  if (!dialog.open) dialog.showModal();
+  // Not modal (aria-modal instead, and Tab kept inside; see closeTable): closing a modal dialog
+  // makes Chromium tell screen readers the whole page has focus, and NVDA followed that into browse
+  // mode, announcing a menu bar item and taking the arrow keys from the book text.
+  if (!dialog.open) {
+    tableReturn = document.activeElement as HTMLElement | null;
+    dialog.show();
+  }
   const first = makeGrid(body.querySelector('table'), $('ui-table-title').textContent ?? '');
   (first ?? $('ui-table-title')).focus();
 }
@@ -274,10 +285,21 @@ function makeGrid(table: HTMLTableElement | null, label: string): HTMLElement | 
   table.setAttribute('role', 'grid');
   table.setAttribute('aria-readonly', 'true');
   if (!table.caption && !table.hasAttribute('aria-label')) table.setAttribute('aria-label', label);
+  // Column headers: the rows in the table's head, and rows made only of header cells (many books
+  // put the header row in the body). Tables with no header cells at all often still start with
+  // one (in bold, or words over a body of numbers): that row then gives the columns' names.
+  const headRows = new Set(rows.filter((r) => r.parentElement?.tagName === 'THEAD' || [...r.cells].every((c) => c.tagName === 'TH')));
+  if (!headRows.size && !table.querySelector('th') && rows.length > 1 && looksLikeHeader(rows)) headRows.add(rows[0]!);
   for (const row of rows) {
     row.setAttribute('role', 'row');
     for (const cell of row.cells) {
-      cell.setAttribute('role', cell.tagName === 'TH' ? (cell.closest('thead') || cell.scope === 'col' ? 'columnheader' : 'rowheader') : 'gridcell');
+      const scope = cell.getAttribute('scope')?.toLowerCase() ?? '';
+      cell.setAttribute(
+        'role',
+        headRows.has(row) || scope.startsWith('col') ? 'columnheader'
+        : cell.tagName === 'TH' || scope.startsWith('row') ? 'rowheader'
+        : 'gridcell',
+      );
       cell.tabIndex = -1;
     }
   }
@@ -309,6 +331,28 @@ function makeGrid(table: HTMLTableElement | null, label: string): HTMLElement | 
   });
   return first;
 }
+
+/**
+ * Whether a table without header cells starts with a header row anyway: every cell of its first
+ * row has text, and either all of it is bold, or some column holds only numbers below a first
+ * cell that isn't one (a serial number column under "S. No.", say).
+ */
+function looksLikeHeader(rows: HTMLTableRowElement[]): boolean {
+  const cells = [...rows[0]!.cells];
+  const text = (el: Element | undefined) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  if (cells.length < 2 || cells.some((c) => !text(c))) return false;
+  const bold = cells.every((c) => {
+    const strong = [...c.querySelectorAll('b, strong')].map(text).join(' ');
+    return strong.length > 0 && strong.length >= text(c).length - 1;
+  });
+  if (bold) return true;
+  const number = /^[\d०-९.,:%/\-–\s]+$/;
+  return cells.some((head, col) => {
+    const below = rows.slice(1).map((r) => text(r.cells[col])).filter(Boolean);
+    return below.length > 0 && below.every((t) => number.test(t)) && !number.test(text(head));
+  });
+}
+
 /** True while the place is being moved to follow the text cursor, so the cursor isn't moved back. */
 let followingCaret = false;
 
@@ -317,7 +361,9 @@ let followingCaret = false;
 /** Speaks a short message through the screen reader (polite live region). */
 function announce(message: string): void {
   log(`Said: ${message}`);
-  if (plain.hasFocus) return plain.say(message);
+  // In the book text, the text box speaks for itself. Except NVDA in the native box: NVDA takes no
+  // UI Automation messages from rich edit boxes, but does read the page's live region meanwhile.
+  if (plain.hasFocus && (!plain.usingNative || narratorRunning)) return plain.say(message);
   ui.status.textContent = '';
   setTimeout(() => (ui.status.textContent = message), 50);
 }
@@ -894,7 +940,7 @@ function isOnScreen(el: HTMLElement): boolean {
 document.addEventListener('keydown', (event) => {
   if (!event.altKey || event.ctrlKey || event.shiftKey || event.metaKey) return;
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-  if (event.target === ui.plain || plain.hasFocus || document.querySelector('dialog:modal')) return;
+  if (event.target === ui.plain || plain.hasFocus || document.querySelector('dialog:modal, dialog[aria-modal="true"][open]')) return;
   event.preventDefault();
   handle(event.key === 'ArrowDown' ? 'next-heading' : 'prev-heading');
 });
@@ -1172,9 +1218,43 @@ function goToPagePrompt(): void {
   ui.gotoDialog.showModal();
 }
 
-$('ui-table-dialog').addEventListener('close', () => {
+/** Where focus was before the table window opened. */
+let tableReturn: HTMLElement | null = null;
+
+/** Closes the table window, focus first going back to the book text (or where it was). */
+function closeTable(): void {
+  const dialog = $<HTMLDialogElement>('ui-table-dialog');
+  if (!dialog.open) return;
   if (showingPlain()) plain.focus();
-});
+  else (tableReturn?.isConnected ? tableReturn : ui.text).focus();
+  dialog.close();
+}
+
+{
+  const dialog = $<HTMLDialogElement>('ui-table-dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.addEventListener('submit', (e) => {
+    e.preventDefault();
+    closeTable();
+  });
+  dialog.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTable();
+    } else if (e.key === 'Tab') {
+      // Tab stays in the window: the table (its current cell) and the Close button.
+      const stops = [dialog.querySelector<HTMLElement>('[role="grid"] [tabindex="0"]'), dialog.querySelector('button')].filter((el): el is HTMLElement => !!el);
+      const i = stops.indexOf(document.activeElement as HTMLElement);
+      e.preventDefault();
+      stops[(i + (e.shiftKey ? -1 : 1) + stops.length) % stops.length]?.focus();
+    }
+  });
+  // Clicking outside (it isn't modal) also closes it.
+  document.addEventListener('focusin', (e) => {
+    if (dialog.open && !dialog.contains(e.target as Node) && e.target !== nativeHost?.placeholder && e.target !== ui.plain) dialog.close();
+  });
+}
 
 ui.gotoDialog.addEventListener('close', () => {
   if (ui.gotoDialog.returnValue !== 'go' || !book) return;

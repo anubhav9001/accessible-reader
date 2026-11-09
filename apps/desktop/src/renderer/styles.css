@@ -591,3 +591,14 @@ dialog input {
   white-space: normal;
   border: 1px solid var(--border);
 }
+
+/* The table window opens without showModal (see showTable in renderer.ts): placed as a modal one is. */
+.ui-table-dialog[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  overflow: auto;
+  z-index: 1000;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
+}
