@@ -24,6 +24,7 @@ import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
 import { MenuBar } from './menu-bar';
 import { NativeHost } from './native-host';
+import { openDialog } from './open-dialog';
 import { log } from './log';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
@@ -1211,7 +1212,7 @@ function goToPagePrompt(): void {
   if (!book) return;
   if (!book.pageList.length) return announce('This book has no page numbers.');
   ui.gotoInput.value = '';
-  ui.gotoDialog.showModal();
+  openDialog(ui.gotoDialog, () => ui.gotoInput);
 }
 
 /** Where focus was before the table window opened. */
@@ -1404,8 +1405,7 @@ function showSettings(): void {
   $<HTMLInputElement>('ui-set-toolbar-text').checked = settings.toolbarText;
   $<HTMLInputElement>('ui-set-open-last').checked = settings.openLast;
   $<HTMLInputElement>('ui-set-native').checked = settings.nativeBox;
-  if (!dialog.open) dialog.showModal();
-  $('ui-settings-title').focus();
+  openDialog(dialog, () => $('ui-settings-title'));
 }
 
 function stepRate(direction: 1 | -1): void {
@@ -1416,8 +1416,7 @@ function stepRate(direction: 1 | -1): void {
 
 function showHelp(): void {
   const dialog = $<HTMLDialogElement>('ui-help');
-  if (!dialog.open) dialog.showModal();
-  $('ui-help-title').focus();
+  openDialog(dialog, () => $('ui-help-title'));
 }
 
 function focusToc(): void {

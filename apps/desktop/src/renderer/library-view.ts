@@ -1,4 +1,5 @@
 import type { BookInfo, LibraryEntry, ReaderApi } from '../shared/api';
+import { openDialog } from './open-dialog';
 
 interface Elements {
   dialog: HTMLDialogElement;
@@ -23,8 +24,7 @@ export class LibraryView {
     const entries = await this.api.listLibrary();
     if (onlyIfBooks && entries.length === 0) return false;
     this.render(entries);
-    if (!this.el.dialog.open) this.el.dialog.showModal();
-    this.el.heading.focus();
+    openDialog(this.el.dialog, () => this.el.heading);
     return true;
   }
 

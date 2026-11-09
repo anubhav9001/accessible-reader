@@ -12,6 +12,7 @@ import {
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
 import type { ReaderApi } from '../shared/api';
+import { openDialog } from './open-dialog';
 
 interface Elements {
   dialog: HTMLDialogElement;
@@ -63,7 +64,7 @@ export class SugamyaBrowser {
 
   open(): void {
     this.el.searchLabel.textContent = `Search ${NAME} by title or author`;
-    if (!this.el.dialog.open) this.el.dialog.showModal();
+    openDialog(this.el.dialog, () => null);
     this.history = [];
     void this.show({ kind: 'start' }, false).then(() => this.el.searchInput.focus());
   }

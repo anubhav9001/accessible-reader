@@ -9,6 +9,7 @@ import {
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
 import type { BookInfo, ReaderApi } from '../shared/api';
+import { openDialog } from './open-dialog';
 
 interface Elements {
   dialog: HTMLDialogElement;
@@ -54,7 +55,7 @@ export class CatalogBrowser {
 
   open(): void {
     this.el.searchLabel.textContent = `Search ${this.catalog.name}`;
-    if (!this.el.dialog.open) this.el.dialog.showModal();
+    openDialog(this.el.dialog, () => null);
     // Show the page again: another library may have used the window since.
     void this.load(this.current ?? this.catalog.url, false).then(() => this.el.searchInput.focus());
   }
