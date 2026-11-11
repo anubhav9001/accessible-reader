@@ -5,13 +5,18 @@ import {
   parseSugamyaNames,
   sugamyaBookSummary,
   sugamyaByLine,
+  SUGAMYA_FORGOT_PASSWORD,
+  SUGAMYA_JOIN,
+  SUGAMYA_POPULAR_TIMES,
+  sugamyaFormatId,
   sugamyaFormatLabel,
   sugamyaFormatReadable,
   sugamyaPath,
+  sugamyaPopularQuery,
   type SugamyaQuery,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
-import type { ReaderApi } from '../shared/api';
+import type { BookInfo, ReaderApi } from '../shared/api';
 import { openDialog } from './open-dialog';
 
 interface Elements {
@@ -27,19 +32,29 @@ interface Elements {
 }
 
 /** A page of the Sugamya browser, kept so Back can show it again. */
-type View = { kind: 'start' } | { kind: 'list'; title: string; query: SugamyaQuery } | { kind: 'book'; id: string };
+type View =
+  | { kind: 'start' }
+  | { kind: 'list'; title: string; query: SugamyaQuery }
+  | { kind: 'book'; id: string }
+  | { kind: 'account' }
+  | { kind: 'requests' };
 
 const NAME = 'Sugamya Pustakalaya';
 
 /**
  * Browses Sugamya Pustakalaya in the Online libraries window: search by title or author,
- * categories, school books by grade, latest books, and each book's details. Downloading
- * needs the reader's Sugamya account and comes next; until then the details say so.
+ * categories, school books by grade, latest and popular books, and each book's details.
+ * With the reader's Sugamya account it asks for books (the library prepares each one, which
+ * can take hours) and downloads them from My download requests into My books.
  */
 export class SugamyaBrowser {
   /** False while another library uses the same window. */
   active = false;
   private history: View[] = [];
+  /** The title being downloaded, for progress in the status line. */
+  private downloading = '';
+  /** The reader's account: their name, or null when signed out. */
+  private account: { user: string; name: string } | null = null;
   private current: View | undefined;
   /** Counts pages shown, so lookups for a page the reader has left can stop. */
   private shown = 0;
@@ -47,7 +62,12 @@ export class SugamyaBrowser {
   constructor(
     private readonly el: Elements,
     private readonly api: ReaderApi,
+    private readonly onBook: (info: BookInfo) => Promise<void>,
   ) {
+    api.sugamya.onProgress((fraction) => {
+      if (!this.downloading) return;
+      this.setStatus(fraction < 0 ? `Downloading ${this.downloading}…` : `Downloading ${this.downloading}: ${Math.round(fraction * 100)}%`);
+    });
     el.searchForm.addEventListener('submit', (event) => {
       if (!this.active) return;
       event.preventDefault();
@@ -66,7 +86,14 @@ export class SugamyaBrowser {
     this.el.searchLabel.textContent = `Search ${NAME} by title or author`;
     openDialog(this.el.dialog, () => null);
     this.history = [];
-    void this.show({ kind: 'start' }, false).then(() => this.el.searchInput.focus());
+    void this.api.sugamya
+      .account()
+      .catch(() => null)
+      .then((account) => {
+        this.account = account;
+        return this.show({ kind: 'start' }, false);
+      })
+      .then(() => this.el.searchInput.focus());
   }
 
   private setStatus(message: string): void {
@@ -83,6 +110,8 @@ export class SugamyaBrowser {
     try {
       if (view.kind === 'start') this.renderStart();
       else if (view.kind === 'book') await this.renderBook(view.id);
+      else if (view.kind === 'account') this.renderAccount();
+      else if (view.kind === 'requests') await this.renderRequests();
       else await this.renderList(view.title, view.query);
       if (remember && this.current) this.history.push(this.current);
       this.current = view;
@@ -111,11 +140,20 @@ export class SugamyaBrowser {
       this.entry('School books by grade', 'From pre-kindergarten upwards', () =>
         this.show({ kind: 'list', title: 'Grades', query: { kind: 'grades' } }),
       ),
+      this.entry('Popular books', `Downloaded ${SUGAMYA_POPULAR_TIMES} times or more in the past year`, () =>
+        this.show({ kind: 'list', title: 'Popular books', query: sugamyaPopularQuery() }),
+      ),
       this.entry('Latest books', 'Added in the last 15 days', () =>
         this.show({ kind: 'list', title: 'Latest books', query: { kind: 'latest' } }),
       ),
+      this.entry('My download requests', this.account ? 'Books you asked for, and downloading them' : 'Sign in first', () =>
+        this.show(this.account ? { kind: 'requests' } : { kind: 'account' }),
+      ),
+      this.account
+        ? this.entry('Your account', `Signed in as ${this.account.name || this.account.user}`, () => this.show({ kind: 'account' }))
+        : this.entry('Sign in', 'With your Sugamya Pustakalaya user ID or email, to download books', () => this.show({ kind: 'account' })),
     );
-    this.el.results.replaceChildren(intro, list, paragraph(DOWNLOAD_NOTE));
+    this.el.results.replaceChildren(intro, list);
   }
 
   /** A page of books, or of category or grade names; "More results" adds the next page. */
@@ -201,9 +239,159 @@ export class SugamyaBrowser {
     if (book.size) details.append(paragraph(`Size: ${book.size}`));
     if (book.isbn) details.append(paragraph(`ISBN: ${book.isbn}`));
     if (book.synopsis) details.append(paragraph(book.synopsis));
-    details.append(paragraph(DOWNLOAD_NOTE));
-    this.el.results.replaceChildren(details);
+    this.el.results.replaceChildren(details, ...this.requestPart(book.id, book.title, book.format));
     this.setStatus(`Book details: ${book.title}`);
+  }
+
+  /** "Ask for this book", or what stands in its way. */
+  private requestPart(id: string, title: string, format: string): HTMLElement[] {
+    if (!format || format === SUGAMYA_NOT_AVAILABLE || !sugamyaFormatReadable(format) || !sugamyaFormatId(format)) {
+      return [paragraph("Reader can't download this copy. Search for the same title in a DAISY or EPUB format.")];
+    }
+    if (!this.account) {
+      return [
+        paragraph('To download this book, sign in with your Sugamya Pustakalaya account.'),
+        this.button('Sign in to ask for this book', () => this.show({ kind: 'account' })),
+      ];
+    }
+    const ask = this.button('Ask for this book', async () => {
+      ask.disabled = true;
+      this.setStatus('Asking Sugamya Pustakalaya…');
+      try {
+        const reply = await this.api.sugamya.request(id, format);
+        const note = paragraph(
+          `${reply} Sugamya Pustakalaya prepares the book, which can take a few hours. When it's ready, ` +
+            'it shows in My download requests (and the library sends you an email or SMS); download it from there.',
+        );
+        note.tabIndex = -1;
+        ask.replaceWith(note, this.button('My download requests', () => this.show({ kind: 'requests' })));
+        this.setStatus(reply);
+        note.focus();
+      } catch (err) {
+        this.setStatus(`${title}: ${errorMessage(err)}`);
+        ask.disabled = false;
+      }
+    });
+    ask.className = 'catalog-download';
+    return [ask];
+  }
+
+  /** Sign in, or (when signed in) who is signed in, with Sign out. */
+  private renderAccount(): void {
+    this.el.heading.textContent = this.account ? 'Your Sugamya Pustakalaya account' : 'Sign in to Sugamya Pustakalaya';
+    if (this.account) {
+      this.el.results.replaceChildren(
+        paragraph(`Signed in as ${this.account.name || this.account.user} (${this.account.user}).`),
+        paragraph('Reader keeps your password encrypted on this computer, for this Windows user only.'),
+        this.button('My download requests', () => this.show({ kind: 'requests' })),
+        this.button('Sign out', async () => {
+          await this.api.sugamya.signOut();
+          this.account = null;
+          await this.show({ kind: 'start' });
+          this.setStatus('Signed out of Sugamya Pustakalaya.');
+        }),
+      );
+      return;
+    }
+    const form = document.createElement('form');
+    form.className = 'sugamya-sign-in';
+    const field = (label: string, type: string, autocomplete: AutoFill): HTMLInputElement => {
+      const id = `ui-sugamya-${type}`;
+      const l = document.createElement('label');
+      l.htmlFor = id;
+      l.textContent = label;
+      const input = document.createElement('input');
+      input.id = id;
+      input.type = type;
+      input.autocomplete = autocomplete;
+      input.required = true;
+      form.append(l, input);
+      return input;
+    };
+    const user = field('User ID or email', 'text', 'username');
+    const password = field('Password', 'password', 'current-password');
+    const submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.textContent = 'Sign in';
+    form.append(submit);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      this.setStatus('Signing in…');
+      try {
+        this.account = await this.api.sugamya.signIn(user.value, password.value);
+        password.value = '';
+        // Back to where the reader was (a book's details, usually), now with Ask for this book.
+        const previous = this.history.pop();
+        await this.show(previous ?? { kind: 'start' }, false);
+        this.setStatus(`Signed in as ${this.account.name || this.account.user}.`);
+      } catch (err) {
+        this.setStatus(errorMessage(err));
+        submit.disabled = false;
+        password.select();
+        password.focus();
+      }
+    });
+    this.el.results.replaceChildren(
+      paragraph('Sign in with the user ID or email and password of your Sugamya Pustakalaya membership.'),
+      form,
+      this.button('Forgot your password? (opens the Sugamya Pustakalaya website)', () => this.api.sugamya.openWebsite(SUGAMYA_FORGOT_PASSWORD)),
+      this.button('Not a member yet? Join on the Sugamya Pustakalaya website', () => this.api.sugamya.openWebsite(SUGAMYA_JOIN)),
+    );
+  }
+
+  /** The books the reader asked for; ready ones download into My books. */
+  private async renderRequests(): Promise<void> {
+    const requests = await this.api.sugamya.requests();
+    this.el.heading.textContent = 'My download requests';
+    const refresh = this.button('Refresh', () => this.show({ kind: 'requests' }, false));
+    if (!requests.length) {
+      this.el.results.replaceChildren(paragraph('You have no download requests. Find a book and choose Ask for this book.'), refresh);
+      this.setStatus('No download requests.');
+      return;
+    }
+    const list = document.createElement('ul');
+    list.className = 'catalog-list';
+    for (const r of requests) {
+      const format = r.format && r.format !== SUGAMYA_NOT_AVAILABLE ? sugamyaFormatLabel(r.format) : '';
+      const detail = [format, r.ready ? 'Ready to download' : r.status || 'Being prepared'].filter(Boolean).join('. ');
+      list.append(
+        this.entry(r.title, detail, async () => {
+          if (!r.ready) return this.setStatus(`${r.title}: not ready yet. Sugamya Pustakalaya is preparing it; choose Refresh later.`);
+          await this.download(r.url, r.title);
+        }),
+      );
+    }
+    const ready = requests.filter((r) => r.ready).length;
+    this.el.results.replaceChildren(
+      paragraph('Choose a book that is ready to download it into My books and open it. Download links last 7 days.'),
+      list,
+      refresh,
+    );
+    this.setStatus(`${requests.length} ${requests.length === 1 ? 'request' : 'requests'}, ${ready} ready to download.`);
+  }
+
+  private async download(url: string, title: string): Promise<void> {
+    if (this.downloading) return this.setStatus(`Still downloading ${this.downloading}.`);
+    this.downloading = title;
+    this.setStatus(`Downloading ${title}…`);
+    try {
+      const info = await this.api.sugamya.download(url, title);
+      this.downloading = '';
+      this.el.dialog.close();
+      await this.onBook(info);
+    } catch (err) {
+      this.downloading = '';
+      this.setStatus(`Download failed. ${errorMessage(err)}`);
+    }
+  }
+
+  private button(label: string, onClick: () => void | Promise<void>): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => void onClick());
+    return button;
   }
 
   /**
@@ -247,10 +435,6 @@ export class SugamyaBrowser {
     return li;
   }
 }
-
-const DOWNLOAD_NOTE =
-  'Downloading books needs your Sugamya Pustakalaya account. Signing in from Reader is coming in the next version; ' +
-  'until then, download on sugamyapustakalaya.org.in and open the book with Open book (Control O).';
 
 function errorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);

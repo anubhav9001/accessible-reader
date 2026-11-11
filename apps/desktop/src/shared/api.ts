@@ -1,4 +1,4 @@
-import type { PublicationData } from '@accessible-reader/engine';
+import type { PublicationData, SugamyaRequest } from '@accessible-reader/engine';
 
 /** A publication as sent to the reader window. Its files are served at reader://book/<path>. */
 export type BookInfo = PublicationData;
@@ -79,6 +79,21 @@ export interface ReaderApi {
   fetchCatalog(url: string): Promise<string>;
   /** Fetches a Sugamya Pustakalaya result page (XML); the path comes from sugamyaPath(). */
   fetchSugamya(path: string): Promise<string>;
+  /** The reader's Sugamya Pustakalaya account (main/sugamya-account.ts); the password never comes back. */
+  sugamya: {
+    account(): Promise<{ user: string; name: string } | null>;
+    signIn(user: string, password: string): Promise<{ user: string; name: string }>;
+    signOut(): Promise<void>;
+    /** Asks the library for a book; resolves to the library's reply. */
+    request(bookId: string, format: string): Promise<string>;
+    requests(): Promise<SugamyaRequest[]>;
+    /** Downloads a ready book into My books and opens it. */
+    download(url: string, title: string): Promise<BookInfo>;
+    /** Download progress: 0 to 1, or -1 when the size isn't known. */
+    onProgress(listener: (fraction: number) => void): void;
+    /** Opens the library's website (sign-in help) in the browser. */
+    openWebsite(url: string): void;
+  };
   /** Downloads a book from a catalogue into the app's books folder and opens it. */
   downloadBook(url: string, title: string): Promise<BookInfo>;
   /** "My books", most recently read first. */

@@ -11,6 +11,7 @@ import { FileCache, mimeType, openContainer } from './book-files';
 import { Library } from './library';
 import { AppLog, isPreRelease } from './log';
 import { NativeBox } from './native-box';
+import { SugamyaAccount } from './sugamya-account';
 
 // One custom scheme serves both the reader UI (reader://app/…) and the open book's files
 // (reader://book/…), so audio can stream with range requests and text can be fetched.
@@ -109,6 +110,45 @@ ipcMain.handle('sugamya-fetch', async (_event, path: string) => {
   const body = await (await catalogFetch(url, 'application/xml')).text();
   if (/Don't have access/i.test(body)) throw new Error("Sugamya Pustakalaya didn't allow this request.");
   return body;
+});
+
+// The reader's account, for download requests (see sugamya-account.ts). A local stand-in
+// for the library can be used in development: READER_SUGAMYA_TEST_SERVER=http://127.0.0.1:port.
+const sugamyaTestServer = !app.isPackaged && /^http:\/\/127\.0\.0\.1:\d+$/.test(process.env.READER_SUGAMYA_TEST_SERVER ?? '')
+  ? process.env.READER_SUGAMYA_TEST_SERVER!
+  : '';
+const sugamya = new SugamyaAccount(
+  path.join(app.getPath('userData'), 'sugamya-account.json'),
+  __SUGAMYA_API_KEY__,
+  log,
+  USER_AGENT,
+  sugamyaTestServer,
+);
+const sugamyaReady = app.whenReady().then(() => sugamya.load());
+
+ipcMain.handle('sugamya-account', async () => {
+  await sugamyaReady;
+  return sugamya.info();
+});
+ipcMain.handle('sugamya-sign-in', async (_event, user: string, password: string) => sugamya.signIn(String(user), String(password)));
+ipcMain.handle('sugamya-sign-out', () => sugamya.signOut());
+ipcMain.handle('sugamya-request', (_event, bookId: string, format: string) => sugamya.requestBook(String(bookId), String(format)));
+ipcMain.handle('sugamya-requests', () => sugamya.requests());
+ipcMain.handle('sugamya-download', async (event, url: string, title: string) => {
+  let reported = -1;
+  const file = await sugamya.download(String(url), String(title), booksDir(), (fraction) => {
+    // Every 10 per cent is plenty for a status line.
+    const step = fraction < 0 ? -1 : Math.floor(fraction * 10);
+    if (step !== reported) {
+      reported = step;
+      event.sender.send('sugamya-progress', fraction);
+    }
+  });
+  return loadBook(file);
+});
+ipcMain.handle('open-external', (_event, url: string) => {
+  // Only the library's own website, from the sign-in screen.
+  if (/^https:\/\/sugamyapustakalaya\.org\.in(\/|$)/.test(String(url))) void shell.openExternal(String(url));
 });
 
 ipcMain.handle('catalog-download', async (_event, url: string, title: string) => {

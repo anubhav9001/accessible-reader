@@ -18,6 +18,8 @@ import 'opds.dart';
 import 'reader_screen.dart';
 import 'settings.dart';
 import 'sugamya.dart';
+import 'sugamya_account.dart';
+import 'sugamya_account_screen.dart';
 import 'sugamya_screen.dart';
 
 Future<void> main() async {
@@ -72,6 +74,7 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   final _catalogClient = CatalogClient();
+  final _sugamyaAccount = SugamyaAccount();
   bool _importing = false;
 
   @override
@@ -104,7 +107,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ListTile(
             title: const Text(sugamyaName),
             subtitle: const Text("India's accessible library, from DAISY Forum of India"),
-            onTap: () => open(SugamyaStartScreen(client: SugamyaClient(_catalogClient))),
+            onTap: () => open(SugamyaStartScreen(
+                services: SugamyaServices(
+                    client: SugamyaClient(_catalogClient), account: _sugamyaAccount, store: widget.store, onBook: _open))),
           ),
           ListTile(
             title: Text(catalog.name),

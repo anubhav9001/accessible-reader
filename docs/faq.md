@@ -6,7 +6,7 @@ EPUB 2 and EPUB 3 (including EPUB with synchronised narration), DAISY 3 and DAIS
 
 ## Can I get books from Sugamya Pustakalaya or Bookshare?
 
-From version 0.5.0 you can search and browse Sugamya Pustakalaya in **Online libraries**: by title or author, by category, school books by grade, and the latest books, with each book's details. Downloading needs your Sugamya account, and signing in from Reader comes next; until then, download on the Sugamya Pustakalaya website and open the book in Reader. Bookshare is not connected yet.
+You can search and browse Sugamya Pustakalaya in **Online libraries**: by title or author, by category, school books by grade, popular books and the latest books, with each book's details. You can also sign in with your Sugamya Pustakalaya account, ask for a book, and download it from **My download requests** once the library has prepared it (usually within a few hours). Forgotten passwords and new memberships are handled on the Sugamya Pustakalaya website. Bookshare is not connected yet.
 
 ## Is there an iPhone version?
 

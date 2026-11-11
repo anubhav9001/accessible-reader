@@ -522,6 +522,24 @@ dialog input {
   flex: 1;
 }
 
+.sugamya-sign-in {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 320px);
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 0 16px;
+}
+
+.sugamya-sign-in button {
+  grid-column: 2;
+  justify-self: start;
+}
+
+#ui-catalog-results > button {
+  display: block;
+  margin: 0 0 8px;
+}
+
 .catalog-book p {
   margin: 0 0 8px;
 }

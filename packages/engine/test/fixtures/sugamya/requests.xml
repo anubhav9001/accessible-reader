@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<nalp><api-version>1.0</api-version><requested-limit>50</requested-limit><requested-page>1</requested-page><total-results>2</total-results><results-in-page>2</results-in-page>
+<books><list>
+<result><available-to-download>Available for Download</available-to-download><download-format>DAISY Audio Only</download-format><downloadUrl>https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Business study NCERT 11th-6.zip</downloadUrl><title>Business study NCERT 11th</title></result>
+<result><available-to-download>Request in process</available-to-download><download-format>EPUB Text Only</download-format><downloadUrl>ftp://library.daisyindia.org:21/User_935/Sangeet Manjusha-6.zip</downloadUrl><title>Sangeet Manjusha</title></result>
+</list></books></nalp>

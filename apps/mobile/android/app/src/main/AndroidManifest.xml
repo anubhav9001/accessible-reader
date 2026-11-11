@@ -48,5 +48,10 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
+        <!-- Lets url_launcher open Sugamya Pustakalaya's website (sign-in help) in the browser. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

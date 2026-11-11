@@ -79,6 +79,22 @@ class SugamyaLatest extends SugamyaQuery {
   String path(int page) => 'latest/${_tail(page)}';
 }
 
+/// A book counts as popular when it was delivered at least this many times in the past year.
+const sugamyaPopularTimes = 50;
+
+/// Popular books: delivered at least [sugamyaPopularTimes] times in the year up to [now].
+class SugamyaPopular extends SugamyaQuery {
+  SugamyaPopular([DateTime? now]) : now = (now ?? DateTime.now()).toUtc();
+  final DateTime now;
+
+  // YYYY-MM-DD, as TCS confirmed (not the guide's YYYY-DD-MM).
+  static String _day(DateTime d) => d.toIso8601String().substring(0, 10);
+
+  @override
+  String path(int page) => 'popularbooks/noOfTimesDelivered/$sugamyaPopularTimes/startDate/'
+      '${_day(DateTime.utc(now.year - 1, now.month, now.day))}/endDate/${_day(now)}/${_tail(page)}';
+}
+
 /// Categories (or, with [grades], school grades): a list of names, not books.
 class SugamyaNames extends SugamyaQuery {
   const SugamyaNames({this.grades = false});

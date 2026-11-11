@@ -3,18 +3,41 @@ import 'package:flutter/material.dart';
 import 'announcer.dart';
 import 'opds.dart';
 import 'sugamya.dart';
-
-const _downloadNote = 'Downloading books needs your Sugamya Pustakalaya account. Signing in from Reader is '
-    'coming in the next version; until then, download on sugamyapustakalaya.org.in and add the book with Add book.';
+import 'sugamya_account.dart';
+import 'sugamya_account_screen.dart';
 
 /// Sugamya Pustakalaya's start page: search, and ways to browse.
-class SugamyaStartScreen extends StatelessWidget {
-  const SugamyaStartScreen({super.key, required this.client});
+class SugamyaStartScreen extends StatefulWidget {
+  const SugamyaStartScreen({super.key, required this.services});
 
-  final SugamyaClient client;
+  final SugamyaServices services;
 
-  void _open(BuildContext context, Widget screen) =>
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  @override
+  State<SugamyaStartScreen> createState() => _SugamyaStartScreenState();
+}
+
+class _SugamyaStartScreenState extends State<SugamyaStartScreen> {
+  SugamyaAccountInfo? _account;
+
+  SugamyaServices get services => widget.services;
+  SugamyaClient get client => services.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final account = await services.account.info();
+    if (mounted) setState(() => _account = account);
+  }
+
+  /// Opens a screen; the account may have changed when the reader comes back.
+  Future<void> _open(BuildContext context, Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+    await _refresh();
+  }
 
   Future<void> _search(BuildContext context) async {
     final controller = TextEditingController();
@@ -36,7 +59,7 @@ class SugamyaStartScreen extends StatelessWidget {
       ),
     );
     if (terms == null || terms.trim().isEmpty || !context.mounted) return;
-    _open(context, SugamyaListScreen(client: client, title: 'Search results for ${terms.trim()}', query: SugamyaSearch(terms)));
+    _open(context, SugamyaListScreen(services: services, title: 'Search results for ${terms.trim()}', query: SugamyaSearch(terms)));
   }
 
   @override
@@ -62,20 +85,36 @@ class SugamyaStartScreen extends StatelessWidget {
             ListTile(
               title: const Text('Categories'),
               subtitle: const Text('Books by subject'),
-              onTap: () => _open(context, SugamyaListScreen(client: client, title: 'Categories', query: const SugamyaNames())),
+              onTap: () => _open(context, SugamyaListScreen(services: services, title: 'Categories', query: const SugamyaNames())),
             ),
             ListTile(
               title: const Text('School books by grade'),
               subtitle: const Text('From pre-kindergarten upwards'),
               onTap: () =>
-                  _open(context, SugamyaListScreen(client: client, title: 'Grades', query: const SugamyaNames(grades: true))),
+                  _open(context, SugamyaListScreen(services: services, title: 'Grades', query: const SugamyaNames(grades: true))),
+            ),
+            ListTile(
+              title: const Text('Popular books'),
+              subtitle: const Text('Downloaded $sugamyaPopularTimes times or more in the past year'),
+              onTap: () => _open(context, SugamyaListScreen(services: services, title: 'Popular books', query: SugamyaPopular())),
             ),
             ListTile(
               title: const Text('Latest books'),
               subtitle: const Text('Added in the last 15 days'),
-              onTap: () => _open(context, SugamyaListScreen(client: client, title: 'Latest books', query: const SugamyaLatest())),
+              onTap: () => _open(context, SugamyaListScreen(services: services, title: 'Latest books', query: const SugamyaLatest())),
             ),
-            const Padding(padding: EdgeInsets.all(16), child: Text(_downloadNote)),
+            ListTile(
+              title: const Text('My download requests'),
+              subtitle: Text(_account == null ? 'Sign in first' : 'Books you asked for, and downloading them'),
+              onTap: () => _open(context, _account == null ? SugamyaSignInScreen(services: services) : SugamyaRequestsScreen(services: services)),
+            ),
+            ListTile(
+              title: Text(_account == null ? 'Sign in' : 'Your account'),
+              subtitle: Text(_account == null
+                  ? 'With your Sugamya Pustakalaya user ID or email, to download books'
+                  : 'Signed in as ${_account!.shownName}'),
+              onTap: () => _open(context, SugamyaSignInScreen(services: services)),
+            ),
           ],
         ),
       );
@@ -83,9 +122,10 @@ class SugamyaStartScreen extends StatelessWidget {
 
 /// A list of books, or of category or grade names, one page at a time.
 class SugamyaListScreen extends StatefulWidget {
-  const SugamyaListScreen({super.key, required this.client, required this.title, required this.query});
+  const SugamyaListScreen({super.key, required this.services, required this.title, required this.query});
 
-  final SugamyaClient client;
+  final SugamyaServices services;
+  SugamyaClient get client => services.client;
   final String title;
   final SugamyaQuery query;
 
@@ -210,14 +250,14 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
                       return ListTile(
                         title: Text(name),
                         onTap: () => _open(SugamyaListScreen(
-                            client: widget.client, title: name, query: SugamyaIn(name, grade: grades))),
+                            services: widget.services, title: name, query: SugamyaIn(name, grade: grades))),
                       );
                     }
                     final book = _books[i];
                     return ListTile(
                       title: Text(book.title),
                       subtitle: book.detail.isEmpty ? null : Text(book.detail, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      onTap: () => _open(SugamyaBookScreen(client: widget.client, id: book.id, title: book.title)),
+                      onTap: () => _open(SugamyaBookScreen(services: widget.services, id: book.id, title: book.title)),
                     );
                   },
                 ),
@@ -227,9 +267,10 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
 
 /// One book's details.
 class SugamyaBookScreen extends StatefulWidget {
-  const SugamyaBookScreen({super.key, required this.client, required this.id, required this.title});
+  const SugamyaBookScreen({super.key, required this.services, required this.id, required this.title});
 
-  final SugamyaClient client;
+  final SugamyaServices services;
+  SugamyaClient get client => services.client;
   final String id;
   final String title;
 
@@ -296,9 +337,10 @@ class _SugamyaBookScreenState extends State<SugamyaBookScreen> {
                       if (book.size.isNotEmpty) 'Size: ${book.size}',
                       if (book.isbn.isNotEmpty) 'ISBN: ${book.isbn}',
                       if (book.synopsis.isNotEmpty) book.synopsis,
-                      _downloadNote,
                     ])
                       Padding(padding: const EdgeInsets.only(top: 12), child: Text(line)),
+                    const SizedBox(height: 16),
+                    SugamyaRequestPart(services: widget.services, id: book.id, title: book.title, format: book.format),
                   ],
                 ),
     );

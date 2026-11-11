@@ -154,6 +154,7 @@ const sugamya = new SugamyaBrowser(
     results: $('ui-catalog-results'),
   },
   window.reader,
+  (info) => openBook(info),
 );
 
 // Online libraries: one window, with a choice of library that is remembered.

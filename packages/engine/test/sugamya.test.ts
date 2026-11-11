@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  isSugamyaDownloadUrl,
   isSugamyaPath,
+  parseSugamyaMessage,
+  parseSugamyaRequests,
+  parseSugamyaUser,
+  sugamyaAccountFields,
+  sugamyaAuthorization,
+  sugamyaFormatId,
+  sugamyaPopularQuery,
   parseSugamyaBooks,
   parseSugamyaNames,
   sugamyaBookSummary,
@@ -57,5 +65,54 @@ describe('Sugamya Pustakalaya', () => {
   it('knows which formats Reader can open', () => {
     for (const f of ['DAISY Audio Only', 'daisy3', 'daisy202', 'EPUB Text Only', 'EPUB with Media Overlay']) expect(sugamyaFormatReadable(f)).toBe(true);
     for (const f of ['Formatted Braille', 'brailleDtbook', 'Word', 'rtf', '']) expect(sugamyaFormatReadable(f)).toBe(false);
+  });
+});
+
+describe('Sugamya Pustakalaya account', () => {
+  it('asks for popular books of the past year, dates as YYYY-MM-DD', () => {
+    const query = sugamyaPopularQuery(new Date('2026-11-10T08:00:00Z'));
+    expect(sugamyaPath(query)).toBe('popularbooks/noOfTimesDelivered/50/startDate/2025-11-10/endDate/2026-11-10/page/1/limit/20/format/xml');
+    expect(isSugamyaPath(sugamyaPath(query))).toBe(true);
+  });
+
+  it('knows format IDs by either kind of name', () => {
+    expect(sugamyaFormatId('daisy3')).toBe(5);
+    expect(sugamyaFormatId('DAISY Text Only')).toBe(7);
+    expect(sugamyaFormatId(' EPUB  Text Only ')).toBe(22);
+    expect(sugamyaFormatId('Not available')).toBeUndefined();
+  });
+
+  it('builds the Authorization header as UTF-8 Base64', () => {
+    expect(sugamyaAuthorization('reader', 'pass')).toBe('Basic cmVhZGVyOnBhc3M=');
+    expect(sugamyaAuthorization(' reader@example.org ', 'पास')).toBe(`Basic ${Buffer.from('reader@example.org:पास').toString('base64')}`);
+  });
+
+  it('only lets the password go to the library over HTTPS', () => {
+    expect(isSugamyaDownloadUrl('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/a b.zip')).toBe(true);
+    expect(isSugamyaDownloadUrl('http://sugamyapustakalaya.org.in/x.zip')).toBe(false);
+    expect(isSugamyaDownloadUrl('https://sugamyapustakalaya.org.in.evil.example/x.zip')).toBe(false);
+    expect(isSugamyaDownloadUrl('ftp://library.daisyindia.org/x.zip')).toBe(false);
+  });
+
+  it('reads download requests', () => {
+    const page = parseSugamyaRequests(xmldomPlatform, fixture('requests.xml'));
+    expect(page.items).toEqual([
+      {
+        title: 'Business study NCERT 11th',
+        format: 'DAISY Audio Only',
+        status: 'Available for Download',
+        ready: true,
+        url: 'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Business study NCERT 11th-6.zip',
+      },
+      { title: 'Sangeet Manjusha', format: 'EPUB Text Only', status: 'Request in process', ready: false, url: '' },
+    ]);
+  });
+
+  it("reads the library's messages and the reader's details", () => {
+    expect(parseSugamyaMessage(xmldomPlatform, fixture('request-raised.xml'))).toMatch(/^Your download request has been registered/);
+    expect(parseSugamyaMessage(xmldomPlatform, '<!DOCTYPE html><html>Oops</html>')).toBeUndefined();
+    expect(parseSugamyaUser(xmldomPlatform, fixture('user.xml'))).toEqual({ name: 'EndUser One', email: 'enduser.one@example.org' });
+    expect(parseSugamyaUser(xmldomPlatform, fixture('request-raised.xml'))).toBeUndefined();
+    expect(sugamyaAccountFields('raiseBookDownloadRequest', { bookId: '28', formatId: 6 })).toEqual({ bookId: '28', formatId: '6' });
   });
 });

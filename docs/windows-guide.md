@@ -15,7 +15,7 @@ To uninstall, use **Settings → Apps → Installed apps → Reader**.
 - **My books** (Ctrl+B) lists every book you have opened or downloaded, most recently read first. It opens by itself when you start Reader. Choose a book to carry on reading, or **Remove** it.
 - **Open book** (Ctrl+O) opens an EPUB, a zipped DAISY book, or the `ncc.html` or `.opf` file of an unzipped DAISY folder.
 - **Online libraries** (Ctrl+L) has a **Library** choice at the top:
-  - **Sugamya Pustakalaya:** search by title or author, or browse categories, school books by grade and the latest books, and read each book's details. Downloading from Sugamya inside Reader comes in the next version.
+  - **Sugamya Pustakalaya:** search by title or author, or browse categories, school books by grade, popular books and the latest books, and read each book's details. To download, choose **Sign in** and use your Sugamya Pustakalaya user ID or email and password. On a book in a DAISY or EPUB format, choose **Ask for this book**. The library prepares it, which can take a few hours, and lets you know by email or SMS. Then open **My download requests**, choose the book, and Reader downloads it into My books and opens it. Download links last 7 days. Reader keeps your password encrypted on your PC, for your Windows user only.
   - **Project Gutenberg:** search or browse free classics, then download and open a book.
 
   Reader remembers which library you used last.

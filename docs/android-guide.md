@@ -17,7 +17,7 @@ If you have Samsung's **Dual App** turned on for Reader, use the normal Reader i
 
 - **Add book** opens an EPUB file or a zipped DAISY book (DAISY 2.02 or DAISY 3) stored on your phone.
 - **Online libraries** offers two libraries:
-  - **Sugamya Pustakalaya:** search by title or author, or browse categories, school books by grade and the latest books, and read each book's details. Downloading from Sugamya inside Reader comes in the next version.
+  - **Sugamya Pustakalaya:** search by title or author, or browse categories, school books by grade, popular books and the latest books, and read each book's details. To download, choose **Sign in** and use your Sugamya Pustakalaya user ID or email and password. On a book in a DAISY or EPUB format, choose **Ask for this book**. The library prepares it, which can take a few hours, and lets you know by email or SMS. Then open **My download requests**, choose the book, and Reader downloads it into My books and opens it. Download links last 7 days. Reader keeps your password in the phone's secure storage.
   - **Project Gutenberg:** search or browse free classics. Choose a book, then **Download and open**.
 - To remove a book, use its **More options** menu and choose **Remove from phone**.
 

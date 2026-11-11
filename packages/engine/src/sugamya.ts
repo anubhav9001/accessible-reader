@@ -40,6 +40,7 @@ export interface SugamyaPage<T> {
 export type SugamyaQuery =
   | { kind: 'search'; terms: string }
   | { kind: 'latest' }
+  | { kind: 'popular'; from: string; to: string }
   | { kind: 'categories' }
   | { kind: 'category'; name: string }
   | { kind: 'grades' }
@@ -55,6 +56,8 @@ export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_
       return `authortitle/${part(query.terms)}/${tail}`;
     case 'latest':
       return `latest/${tail}`;
+    case 'popular':
+      return `popularbooks/noOfTimesDelivered/${SUGAMYA_POPULAR_TIMES}/startDate/${part(query.from)}/endDate/${part(query.to)}/${tail}`;
     case 'categories':
       return `categorylist/${tail}`;
     case 'category':
@@ -70,7 +73,7 @@ export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_
 
 /** Only these characters may reach the library in a path, so a path can't be redirected elsewhere. */
 export function isSugamyaPath(path: string): boolean {
-  return /^(authortitle|latest|categorylist|category|gradelist|grade|id)\/[A-Za-z0-9%._~\-/]*format\/xml$/.test(path);
+  return /^(authortitle|latest|popularbooks|categorylist|category|gradelist|grade|id)\/[A-Za-z0-9%._~\-/]*format\/xml$/.test(path);
 }
 
 const text = (el: Element | undefined, name: string): string => {
@@ -145,4 +148,148 @@ export function sugamyaFormatReadable(format: string): boolean {
 export function sugamyaFormatLabel(format: string): string {
   const known: Record<string, string> = { daisy3: 'DAISY 3', daisy202: 'DAISY 2.02', zedai: 'ZedAI', wordml: 'Word' };
   return known[format.toLowerCase()] ?? format;
+}
+
+// ---- Popular books ----
+
+/** A book counts as popular when it was delivered at least this many times in the past year. */
+export const SUGAMYA_POPULAR_TIMES = 50;
+
+/** Popular books: delivered at least SUGAMYA_POPULAR_TIMES times in the year up to `now`. */
+export function sugamyaPopularQuery(now = new Date()): SugamyaQuery {
+  const day = (d: Date) => d.toISOString().slice(0, 10); // YYYY-MM-DD, as TCS confirmed (not the guide's YYYY-DD-MM)
+  const from = new Date(now);
+  from.setUTCFullYear(from.getUTCFullYear() - 1);
+  return { kind: 'popular', from: day(from), to: day(now) };
+}
+
+// ---- The reader's account: download requests ----
+
+/** The account services (POST only, with the reader's user ID or email and password). */
+export const SUGAMYA_ACCOUNT_API = 'https://sugamyapustakalaya.org.in/rest/NALPAPIService';
+/** Links for the sign-in screen; the library has no API for these. */
+export const SUGAMYA_FORGOT_PASSWORD = SUGAMYA_SITE;
+export const SUGAMYA_JOIN = SUGAMYA_SITE;
+
+export type SugamyaAccountCall = 'getUserInfo' | 'raiseBookDownloadRequest' | 'fetchUserDownloadRequests';
+
+/** Format IDs from the API guide's table, for raiseBookDownloadRequest. Keys are lower case. */
+const FORMAT_IDS: Record<string, number> = {
+  braille: 1,
+  brailledtbook: 2,
+  daisy202: 4,
+  daisy3: 5,
+  'daisy audio only': 6,
+  'daisy text only': 7,
+  html: 9,
+  latex: 10,
+  odt: 11,
+  rtf: 12,
+  text: 13,
+  word: 14,
+  wordml: 15,
+  xhtml: 16,
+  zedai: 17,
+  'formatted braille': 18,
+  'hard braille': 19,
+  'daisy multimedia': 20,
+  'epub audio': 21,
+  'epub text only': 22,
+  'epub with media overlay': 23,
+  'structured epub without proofreading': 24,
+  'braille with tactile': 25,
+};
+
+/** The format ID the library wants for a download request, from a result's download-format. */
+export function sugamyaFormatId(format: string): number | undefined {
+  return FORMAT_IDS[format.trim().replace(/\s+/g, ' ').toLowerCase()];
+}
+
+/** The Authorization header for the reader's user ID (or email) and password. */
+export function sugamyaAuthorization(user: string, password: string): string {
+  const bytes = new TextEncoder().encode(`${user.trim()}:${password}`);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return `Basic ${btoa(binary)}`;
+}
+
+/** The form fields of an account request (the key is added by the app). */
+export function sugamyaAccountFields(
+  call: SugamyaAccountCall,
+  args: { bookId?: string; formatId?: number; page?: number; limit?: number } = {},
+): Record<string, string> {
+  if (call === 'raiseBookDownloadRequest') return { bookId: String(args.bookId ?? ''), formatId: String(args.formatId ?? '') };
+  if (call === 'fetchUserDownloadRequests') return { page: String(args.page ?? 1), limit: String(args.limit ?? 50) };
+  return {};
+}
+
+/** Whether a download link is the library's own, over HTTPS, so the reader's password may go with it. */
+export function isSugamyaDownloadUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname === 'sugamyapustakalaya.org.in';
+  } catch {
+    return false;
+  }
+}
+
+/** The library's own message in a reply (e.g. "Your download request has been registered…"). */
+export function parseSugamyaMessage(xml: XmlPlatform, body: string): string | undefined {
+  if (!/^\s*(<\?xml[^>]*>\s*)?<nalp[\s>]/.test(body)) return undefined;
+  return text(children(xml.parseXml(body).documentElement, 'message')[0], 'string') || undefined;
+}
+
+export interface SugamyaUser {
+  name: string;
+  email: string;
+}
+
+/** The reader's details from getUserInfo; undefined when the reply has none (not signed in). */
+export function parseSugamyaUser(xml: XmlPlatform, body: string): SugamyaUser | undefined {
+  if (!/<nalp[\s>]/.test(body)) return undefined;
+  const result = descendants(xml.parseXml(body).documentElement, 'result')[0];
+  if (!result) return undefined;
+  return { name: text(result, 'name'), email: text(result, 'email') };
+}
+
+/** One of the reader's download requests. */
+export interface SugamyaRequest {
+  title: string;
+  format: string;
+  /** The library's status text, e.g. "Available for Download". */
+  status: string;
+  /** Whether the book can be downloaded now. */
+  ready: boolean;
+  /** The download link (needs the reader's sign-in, valid for 7 days); empty until ready. */
+  url: string;
+}
+
+/** Reads fetchUserDownloadRequests. */
+export function parseSugamyaRequests(xml: XmlPlatform, body: string): SugamyaPage<SugamyaRequest> {
+  const { results, total, page, message } = parse(xml.parseXml(body));
+  const items = results.map((r) => {
+    const status = text(r, 'available-to-download');
+    const url = text(r, 'downloadurl'); // <downloadUrl>; names are matched in lower case
+    return {
+      title: text(r, 'title') || 'Untitled',
+      format: detail(r, 'download-format'),
+      status,
+      // The app checks the link is the library's own before sending the password with it.
+      ready: /^available/i.test(status) && /^https?:\/\//i.test(url),
+      url: /^https?:\/\//i.test(url) ? url : '',
+    };
+  });
+  return { items, total, page, message };
+}
+
+/**
+ * What to tell the reader when an account call doesn't give the library's XML reply. The
+ * library answers a wrong user ID or password with an HTML error page (HTTP 404), it seems,
+ * as it does any request it can't match to a reader.
+ */
+export function sugamyaAccountProblem(call: SugamyaAccountCall, status: number): string {
+  if (status === 401 || status === 403 || status === 404) {
+    return "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website.";
+  }
+  return `Sugamya Pustakalaya couldn't do this right now (error ${status}). Try again later.`;
 }
