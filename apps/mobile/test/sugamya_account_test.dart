@@ -43,10 +43,16 @@ void main() {
     late HttpServer server;
     late String base;
     final calls = <String>[];
+    var manyRequests = 0;
+    var repeatPage = false;
+    final pagesAsked = <int>[];
     final good = sugamyaAuthorization('tester', 's3cret pass');
 
     setUp(() async {
       calls.clear();
+      manyRequests = 0;
+      repeatPage = false;
+      pagesAsked.clear();
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       base = 'http://127.0.0.1:${server.port}';
       server.listen((req) async {
@@ -72,6 +78,18 @@ void main() {
           res.write(_fixture('user.xml'));
         } else if (name == 'raiseBookDownloadRequest') {
           res.write(_fixture('request-raised.xml'));
+        } else if (name == 'fetchUserDownloadRequests' && manyRequests > 0) {
+          // Paged like the library: page and limit from the headers.
+          final limit = int.tryParse(req.headers.value('limit') ?? '') ?? 50;
+          final page = repeatPage ? 1 : int.tryParse(req.headers.value('page') ?? '') ?? 1;
+          pagesAsked.add(page);
+          final from = (page - 1) * limit, to = (page * limit).clamp(0, manyRequests);
+          final items = [
+            for (var i = from; i < to; i++)
+              '<result><available-to-download>Request in process</available-to-download><download-format>DAISY Audio Only</download-format><downloadUrl></downloadUrl><title>Book ${i + 1}</title></result>'
+          ];
+          res.write('<nalp><api-version>1.0</api-version><total-results>$manyRequests</total-results>'
+              '${items.isEmpty ? '<message><string>No data existing</string></message>' : '<books><list>${items.join()}</list></books>'}</nalp>');
         } else {
           res.write(_fixture('requests.xml').replaceAll(
               'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/', '$base/downloadFile/'));
@@ -116,6 +134,28 @@ void main() {
       await again.signOut();
       expect(secrets.values, isNull);
       expect(calls.where((c) => c.contains(' POST ')).every((c) => c.split(' ')[3] == 'true'), isTrue, reason: 'every account call sends the key header');
+    });
+    test('fetches every page of download requests', () async {
+      if (sugamyaApiKey.isEmpty) return markTestSkipped('needs --dart-define=SUGAMYA_API_KEY=test-key');
+      final account = SugamyaAccount(secrets: _MemorySecrets(), base: base, allowLocal: true);
+      await account.signIn('tester', 's3cret pass');
+      manyRequests = 120;
+      final all = await account.requests();
+      expect(all.length, 120);
+      expect(all.last.title, 'Book 120');
+      expect(pagesAsked, [1, 2, 3]);
+
+      pagesAsked.clear();
+      manyRequests = 50;
+      expect((await account.requests()).length, 50);
+      expect(pagesAsked, [1]);
+
+      // A library that ignores the page number: stop instead of repeating page 1.
+      pagesAsked.clear();
+      manyRequests = 120;
+      repeatPage = true;
+      expect((await account.requests()).length, 50);
+      expect(pagesAsked, [1, 1]);
     });
   });
 }

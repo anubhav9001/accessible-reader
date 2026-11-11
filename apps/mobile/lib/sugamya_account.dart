@@ -110,6 +110,12 @@ class SugamyaRequest {
   final String url;
 }
 
+/// The total-results of a list reply, or null when it has none.
+int? parseSugamyaTotal(String body) {
+  if (!_isNalp(body)) return null;
+  return int.tryParse(_text(XmlDocument.parse(body).rootElement, 'total-results'));
+}
+
 /// Reads fetchUserDownloadRequests.
 List<SugamyaRequest> parseSugamyaRequests(String body) {
   if (!_isNalp(body)) return const [];
@@ -283,10 +289,36 @@ class SugamyaAccount {
     return message;
   }
 
+  /// Download requests per page, and the most pages Reader fetches (1,000 requests).
+  static const requestPage = 50;
+  static const requestPagesMax = 20;
+
+  /// Every page of the reader's download requests, not just the first.
   Future<List<SugamyaRequest>> requests() async {
-    final items = parseSugamyaRequests(await _post('fetchUserDownloadRequests', fields: {'page': '1', 'limit': '50'}));
-    AppLog.info('sugamya', 'Download requests: ${items.length} (${items.where((r) => r.ready).length} ready).');
-    return items;
+    final all = <SugamyaRequest>[];
+    int? total;
+    var pages = 0;
+    var stopped = '';
+    for (var page = 1; page <= requestPagesMax; page++) {
+      final body = await _post('fetchUserDownloadRequests', fields: {'page': '$page', 'limit': '$requestPage'});
+      final items = parseSugamyaRequests(body);
+      pages = page;
+      total = parseSugamyaTotal(body) ?? total;
+      if (items.isEmpty) break;
+      // A library that ignored the page number would send page 1 again: stop rather than repeat it.
+      final first = items.first;
+      if (page > 1 && all.any((r) => r.title == first.title && r.format == first.format && r.url == first.url)) {
+        stopped = '; page $page repeated an earlier page, so Reader stopped';
+        break;
+      }
+      all.addAll(items);
+      // A short page is the last; without total-results a full page means "maybe more".
+      if (items.length < requestPage || (total != null && all.length >= total)) break;
+      if (page == requestPagesMax) stopped = '; stopped after $requestPagesMax pages';
+    }
+    AppLog.info('sugamya',
+        'Download requests: ${all.length} of ${total ?? all.length} in $pages page${pages == 1 ? '' : 's'} (${all.where((r) => r.ready).length} ready)$stopped.');
+    return all;
   }
 
   /// Downloads a ready book to [file], reporting progress (0 to 1, or -1 when the size is unknown).

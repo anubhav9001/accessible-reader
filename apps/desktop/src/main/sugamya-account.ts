@@ -22,6 +22,10 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { AppLog } from './log';
 
+/** Download requests per page, and the most pages Reader fetches (1,000 requests). */
+const REQUEST_PAGE = 50;
+const REQUEST_PAGES_MAX = 20;
+
 /** The reader's Sugamya Pustakalaya account, as the page sees it (never the password). */
 export interface SugamyaAccountInfo {
   user: string;
@@ -112,10 +116,32 @@ export class SugamyaAccount {
 
   /** The reader's download requests, newest as the library lists them. */
   async requests(): Promise<SugamyaRequest[]> {
-    const body = await this.post('fetchUserDownloadRequests', undefined, undefined, sugamyaAccountFields('fetchUserDownloadRequests', { page: 1, limit: 50 }));
-    const page = parseSugamyaRequests(xmldomPlatform, body);
-    this.log.info('sugamya', `Download requests: ${page.items.length} (${page.items.filter((r) => r.ready).length} ready)${page.message ? `; ${page.message}` : ''}.`);
-    return page.items;
+    // Every page, not just the first: the library sends REQUEST_PAGE at a time and says how
+    // many there are in all (total-results).
+    const all: SugamyaRequest[] = [];
+    let total = 0;
+    let pages = 0;
+    let stopped = '';
+    for (let page = 1; page <= REQUEST_PAGES_MAX; page++) {
+      const body = await this.post('fetchUserDownloadRequests', undefined, undefined, sugamyaAccountFields('fetchUserDownloadRequests', { page, limit: REQUEST_PAGE }));
+      const result = parseSugamyaRequests(xmldomPlatform, body);
+      pages = page;
+      total = result.total;
+      if (!result.items.length) break;
+      // A library that ignored the page number would send page 1 again: stop rather than repeat it.
+      const first = result.items[0]!;
+      if (page > 1 && all.some((r) => r.title === first.title && r.format === first.format && r.url === first.url)) {
+        stopped = `; page ${page} repeated an earlier page, so Reader stopped`;
+        break;
+      }
+      all.push(...result.items);
+      // A short page is the last. Without total-results the parser reports the page's own count,
+      // so a full page then means "maybe more" and Reader asks for the next one.
+      if (result.items.length < REQUEST_PAGE || (total !== result.items.length && all.length >= total)) break;
+      if (page === REQUEST_PAGES_MAX) stopped = `; stopped after ${REQUEST_PAGES_MAX} pages`;
+    }
+    this.log.info('sugamya', `Download requests: ${all.length} of ${total} in ${pages} page${pages === 1 ? '' : 's'} (${all.filter((r) => r.ready).length} ready)${stopped}.`);
+    return all;
   }
 
   /** Downloads a ready book into `dir`, reporting progress (0 to 1, or -1 when the size is unknown). */
