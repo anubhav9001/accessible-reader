@@ -1,6 +1,7 @@
 // Builds sample books for trying the reader before real Sugamya books are available:
 //   samples/sample-daisy202.zip  DAISY 2.02 full text + full audio, narrated by the Windows voice
 //   samples/sample-text.epub     EPUB 3 with text only (for the device-voice read-aloud)
+//   samples/sample-math.epub     EPUB 3 with maths (MathML): fractions, roots, formulas, a table, Hindi
 // Run: npm run samples   (Windows; falls back to silent audio if speech synthesis fails)
 
 import { execFileSync } from 'node:child_process';
@@ -193,6 +194,54 @@ const epub = {
   'EPUB/content.xhtml': xhtml,
 };
 writeFileSync(path.join(outDir, 'sample-text.epub'), zipSync(toBytes(epub)));
+
+// ---- EPUB 3 with maths (MathML), for trying how maths is shown and read ----
+// Some equations carry alttext (a description from the book), some don't, as in real books.
+
+const M = 'xmlns="http://www.w3.org/1998/Math/MathML"';
+const mathXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en"><head><title>Maths sample</title></head><body>
+<h1 id="m0">Chapter 1. Numbers</h1>
+<p>Three quarters of the class, <math ${M}><mfrac><mn>3</mn><mn>4</mn></mfrac></math>, passed the test.</p>
+<p>The area of a square with side <math ${M}><mi>x</mi></math> is <math ${M}><msup><mi>x</mi><mn>2</mn></msup></math>, and its volume when stacked is <math ${M}><msup><mi>x</mi><mn>3</mn></msup></math>.</p>
+<p>The square root of two is about 1.414: <math ${M}><msqrt><mn>2</mn></msqrt><mo>≈</mo><mn>1.414</mn></math>.</p>
+<h1 id="m1">Chapter 2. Equations</h1>
+<p>The Pythagorean theorem, with a description from the book:</p>
+<math ${M} display="block" alttext="a squared plus b squared equals c squared"><msup><mi>a</mi><mn>2</mn></msup><mo>+</mo><msup><mi>b</mi><mn>2</mn></msup><mo>=</mo><msup><mi>c</mi><mn>2</mn></msup></math>
+<p>The quadratic formula, without a description:</p>
+<math ${M} display="block"><mi>x</mi><mo>=</mo><mfrac><mrow><mo>−</mo><mi>b</mi><mo>±</mo><msqrt><msup><mi>b</mi><mn>2</mn></msup><mo>−</mo><mn>4</mn><mi>a</mi><mi>c</mi></msqrt></mrow><mrow><mn>2</mn><mi>a</mi></mrow></mfrac></math>
+<p>After the formula, the text goes on as usual.</p>
+<h1 id="m2">Chapter 3. Sums, integrals and matrices</h1>
+<p>The sum of the first n numbers:</p>
+<math ${M} display="block"><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mi>i</mi><mo>=</mo><mfrac><mrow><mi>n</mi><mo>(</mo><mi>n</mi><mo>+</mo><mn>1</mn><mo>)</mo></mrow><mn>2</mn></mfrac></math>
+<p>An integral:</p>
+<math ${M} display="block"><msubsup><mo>∫</mo><mn>0</mn><mn>1</mn></msubsup><msup><mi>x</mi><mn>2</mn></msup><mi>d</mi><mi>x</mi><mo>=</mo><mfrac><mn>1</mn><mn>3</mn></mfrac></math>
+<p>A two by two matrix:</p>
+<math ${M} display="block"><mi>A</mi><mo>=</mo><mrow><mo>[</mo><mtable><mtr><mtd><mn>1</mn></mtd><mtd><mn>2</mn></mtd></mtr><mtr><mtd><mn>3</mn></mtd><mtd><mn>4</mn></mtd></mtr></mtable><mo>]</mo></mrow></math>
+<h1 id="m3">Chapter 4. Science and tables</h1>
+<p>Water forms from hydrogen and oxygen: <math ${M}><mn>2</mn><msub><mi mathvariant="normal">H</mi><mn>2</mn></msub><mo>+</mo><msub><mi mathvariant="normal">O</mi><mn>2</mn></msub><mo>→</mo><mn>2</mn><msub><mi mathvariant="normal">H</mi><mn>2</mn></msub><mi mathvariant="normal">O</mi></math>.</p>
+<table><caption>Squares and cubes</caption><thead><tr><th scope="col">n</th><th scope="col">Square</th><th scope="col">Cube</th></tr></thead><tbody>
+<tr><td>2</td><td><math ${M}><msup><mn>2</mn><mn>2</mn></msup><mo>=</mo><mn>4</mn></math></td><td><math ${M}><msup><mn>2</mn><mn>3</mn></msup><mo>=</mo><mn>8</mn></math></td></tr>
+<tr><td>3</td><td><math ${M}><msup><mn>3</mn><mn>2</mn></msup><mo>=</mo><mn>9</mn></math></td><td><math ${M}><msup><mn>3</mn><mn>3</mn></msup><mo>=</mo><mn>27</mn></math></td></tr>
+</tbody></table>
+<h1 id="m4" lang="hi">अध्याय 5. हिंदी में गणित</h1>
+<p lang="hi">द्विघात समीकरण का एक उदाहरण: <math ${M}><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><mn>5</mn><mi>x</mi><mo>+</mo><mn>6</mn><mo>=</mo><mn>0</mn></math>, जिसके हल <math ${M}><mi>x</mi><mo>=</mo><mo>−</mo><mn>2</mn></math> और <math ${M}><mi>x</mi><mo>=</mo><mo>−</mo><mn>3</mn></math> हैं।</p>
+</body></html>`;
+const mathEpub = {
+  mimetype: 'application/epub+zip',
+  'META-INF/container.xml': epub['META-INF/container.xml'],
+  'EPUB/package.opf': `<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">sample-math-0001</dc:identifier><dc:title>Sample Maths EPUB</dc:title><dc:language>en</dc:language></metadata>
+<manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c" href="content.xhtml" media-type="application/xhtml+xml" properties="mathml"/></manifest>
+<spine><itemref idref="c"/></spine></package>`,
+  'EPUB/nav.xhtml': `<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body>
+<nav epub:type="toc"><ol>${['Chapter 1. Numbers', 'Chapter 2. Equations', 'Chapter 3. Sums, integrals and matrices', 'Chapter 4. Science and tables', 'अध्याय 5. हिंदी में गणित'].map((h, i) => `<li><a href="content.xhtml#m${i}">${h}</a></li>`).join('')}</ol></nav>
+</body></html>`,
+  'EPUB/content.xhtml': mathXhtml,
+};
+writeFileSync(path.join(outDir, 'sample-math.epub'), zipSync(toBytes(mathEpub)));
 
 console.log(`Samples written to ${outDir} (${spoken ? 'spoken' : 'silent'} audio, ${total.toFixed(1)} s)`);
 
