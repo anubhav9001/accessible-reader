@@ -34,6 +34,8 @@ export function dtbookToHtml(doc: Document): string {
 function render(el: Element, depth: number, inImgGroup: boolean): string {
   const name = localName(el);
   if (name === 'head') return '';
+  // Maths (MathML, usually written m:math) stays maths, so it can be shown and spoken.
+  if (name === 'math') return mathml(el, true);
 
   let tag: string;
   if (name === 'hd') tag = `h${Math.min(6, Math.max(1, depth))}`;
@@ -68,6 +70,21 @@ function render(el: Element, depth: number, inImgGroup: boolean): string {
     else if (n.nodeType === 1) inner += render(n as Element, childDepth, name === 'imggroup');
   }
   return `${open}${inner}</${tag}>`;
+}
+
+/** A MathML element as markup without its prefix (m:mfrac → mfrac), which the HTML parser reads as maths. */
+function mathml(el: Element, root: boolean): string {
+  const name = localName(el);
+  const attrs = Array.from(el.attributes)
+    .filter((a) => !/^xmlns(:|$)/.test(a.name))
+    .map((a) => ` ${a.name.replace(/^[^:]+:(?!lang$)/, '')}="${escape(a.value)}"`)
+    .join('');
+  let inner = '';
+  for (let n = el.firstChild; n; n = n.nextSibling) {
+    if (n.nodeType === 3 || n.nodeType === 4) inner += escape(n.nodeValue ?? '');
+    else if (n.nodeType === 1) inner += mathml(n as Element, false);
+  }
+  return `<${name}${root ? ' xmlns="http://www.w3.org/1998/Math/MathML"' : ''}${attrs}>${inner}</${name}>`;
 }
 
 function escape(s: string): string {

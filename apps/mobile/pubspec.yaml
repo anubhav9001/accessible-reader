@@ -74,6 +74,8 @@ flutter:
   # The WebView reader page, built from web/ (npm run build there).
   assets:
     - assets/web/
+    # Maths in words: Speech Rule Engine's rule files (Flutter doesn't include subfolders by itself).
+    - assets/web/mathmaps/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

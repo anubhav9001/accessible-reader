@@ -41,7 +41,7 @@ const DLGC_WANTALLKEYS = 0x4;
 
 /** Reader's own keys in the text box (see plain-reader.ts): key code to the page's key name. */
 function readerKey(vk: number, shift: boolean): { key: string; code: string } | undefined {
-  if ('HPKTLIGFS'.includes(String.fromCharCode(vk)) && vk >= 0x41 && vk <= 0x5a) {
+  if ('HPKTLIGFSM'.includes(String.fromCharCode(vk)) && vk >= 0x41 && vk <= 0x5a) {
     const letter = String.fromCharCode(vk);
     return { key: shift ? letter : letter.toLowerCase(), code: `Key${letter}` };
   }

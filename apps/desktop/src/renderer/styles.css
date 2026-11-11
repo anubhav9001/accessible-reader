@@ -540,6 +540,16 @@ dialog input {
   margin: 0 0 8px;
 }
 
+.ui-math-words {
+  margin: 0 0 16px;
+}
+
+.ui-math-view {
+  font-size: 1.6em;
+  padding: 8px 0;
+  overflow-x: auto;
+}
+
 .catalog-book p {
   margin: 0 0 8px;
 }

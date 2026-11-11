@@ -16,7 +16,7 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
-import { BookPageView, DocumentView } from '@accessible-reader/web-view';
+import { BookPageView, DocumentView, speakableText } from '@accessible-reader/web-view';
 
 /**
  * The reader page inside the mobile app's WebView. The Flutter side owns playback and
@@ -101,7 +101,8 @@ function describeDoc(index: number): TextDoc {
     path: view.currentPath!,
     index,
     lang: view.lang,
-    blocks: blocks.map((b) => ({ text: (b.innerText || b.textContent || '').trim(), heading: headingLevel(b) })),
+    // Equations as their words (data-speech; see math.ts), not their symbols run together.
+    blocks: blocks.map((b) => ({ text: speakableText(b) || (b.innerText || b.textContent || '').trim(), heading: headingLevel(b) })),
   };
 }
 
@@ -111,6 +112,8 @@ async function show(ref: TextRef, focus: boolean): Promise<HTMLElement | undefin
   if (!r) return undefined;
   const changed = view.currentPath !== r.path;
   await view.show(r.path, r.mediaType);
+  // The device voice is given the blocks' text next (describeDoc), equations included.
+  if (changed && view instanceof DocumentView) await view.mathReady;
   if (changed) blocks = focusable(view.blocks());
   const el = ref.fragment ? view.highlight(ref.fragment) : undefined;
   if (!ref.fragment) view.highlightElement(undefined);

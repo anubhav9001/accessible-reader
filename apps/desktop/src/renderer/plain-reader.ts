@@ -9,6 +9,8 @@ export interface PlainReaderEvents {
   announce(message: string): void;
   /** Enter on a table: show it as a real table, for the screen reader's table commands. */
   table(item: PlainItem): void;
+  /** Enter on an equation: show it on its own, with its words. */
+  math(item: PlainItem): void;
 }
 
 /** Single-letter navigation keys, as in browse mode and Paperback. Shift goes backwards. */
@@ -22,6 +24,7 @@ const KEYS: Record<string, { kind: PlainKind; name: string; plural?: string }> =
   g: { kind: 'image', name: 'image' },
   f: { kind: 'figure', name: 'figure' },
   s: { kind: 'separator', name: 'separator' },
+  m: { kind: 'math', name: 'equation' },
 };
 
 // Box sizes, in characters, and how close to an end the cursor gets before the box moves on.
@@ -166,6 +169,8 @@ export class PlainReader {
     this.area.value = 'Preparing the text of this book…';
     this.building = buildPlainBook(documents, url).then((book) => {
       if (generation !== this.generation) return undefined;
+      const equations = book.items.filter((i) => i.kind === 'math').length;
+      log(`Plain text: ${book.text.length} characters, ${book.items.filter((i) => i.kind === 'table').length} tables, ${equations} equations`);
       this.book = book;
       this.win = undefined;
       this.place(0);
@@ -314,6 +319,8 @@ export class PlainReader {
         return ['Figure', item.label].filter(Boolean).join(', ');
       case 'section':
         return `Section, ${line}`;
+      case 'math':
+        return `Equation, ${item.label}`;
       default:
         return item.label || line;
     }
@@ -439,9 +446,11 @@ export class PlainReader {
     if (!this.book) return;
     const link = itemAt(this.book, this.caret, 'link');
     if (!link) {
+      const math = itemAt(this.book, this.caret, 'math');
+      if (math?.html) return this.events.math(math);
       const table = itemAt(this.book, this.caret, 'table');
       if (table?.html) return this.events.table(table);
-      return this.events.announce('No link or table here');
+      return this.events.announce('No link, table or equation here');
     }
     if (!link.target) return this.events.announce(`${link.label}. This link goes outside the book.`);
     const offset = this.anchorOffset(link.target);

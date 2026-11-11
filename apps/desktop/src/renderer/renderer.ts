@@ -200,6 +200,7 @@ const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
   announce: (message) => announce(message),
   table: (item) => showTable(item.html ?? '', item.label, item.count ?? 0),
+  math: (item) => showMath(item.html ?? '', item.label),
 });
 
 // ---- the native Windows text box for screen reader mode (native-host.ts) ----
@@ -250,9 +251,37 @@ if (window.reader) {
 window.reader?.onNarrator((running) => plain.setSmall(running));
 void window.reader?.narratorRunning().then((running) => plain.setSmall(running));
 
+/**
+ * Shows an equation from screen reader mode on its own, in the table window: its words first
+ * (focused, read by any screen reader), then the equation as drawn, which screen readers with
+ * their own maths support (NVDA with MathCAT, JAWS) can explore.
+ */
+function showMath(html: string, words: string): void {
+  const dialog = $<HTMLDialogElement>('ui-table-dialog');
+  const body = $('ui-table-body');
+  body.setAttribute('aria-roledescription', 'equation window');
+  const said = document.createElement('p');
+  said.className = 'ui-math-words';
+  said.tabIndex = 0;
+  said.textContent = words;
+  const drawn = document.createElement('div');
+  drawn.className = 'ui-math-view';
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  drawn.append(template.content);
+  body.replaceChildren(said, drawn);
+  $('ui-table-title').textContent = 'Equation';
+  if (!dialog.open) {
+    tableReturn = document.activeElement as HTMLElement | null;
+    dialog.show();
+  }
+  said.focus();
+}
+
 /** Shows a table from screen reader mode as a real table, so table commands work in it. */
 function showTable(html: string, caption: string, rows: number): void {
   const dialog = $<HTMLDialogElement>('ui-table-dialog');
+  $('ui-table-body').setAttribute('aria-roledescription', 'table window');
   const template = document.createElement('template');
   template.innerHTML = html;
   const body = $('ui-table-body');
@@ -1242,7 +1271,7 @@ function closeTable(): void {
       closeTable();
     } else if (e.key === 'Tab') {
       // Tab stays in the window: the table (its current cell) and the Close button.
-      const stops = [dialog.querySelector<HTMLElement>('[role="grid"] [tabindex="0"]'), dialog.querySelector('button')].filter((el): el is HTMLElement => !!el);
+      const stops = [dialog.querySelector<HTMLElement>('[role="grid"] [tabindex="0"], .ui-math-words'), dialog.querySelector('button')].filter((el): el is HTMLElement => !!el);
       const i = stops.indexOf(document.activeElement as HTMLElement);
       e.preventDefault();
       stops[(i + (e.shiftKey ? -1 : 1) + stops.length) % stops.length]?.focus();

@@ -12,7 +12,7 @@ try {
 
 const common = { bundle: true, sourcemap: true, logLevel: 'warning' };
 
-await mkdir('dist/renderer', { recursive: true });
+await mkdir('dist/renderer/mathmaps', { recursive: true });
 await Promise.all([
   build({
     ...common,
@@ -42,5 +42,8 @@ await Promise.all([
   }),
   cp('src/renderer/index.html', 'dist/renderer/index.html'),
   cp('src/renderer/styles.css', 'dist/renderer/styles.css'),
+  // Maths in words (packages/web-view/src/math.ts): Speech Rule Engine and its rule files.
+  cp('../../node_modules/speech-rule-engine/lib/sre.js', 'dist/renderer/sre.js'),
+  ...['base', 'en', 'hi'].map((l) => cp(`../../node_modules/speech-rule-engine/lib/mathmaps/${l}.json`, `dist/renderer/mathmaps/${l}.json`)),
 ]);
 console.log('Desktop build complete');

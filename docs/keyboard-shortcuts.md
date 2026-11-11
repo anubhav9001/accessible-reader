@@ -76,6 +76,7 @@ These keys work in the book's text box. Shift with the key goes backwards.
 | Next printed page | P |
 | Next link | K (Enter or Space follows it) |
 | Next table | T (Enter opens it as a real table, read cell by cell with the arrow keys) |
+| Next equation (maths) | M (Enter opens it on its own, with its words and the equation as drawn) |
 | Next list / list item | L / I |
 | Next image / figure / separator | G / F / S |
 | Next / previous section | ] / [ |

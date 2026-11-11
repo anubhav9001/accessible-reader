@@ -1,5 +1,6 @@
 import { resolveHref, type TextRef } from '@accessible-reader/engine';
 import { innermostBlocks, PAGE_MARKERS, parseBookDocument, REMOVED } from './document-view.js';
+import { isDisplayMath, mathDescription, mathSymbols, prepareMath, safeMathMarkup } from './math.js';
 
 /** What the structural navigation keys move between. */
 export type PlainKind =
@@ -12,7 +13,8 @@ export type PlainKind =
   | 'figure'
   | 'image'
   | 'separator'
-  | 'section';
+  | 'section'
+  | 'math';
 
 export interface PlainItem {
   kind: PlainKind;
@@ -27,7 +29,7 @@ export interface PlainItem {
   target?: TextRef;
   /** Rows of a table, or items of a list. */
   count?: number;
-  /** A table's own markup, cleaned (structure, text and spans only), for showing as a table. */
+  /** A table's own markup, cleaned (structure, text and spans only), for showing as a table; an equation's MathML. */
   html?: string;
 }
 
@@ -211,6 +213,21 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
       book.items.push({ kind: 'image', start, end: w.length, label: alt ? `Image: ${alt}` : 'Image' });
       return;
     }
+    // An equation: its words, from data-speech (see math.ts); on a line of its own when it
+    // stands alone, after "Equation: ", as a table starts with "Table, …". Enter opens it.
+    if (tag === 'math') {
+      const words = el.getAttribute('data-speech') || mathDescription(el) || mathSymbols(el);
+      const display = isDisplayMath(el) && !w.inCell;
+      if (display) w.newline();
+      const start = w.here;
+      if (display) w.marker('Equation: ');
+      // A space before (the words never run into the text before them); none after, so a
+      // following comma or full stop stays against them.
+      w.text(` ${words}`, false);
+      book.items.push({ kind: 'math', start, end: w.length, label: words, html: safeMathMarkup(el) });
+      if (display) w.newline();
+      return;
+    }
     if (tag === 'br') {
       if (w.inCell) w.text(' ', false);
       else w.newline();
@@ -320,7 +337,10 @@ export async function buildPlainBook(
     let body: Element;
     try {
       const text = await (await fetch(url(doc.path))).text();
-      body = parseBookDocument(text, doc.path, doc.mediaType).body;
+      let lang: string;
+      ({ body, lang } = parseBookDocument(text, doc.path, doc.mediaType));
+      // Each equation's words are worked out first (the speech engine answers asynchronously).
+      await prepareMath(body, lang);
     } catch {
       continue;
     }

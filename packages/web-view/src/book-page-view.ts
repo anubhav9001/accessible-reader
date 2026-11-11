@@ -1,5 +1,6 @@
 import { resolveHref, type TextRef } from '@accessible-reader/engine';
 import { innermostBlocks, PAGE_MARKERS, parseBookDocument, REMOVED } from './document-view.js';
+import { isDisplayMath, mathDescription, mathSymbols, prepareMath } from './math.js';
 
 // Structure kept in the text-only page, so a screen reader can still move by heading, list,
 // table and link. Everything else (styling, pictures, layout boxes) is left out.
@@ -55,6 +56,8 @@ export class BookPageView {
       try {
         const text = await (await fetch(this.url(doc.path))).text();
         ({ body, lang } = parseBookDocument(text, doc.path, doc.mediaType));
+        // Each equation's words first (the speech engine answers asynchronously; see math.ts).
+        await prepareMath(body, lang);
       } catch {
         continue;
       }
@@ -158,6 +161,21 @@ export class BookPageView {
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const src = node as Element;
       const tag = src.localName.toLowerCase();
+      // An equation as its words: inside a paragraph, plain text in its sentence (so the
+      // paragraph stays one piece for TalkBack); on its own line, a paragraph "Equation: …".
+      if (tag === 'math') {
+        const words = src.getAttribute('data-speech') || mathDescription(src) || mathSymbols(src);
+        if (!words) return;
+        if (!block && isDisplayMath(src)) {
+          const p = document.createElement('p');
+          p.className = 'math';
+          p.textContent = `Equation: ${words}`;
+          into.appendChild(p);
+        } else {
+          into.appendChild(document.createTextNode(` ${words}`));
+        }
+        return;
+      }
       if (DROPPED.has(tag) || src.hasAttribute('hidden')) return;
       if (tag === 'br') {
         into.appendChild(document.createTextNode(' '));

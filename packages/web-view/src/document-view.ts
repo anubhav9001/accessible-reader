@@ -1,4 +1,5 @@
 import { dtbookToHtml, resolveHref, resolvePath, type TextRef } from '@accessible-reader/engine';
+import { prepareMath } from './math.js';
 
 /** Elements read as one unit by the device voice, and stepped through as "phrases" in text mode. */
 export const BLOCKS = 'h1,h2,h3,h4,h5,h6,p,li,dt,dd,th,td,figcaption,caption,blockquote,pre,aside,div.dtb-line';
@@ -35,6 +36,8 @@ export class DocumentView {
   currentPath: string | undefined;
   current: HTMLElement | undefined;
   lang = '';
+  /** Settles once the shown document's equations have their words (data-speech; see math.ts). */
+  mathReady: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly el: HTMLElement,
@@ -61,6 +64,8 @@ export class DocumentView {
     this.el.scrollTop = 0;
     this.currentPath = path;
     this.current = undefined;
+    // The equations' words, for the device voice (math.ts); in the background, the page is already shown.
+    this.mathReady = prepareMath(this.el, this.lang).catch(() => undefined);
   }
 
   clear(): void {

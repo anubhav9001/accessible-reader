@@ -32,4 +32,13 @@ describe('dtbookToHtml', () => {
     expect(html).toContain('<figcaption class="dtb-caption">Figure 1</figcaption>');
     expect(html).toContain('<aside id="n1" class="dtb-note">');
   });
+  it('keeps maths (m:math) as MathML, without the prefix', () => {
+    const dtbook = xmldomPlatform.parseXml(`<?xml version="1.0"?>
+<dtbook xmlns="http://www.daisy.org/z3986/2005/dtbook/" xmlns:m="http://www.w3.org/1998/Math/MathML">
+  <book><bodymatter><level><p>Half is <m:math alttext="one half" display="inline"><m:mfrac><m:mn>1</m:mn><m:mn>2</m:mn></m:mfrac></m:math>.</p></level></bodymatter></book>
+</dtbook>`);
+    expect(dtbookToHtml(dtbook)).toContain(
+      '<p class="dtb-p">Half is <math xmlns="http://www.w3.org/1998/Math/MathML" alttext="one half" display="inline"><mfrac><mn>1</mn><mn>2</mn></mfrac></math>.</p>',
+    );
+  });
 });

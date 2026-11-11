@@ -89,6 +89,7 @@ In the text box, single keys move the cursor through the book's structure. Shift
 | 1 to 6 | Next heading at that level |
 | P | Next printed page |
 | K | Next link (Enter or Space follows a link inside the book) |
+| M | Next equation. Equations (maths) are read in words, in English or Hindi to match the book, for example "x equals the fraction with numerator negative b plus or minus …"; an equation on a line of its own starts with "Equation:". Enter on an equation opens it on its own, with its words and the equation as drawn. Escape comes back |
 | T | Next table. A line gives its size, each row is a line with cells divided by a bar and each cell starting with its column heading ("Date: 260 B.C. \| Name: Battle of Mylae"), and End of table follows. Enter on a table opens it as a real table: move from cell to cell with the arrow keys (each cell is linked to its column and row headings, so your screen reader names the column as you move across; a first row of headings counts even when the book doesn't mark it as one), with no need to change your screen reader's mode; Home and End go to the ends of a row, Ctrl+Home and Ctrl+End to the first and last cells. Escape comes back |
 | L / I | Next list / list item |
 | G / F / S | Next image / figure / separator |

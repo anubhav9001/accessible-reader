@@ -1,3 +1,4 @@
+import { speakableText } from '@accessible-reader/web-view';
 export interface SpeechEvents {
   block(index: number, element: HTMLElement): void;
   state(playing: boolean): void;
@@ -74,7 +75,8 @@ export class SpeechPlayer {
     const el = this.blocks[this.index];
     if (!el) return;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance((el.innerText || el.textContent || '').trim());
+    // Equations as words (data-speech, see math.ts), not their symbols run together.
+    const u = new SpeechSynthesisUtterance(speakableText(el) || (el.innerText || el.textContent || '').trim());
     u.rate = this.rate;
     if (this.lang) u.lang = this.lang;
     const voice = this.voice ? speechSynthesis.getVoices().find((v) => v.name === this.voice) : undefined;
