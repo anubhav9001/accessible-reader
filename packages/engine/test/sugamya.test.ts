@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  isSugamyaAuthFailure,
   isSugamyaDownloadUrl,
   isSugamyaPath,
   parseSugamyaMessage,
@@ -113,6 +114,8 @@ describe('Sugamya Pustakalaya account', () => {
     expect(parseSugamyaMessage(xmldomPlatform, '<!DOCTYPE html><html>Oops</html>')).toBeUndefined();
     expect(parseSugamyaUser(xmldomPlatform, fixture('user.xml'))).toEqual({ name: 'EndUser One', email: 'enduser.one@example.org' });
     expect(parseSugamyaUser(xmldomPlatform, fixture('request-raised.xml'))).toBeUndefined();
+    expect(isSugamyaAuthFailure('Security Autentication Failed')).toBe(true);
+    expect(isSugamyaAuthFailure('No data existing')).toBe(false);
     expect(sugamyaAccountFields('raiseBookDownloadRequest', { bookId: '28', formatId: 6 })).toEqual({ bookId: '28', formatId: '6' });
   });
 });

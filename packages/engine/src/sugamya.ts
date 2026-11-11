@@ -282,14 +282,24 @@ export function parseSugamyaRequests(xml: XmlPlatform, body: string): SugamyaPag
   return { items, total, page, message };
 }
 
+/** What Reader says when the library doesn't accept the user ID or password. */
+export const SUGAMYA_WRONG_PASSWORD =
+  "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website.";
+
+/** Whether the library's message means the user ID or password was wrong ("Security Autentication Failed"). */
+export function isSugamyaAuthFailure(message: string | undefined): boolean {
+  return !!message && /auth?enti?cation failed/i.test(message);
+}
+
 /**
- * What to tell the reader when an account call doesn't give the library's XML reply. The
- * library answers a wrong user ID or password with an HTML error page (HTTP 404), it seems,
- * as it does any request it can't match to a reader.
+ * What to tell the reader when an account call doesn't give the library's XML reply. A wrong
+ * password comes back as XML ("Security Autentication Failed"); the HTML error page (HTTP 404)
+ * comes when the library can't handle the request itself, e.g. a user ID it doesn't know at
+ * sign-in, or a request it can't match to a book.
  */
 export function sugamyaAccountProblem(call: SugamyaAccountCall, status: number): string {
-  if (status === 401 || status === 403 || status === 404) {
-    return "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website.";
-  }
+  if (status === 401 || status === 403) return SUGAMYA_WRONG_PASSWORD;
+  if (call === 'getUserInfo') return status === 404 ? "Sugamya Pustakalaya didn't recognise this user ID or email. Check it and try again." : `Sugamya Pustakalaya couldn't sign you in right now (error ${status}). Try again later.`;
+  if (call === 'raiseBookDownloadRequest') return `Sugamya Pustakalaya couldn't take the request for this book (error ${status}). Try again later, or ask for it on the Sugamya Pustakalaya website.`;
   return `Sugamya Pustakalaya couldn't do this right now (error ${status}). Try again later.`;
 }

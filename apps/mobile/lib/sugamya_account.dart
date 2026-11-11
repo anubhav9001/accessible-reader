@@ -133,11 +133,30 @@ List<SugamyaRequest> parseSugamyaRequests(String body) {
   ];
 }
 
-/// What to tell the reader when an account call doesn't give the library's XML reply. The
-/// library answers a wrong user ID or password with an HTML error page (HTTP 404), it seems.
-String sugamyaAccountProblem(int status) => status == 401 || status == 403 || status == 404
-    ? "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website."
-    : "Sugamya Pustakalaya couldn't do this right now (error $status). Try again later.";
+/// What Reader says when the library doesn't accept the user ID or password.
+const sugamyaWrongPassword =
+    "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website.";
+
+/// Whether the library's message means the user ID or password was wrong ("Security Autentication Failed").
+bool isSugamyaAuthFailure(String? message) =>
+    message != null && RegExp('auth?enti?cation failed', caseSensitive: false).hasMatch(message);
+
+/// What to tell the reader when an account call doesn't give the library's XML reply. A wrong
+/// password comes back as XML; the HTML error page (HTTP 404) comes when the library can't
+/// handle the request itself (a user ID it doesn't know, a request it can't match to a book).
+String sugamyaAccountProblem(String call, int status) {
+  if (status == 401 || status == 403) return sugamyaWrongPassword;
+  if (call == 'getUserInfo') {
+    return status == 404
+        ? "Sugamya Pustakalaya didn't recognise this user ID or email. Check it and try again."
+        : "Sugamya Pustakalaya couldn't sign you in right now (error $status). Try again later.";
+  }
+  if (call == 'raiseBookDownloadRequest') {
+    return "Sugamya Pustakalaya couldn't take the request for this book (error $status). "
+        'Try again later, or ask for it on the Sugamya Pustakalaya website.';
+  }
+  return "Sugamya Pustakalaya couldn't do this right now (error $status). Try again later.";
+}
 
 /// Where the account is kept: the Android Keystore in the app, memory in tests.
 abstract class SugamyaSecrets {
@@ -226,7 +245,7 @@ class SugamyaAccount {
     if (user.isEmpty || password.isEmpty) throw const CatalogException('Enter your user ID or email, and your password.');
     final body = await _post('getUserInfo', user: user, password: password);
     final reader = parseSugamyaUser(body);
-    if (reader == null) throw CatalogException(parseSugamyaMessage(body) ?? sugamyaAccountProblem(404));
+    if (reader == null) throw CatalogException(parseSugamyaMessage(body) ?? sugamyaAccountProblem('getUserInfo', 404));
     _info = SugamyaAccountInfo(user, reader.name);
     _password = password;
     _loaded = true;
@@ -282,7 +301,7 @@ class SugamyaAccount {
       AppLog.info('sugamya', 'Download failed: HTTP ${response.statusCode}.');
       throw CatalogException(response.statusCode == 404 || response.statusCode == 410
           ? 'This download link has expired (links last 7 days). Ask for the book again.'
-          : sugamyaAccountProblem(response.statusCode));
+          : sugamyaAccountProblem('download', response.statusCode));
     }
     final total = response.contentLength;
     var received = 0;
@@ -311,8 +330,9 @@ class SugamyaAccount {
   }
 
   /// An account request: POST with the reader's Authorization header, and the app's key and the
-  /// call's fields as form fields. The guide lists the key ("strapikey") among the fields without
-  /// saying where it goes, so it also goes in a header of that name.
+  /// call's fields both as form fields and as headers. The guide lists them all as "name : value",
+  /// like the Authorization header, without saying where they go; the key works either way, but
+  /// asking for a book with them in the form only gave the library's error page.
   Future<String> _post(String call, {String? user, String? password, Map<String, String> fields = const {}}) async {
     if (sugamyaApiKey.isEmpty) throw const CatalogException("Sugamya Pustakalaya isn't set up in this copy of Reader.");
     final auth = _authorization(user, password);
@@ -324,6 +344,7 @@ class SugamyaAccount {
         ..set('strapikey', sugamyaApiKey)
         ..set(HttpHeaders.acceptHeader, 'application/xml')
         ..contentType = ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');
+      fields.forEach(request.headers.set);
       request.write(Uri(queryParameters: {...fields, 'strapikey': sugamyaApiKey}).query);
       response = await request.close().timeout(const Duration(seconds: 30));
     } on Object {
@@ -332,9 +353,11 @@ class SugamyaAccount {
     final body = await response.transform(utf8.decoder).join();
     // The library's replies are new to Reader: record what came back (never the request).
     final message = parseSugamyaMessage(body);
+    final sent = fields.entries.map((e) => '${e.key}=${e.value}').join(' ');
     AppLog.info('sugamya',
-        '$call: HTTP ${response.statusCode}, ${_isNalp(body) ? 'XML' : 'not XML'}${message == null ? '' : ', "$message"'}.');
-    if (response.statusCode != HttpStatus.ok || !_isNalp(body)) throw CatalogException(sugamyaAccountProblem(response.statusCode));
+        '$call${sent.isEmpty ? '' : ' ($sent)'}: HTTP ${response.statusCode}, ${_isNalp(body) ? 'XML' : 'not XML'}${message == null ? '' : ', "$message"'}.');
+    if (isSugamyaAuthFailure(message)) throw const CatalogException(sugamyaWrongPassword);
+    if (response.statusCode != HttpStatus.ok || !_isNalp(body)) throw CatalogException(sugamyaAccountProblem(call, response.statusCode));
     return body;
   }
 }

@@ -1,5 +1,7 @@
 import {
   SUGAMYA_ACCOUNT_API,
+  SUGAMYA_WRONG_PASSWORD,
+  isSugamyaAuthFailure,
   isSugamyaDownloadUrl,
   parseSugamyaMessage,
   parseSugamyaRequests,
@@ -77,9 +79,7 @@ export class SugamyaAccount {
     if (!user || !password) throw new Error('Enter your user ID or email, and your password.');
     const body = await this.post('getUserInfo', user, password);
     const reader = parseSugamyaUser(xmldomPlatform, body);
-    if (!reader) {
-      throw new Error(parseSugamyaMessage(xmldomPlatform, body) ?? sugamyaAccountProblem('getUserInfo', 404));
-    }
+    if (!reader) throw new Error(parseSugamyaMessage(xmldomPlatform, body) ?? sugamyaAccountProblem('getUserInfo', 404));
     this.password = password;
     this.saved = {
       user,
@@ -163,8 +163,9 @@ export class SugamyaAccount {
 
   /**
    * An account request: POST with the reader's Authorization header, and the app's key and
-   * the call's fields as form fields. The guide lists the key ("strapikey") among the fields
-   * without saying where it goes, so it also goes in a header of that name.
+   * the call's fields both as form fields and as headers. The guide lists them all as
+   * "name : value", like the Authorization header, without saying where they go; the key works
+   * either way, but asking for a book with them in the form only gave the library's error page.
    */
   private async post(call: SugamyaAccountCall, user?: string, password?: string, fields: Record<string, string> = {}): Promise<string> {
     if (!this.key) throw new Error("Sugamya Pustakalaya isn't set up in this copy of Reader.");
@@ -175,6 +176,7 @@ export class SugamyaAccount {
         method: 'POST',
         headers: {
           authorization: this.authorization(user, password),
+          ...fields,
           strapikey: this.key,
           'content-type': 'application/x-www-form-urlencoded',
           accept: 'application/xml',
@@ -189,7 +191,9 @@ export class SugamyaAccount {
     const body = await response.text();
     // The library's replies are new to Reader: record what came back (never the request).
     const message = parseSugamyaMessage(xmldomPlatform, body);
-    this.log.info('sugamya', `${call}: HTTP ${response.status}, ${/<nalp[\s>]/.test(body) ? 'XML' : 'not XML'}${message ? `, "${message}"` : ''}.`);
+    const sent = Object.entries(fields).map(([k, v]) => `${k}=${v}`).join(' ');
+    this.log.info('sugamya', `${call}${sent ? ` (${sent})` : ''}: HTTP ${response.status}, ${/<nalp[\s>]/.test(body) ? 'XML' : 'not XML'}${message ? `, "${message}"` : ''}.`);
+    if (isSugamyaAuthFailure(message)) throw new Error(SUGAMYA_WRONG_PASSWORD);
     if (!response.ok || !/<nalp[\s>]/.test(body)) throw new Error(sugamyaAccountProblem(call, response.status));
     return body;
   }

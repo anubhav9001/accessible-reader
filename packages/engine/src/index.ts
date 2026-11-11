@@ -30,6 +30,8 @@ export {
   SUGAMYA_FORGOT_PASSWORD,
   SUGAMYA_JOIN,
   SUGAMYA_POPULAR_TIMES,
+  SUGAMYA_WRONG_PASSWORD,
+  isSugamyaAuthFailure,
   isSugamyaDownloadUrl,
   isSugamyaPath,
   parseSugamyaMessage,

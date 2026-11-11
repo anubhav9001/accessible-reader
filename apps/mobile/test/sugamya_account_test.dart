@@ -55,7 +55,14 @@ void main() {
         final authorized = req.headers.value('authorization') == good;
         calls.add('$name ${req.method} ${authorized ? 'good' : 'bad'} ${req.headers.value('strapikey') != null} $body');
         final res = req.response;
-        if (!authorized) {
+        if (!authorized && !name.startsWith('downloadFile/')) {
+          // As the live library: a wrong password is an XML message.
+          res.write('<nalp><api-version>1.0</api-version><message><string>Security Autentication Failed</string></message></nalp>');
+        } else if (!authorized) {
+          res.statusCode = 404;
+          res.write('<!DOCTYPE html><div>Oops</div>');
+        } else if (name == 'raiseBookDownloadRequest' && req.headers.value('bookId') == null) {
+          // A request it can't handle gets its HTML error page.
           res.statusCode = 404;
           res.write('<!DOCTYPE html><div>Oops</div>');
         } else if (name.startsWith('downloadFile/')) {
