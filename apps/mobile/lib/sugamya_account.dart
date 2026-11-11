@@ -133,6 +133,13 @@ List<SugamyaRequest> parseSugamyaRequests(String body) {
   ];
 }
 
+/// Whether the library took a download request ("Your download request has been registered successfully…").
+bool isSugamyaRequestAccepted(String message) => RegExp('registered successfully', caseSensitive: false).hasMatch(message);
+
+/// What Reader adds when the library won't take a request for a copy (its own reply comes first).
+const sugamyaRequestRefused =
+    "Reader can't get this copy from Sugamya Pustakalaya yet. You can download it on the Sugamya Pustakalaya website, then add it with Add book.";
+
 /// What Reader says when the library doesn't accept the user ID or password.
 const sugamyaWrongPassword =
     "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website.";

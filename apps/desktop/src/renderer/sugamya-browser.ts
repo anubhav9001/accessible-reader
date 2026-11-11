@@ -8,6 +8,9 @@ import {
   SUGAMYA_FORGOT_PASSWORD,
   SUGAMYA_JOIN,
   SUGAMYA_POPULAR_TIMES,
+  SUGAMYA_SITE,
+  SUGAMYA_REQUEST_REFUSED,
+  isSugamyaRequestAccepted,
   sugamyaFormatId,
   sugamyaFormatLabel,
   sugamyaFormatReadable,
@@ -259,12 +262,16 @@ export class SugamyaBrowser {
       this.setStatus('Asking Sugamya Pustakalaya…');
       try {
         const reply = await this.api.sugamya.request(id, format);
+        const accepted = isSugamyaRequestAccepted(reply);
         const note = paragraph(
-          `${reply} Sugamya Pustakalaya prepares the book, which can take a few hours. When it's ready, ` +
-            'it shows in My download requests (and the library sends you an email or SMS); download it from there.',
+          accepted
+            ? `${reply} Sugamya Pustakalaya prepares the book, which can take a few hours. When it's ready, ` +
+                'it shows in My download requests (and the library sends you an email or SMS); download it from there.'
+            : `Sugamya Pustakalaya says: ${reply} ${SUGAMYA_REQUEST_REFUSED}`,
         );
         note.tabIndex = -1;
-        ask.replaceWith(note, this.button('My download requests', () => this.show({ kind: 'requests' })));
+        if (accepted) ask.replaceWith(note, this.button('My download requests', () => this.show({ kind: 'requests' })));
+        else ask.replaceWith(note, this.button('Open the Sugamya Pustakalaya website', () => this.api.sugamya.openWebsite(SUGAMYA_SITE)));
         this.setStatus(reply);
         note.focus();
       } catch (err) {

@@ -282,6 +282,15 @@ export function parseSugamyaRequests(xml: XmlPlatform, body: string): SugamyaPag
   return { items, total, page, message };
 }
 
+/** Whether the library took a download request ("Your download request has been registered successfully…"). */
+export function isSugamyaRequestAccepted(message: string): boolean {
+  return /registered successfully/i.test(message);
+}
+
+/** What Reader adds when the library won't take a request for a copy (its own reply comes first). */
+export const SUGAMYA_REQUEST_REFUSED =
+  "Reader can't get this copy from Sugamya Pustakalaya yet. You can download it on the Sugamya Pustakalaya website, then open it in Reader.";
+
 /** What Reader says when the library doesn't accept the user ID or password. */
 export const SUGAMYA_WRONG_PASSWORD =
   "Sugamya Pustakalaya didn't accept this user ID or password. Check them, or reset your password on the Sugamya Pustakalaya website.";

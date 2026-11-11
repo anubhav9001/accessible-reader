@@ -99,15 +99,24 @@ class _SugamyaRequestPartState extends State<SugamyaRequestPart> {
         FilledButton(onPressed: () => _push(SugamyaSignInScreen(services: widget.services)), child: const Text('Sign in to ask for this book')),
       ]);
     }
-    if (_reply != null) {
+    final reply = _reply;
+    if (reply != null) {
+      final accepted = isSugamyaRequestAccepted(reply);
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Focus(
           focusNode: _replyFocus,
-          child: Text('$_reply Sugamya Pustakalaya prepares the book, which can take a few hours. When it\'s ready, it shows '
-              'in My download requests (and the library sends you an email or SMS); download it from there.'),
+          child: Text(accepted
+              ? '$reply Sugamya Pustakalaya prepares the book, which can take a few hours. When it\'s ready, it shows '
+                  'in My download requests (and the library sends you an email or SMS); download it from there.'
+              : 'Sugamya Pustakalaya says: $reply $sugamyaRequestRefused'),
         ),
         const SizedBox(height: 8),
-        OutlinedButton(onPressed: () => _push(SugamyaRequestsScreen(services: widget.services)), child: const Text('My download requests')),
+        accepted
+            ? OutlinedButton(
+                onPressed: () => _push(SugamyaRequestsScreen(services: widget.services)), child: const Text('My download requests'))
+            : OutlinedButton(
+                onPressed: () => launchUrl(Uri.parse(sugamyaSite), mode: LaunchMode.externalApplication),
+                child: const Text('Open the Sugamya Pustakalaya website')),
       ]);
     }
     return FilledButton(onPressed: _asking ? null : _ask, child: Text(_asking ? 'Asking Sugamya Pustakalaya…' : 'Ask for this book'));
