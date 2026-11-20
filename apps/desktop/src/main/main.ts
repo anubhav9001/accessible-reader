@@ -277,6 +277,12 @@ function buildMenu(): void {
         item('Book &text', 'focus-text', 'CmdOrCtrl+E'),
         item('&Where am I?', 'where-am-i', 'CmdOrCtrl+I'),
         { type: 'separator' },
+        // Handled by the page (see renderer.ts), so Backspace still deletes in search boxes.
+        { ...item('Go &back', 'go-back', 'Backspace'), registerAccelerator: false },
+        { ...item('Go &forward', 'go-forward', 'Shift+Backspace'), registerAccelerator: false },
+        item('&Add bookmark…', 'add-bookmark', 'CmdOrCtrl+D'),
+        item('Book&marks…', 'bookmarks', 'CmdOrCtrl+Shift+B'),
+        { type: 'separator' },
         {
           label: 'Heading &depth',
           submenu: [

@@ -103,6 +103,7 @@ class OpenedBook {
         authors = [for (final a in json['publication']['metadata']['authors'] as List) a as String],
         identifier = json['publication']['metadata']['identifier'] as String?,
         hasText = (json['publication']['readingOrder'] as List).isNotEmpty,
+        readingOrder = [for (final r in json['publication']['readingOrder'] as List) r['path'] as String],
         narration = [
           for (final c in json['publication']['narration'] as List) Clip.fromJson(c as Map<String, dynamic>)
         ],
@@ -117,6 +118,8 @@ class OpenedBook {
   final List<String> authors;
   final String? identifier;
   final bool hasText;
+  /// The paths of the book's text documents, in reading order.
+  final List<String> readingOrder;
   final List<Clip> narration;
   final List<NavEntry> toc;
   final bool hasPages;

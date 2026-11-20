@@ -19,6 +19,7 @@ import {
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
 import { blockAt, DocumentView } from '@accessible-reader/web-view';
+import { Bookmarks, type Spot } from './bookmarks';
 import { CatalogBrowser } from './catalog-browser';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
@@ -114,7 +115,10 @@ let rate = RATES.includes(settings.rate) ? settings.rate : 1;
 let recorded: RecordedPlayer | undefined;
 let tocItems: { item: NavItem; el: HTMLElement; level: number }[] = [];
 
-const view = new DocumentView(ui.text, bookUrl, (target) => void goToText(target, true));
+const view = new DocumentView(ui.text, bookUrl, (target) => {
+  rememberSpot();
+  void goToText(target, true);
+});
 const speech = new SpeechPlayer({ block: onSpeechBlock, state: onPlayState, finished: () => void onSpeechFinished() });
 const library = new LibraryView(
   {
@@ -201,6 +205,8 @@ const plain = new PlainReader(ui.plain, {
   announce: (message) => announce(message),
   table: (item) => showTable(item.html ?? '', item.label, item.count ?? 0),
   math: (item) => showMath(item.html ?? '', item.label),
+  leaving: () => rememberSpot(),
+  history: (direction) => void stepHistory(direction),
 });
 
 // ---- the native Windows text box for screen reader mode (native-host.ts) ----
@@ -509,6 +515,7 @@ async function closeBook(): Promise<void> {
   clipIndex = 0;
   place = undefined;
   blocksCache = undefined;
+  clearHistory();
   ui.title.textContent = 'No book open';
   ui.meta.textContent = 'Press Control B for My books, or Control O to open an EPUB or DAISY book.';
   document.title = 'Reader';
@@ -530,6 +537,7 @@ async function openBook(info: BookInfo): Promise<void> {
   plain.clear();
 
   book = info;
+  clearHistory();
   timeline = new NarrationTimeline(info.narration);
   modes = readingModes(info);
   recorded = new RecordedPlayer(info.narration, timeline, bookUrl, {
@@ -609,6 +617,7 @@ function renderToc(): void {
       el.style.paddingInlineStart = `${(level - 1) * 1.1 + 0.4}em`;
       el.addEventListener('click', () => {
         focusTocItem(tocItems.findIndex((t) => t.el === el));
+        rememberSpot();
         void goToNav(item);
       });
       tocItems.push({ item, el, level });
@@ -709,6 +718,7 @@ function onTocKey(event: KeyboardEvent): void {
       break;
     case 'Enter':
     case ' ':
+      rememberSpot();
       void goToNav(here.item);
       break;
     default:
@@ -1287,7 +1297,127 @@ ui.gotoDialog.addEventListener('close', () => {
   if (ui.gotoDialog.returnValue !== 'go' || !book) return;
   const page = findPage(book, ui.gotoInput.value);
   if (!page) return announce(`Page ${ui.gotoInput.value} not found`);
+  rememberSpot();
   void goToNav({ ...page, label: `Page ${page.label}` });
+});
+
+// ---- Go back, and bookmarks --------------------------------------------------------
+
+/** The reader's place now, exact to the character in screen reader mode. */
+function currentSpot(): Spot | undefined {
+  if (!book) return undefined;
+  if (showingPlain() && plain.book) {
+    plain.flush();
+    const offset = plain.caret;
+    const b = blockAt(plain.book, offset);
+    return { docPath: b?.path, block: b?.index, clipIndex, plainOffset: offset };
+  }
+  if (usesClips()) return { clipIndex };
+  return { docPath: view.currentPath, block: place ? docBlocks().indexOf(place) : undefined, clipIndex };
+}
+
+/** Where a place is in the book, for putting bookmarks in book order. */
+function spotOrder(spot: Spot): number[] {
+  const order = textDocuments().map((r) => r.path.toLowerCase());
+  const doc = spot.docPath ? order.indexOf(spot.docPath.toLowerCase()) : -1;
+  return doc < 0 ? [-1, spot.clipIndex] : [doc, spot.block ?? 0, spot.plainOffset ?? 0, spot.clipIndex];
+}
+
+/** Moves to a place: the text cursor in screen reader mode, the paragraph, or the narration clip. */
+async function goToSpot(spot: Spot, said?: string): Promise<void> {
+  if (!book) return;
+  if (showingPlain() && plain.ready) {
+    const offset =
+      spot.plainOffset ?? (spot.docPath && spot.block !== undefined ? plain.blockOffset(spot.docPath, spot.block) : undefined);
+    if (offset !== undefined) {
+      plain.jumpTo(offset);
+      if (!isPlaying()) plain.focus();
+      announce([said, plain.lineAt(offset) || 'Blank'].filter(Boolean).join('. '));
+      return;
+    }
+  }
+  if (usesClips() || !spot.docPath || !textResource(spot.docPath)) {
+    recorded?.seek(spot.clipIndex);
+    if (!isPlaying()) announce([said, location().heading, location().page].filter(Boolean).join('. ') || 'Moved');
+    return;
+  }
+  await showText({ path: spot.docPath }, false);
+  const el = spot.block === undefined ? undefined : docBlocks()[spot.block];
+  syncSpeech();
+  // Highlights the paragraph and makes it the place; the screen reader is moved there to read it.
+  speech.jump(blockIndexFor(speech.elements, el ?? docBlocks()[0]));
+  if (said) announce(said);
+}
+
+const backStack: Spot[] = [];
+const forwardStack: Spot[] = [];
+const HISTORY_MAX = 100;
+
+function clearHistory(): void {
+  backStack.length = 0;
+  forwardStack.length = 0;
+}
+
+/** Remembers the place before a jump (a link, the contents, a page number, a bookmark), for Go back. */
+function rememberSpot(): void {
+  const spot = currentSpot();
+  if (!spot) return;
+  const last = backStack.at(-1);
+  if (!last || JSON.stringify(last) !== JSON.stringify(spot)) backStack.push(spot);
+  if (backStack.length > HISTORY_MAX) backStack.shift();
+  forwardStack.length = 0;
+}
+
+/** Go back (-1) to the place before the last jump, or forward (1) again. */
+async function stepHistory(direction: 1 | -1): Promise<void> {
+  if (!book) return announce('No book open.');
+  const from = direction < 0 ? backStack : forwardStack;
+  const to = direction < 0 ? forwardStack : backStack;
+  const spot = from.pop();
+  if (!spot) return announce(direction < 0 ? 'Nothing to go back to' : 'Nothing to go forward to');
+  const now = currentSpot();
+  if (now) to.push(now);
+  log(`${direction < 0 ? 'Go back' : 'Go forward'} to ${JSON.stringify(spot)}`);
+  await goToSpot(spot);
+}
+
+/** The words at the reader's place, cut to a few, as a suggested bookmark name. */
+function shortText(text: string): string {
+  const words = text.replace(/\s+/g, ' ').trim();
+  if (words.length <= 60) return words;
+  const cut = words.lastIndexOf(' ', 60);
+  return `${words.slice(0, cut > 30 ? cut : 60)}…`;
+}
+
+const bookmarks = new Bookmarks({
+  storageKey: () => (book ? `bookmarks:${book.metadata.identifier || book.metadata.title}` : undefined),
+  announce,
+  here: () => {
+    const spot = currentSpot();
+    if (!spot) return undefined;
+    const { heading, page, time } = location();
+    let text = '';
+    if (spot.plainOffset !== undefined) text = plain.lineAt(spot.plainOffset);
+    else if (!usesClips()) text = place?.textContent ?? '';
+    const percent = showingPlain() && plain.ready ? plain.whereAmI().split(',')[0] : '';
+    const where = [heading, page, usesClips() ? time?.split(' of ')[0] : percent].filter(Boolean).join(', ');
+    return { spot, name: shortText(text) || heading || where, where, order: spotOrder(spot) };
+  },
+  go: (bookmark) => {
+    rememberSpot();
+    log(`Bookmark: ${JSON.stringify(bookmark.spot)}`);
+    void goToSpot(bookmark.spot, `Bookmark ${bookmark.name}`);
+  },
+});
+
+// Backspace and Shift+Backspace: Go back and Go forward, in the book text and the contents
+// (screen reader mode's text box handles them itself, see PlainReader). Not in text fields.
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Backspace' || event.ctrlKey || event.altKey || event.metaKey) return;
+  const target = event.target as HTMLElement;
+  if (target === ui.plain || plain.hasFocus || target.closest('input, textarea, select, [contenteditable], dialog')) return;
+  event.preventDefault();
+  handle(event.shiftKey ? 'go-forward' : 'go-back');
 });
 
 // ---- where am I ---------------------------------------------------------------------
@@ -1499,6 +1629,14 @@ function handle(command: Command): void {
       return void stepPage(-1);
     case 'goto-page':
       return goToPagePrompt();
+    case 'go-back':
+      return void stepHistory(-1);
+    case 'go-forward':
+      return void stepHistory(1);
+    case 'add-bookmark':
+      return bookmarks.add();
+    case 'bookmarks':
+      return bookmarks.open();
     case 'faster':
       return stepRate(1);
     case 'slower':
@@ -1640,6 +1778,9 @@ window.readerDebug = {
     tocEntries: book ? flattenToc(book.toc).length : 0,
     textLength: ui.text.textContent?.length ?? 0,
     highlighted: view.current?.id,
+    place: place?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 60),
+    caret: plain.ready ? plain.caret : undefined,
+    caretLine: plain.ready ? plain.lineAt(plain.caret).slice(0, 60) : undefined,
   }),
 };
 

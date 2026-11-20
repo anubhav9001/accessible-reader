@@ -13,6 +13,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'announcer.dart';
 import 'book_server.dart';
 import 'book_store.dart';
+import 'bookmarks.dart';
 import 'help_screen.dart';
 import 'models.dart';
 import 'players.dart';
@@ -31,7 +32,7 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  late final ReaderBridge _bridge = ReaderBridge(onLink: (target) => _goToText(target), onPlace: _onPlace);
+  late final ReaderBridge _bridge = ReaderBridge(onLink: _followLink, onPlace: _onPlace);
   late final SpeechReader _speech =
       SpeechReader(
       onBlock: _onBlock,
@@ -504,6 +505,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (label == null || label.trim().isEmpty) return;
     final r = await _bridge.call<Map<String, dynamic>>('findPage', [label]);
     if (r == null) return _announce('Page $label not found');
+    _rememberSpot();
     await _goTo(
       clipIndex: r['clipIndex'] as int?,
       target: r['target'] == null ? null : TextRef.fromJson(r['target'] as Map<String, dynamic>),
@@ -547,7 +549,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
       ),
     );
-    if (chosen != null) await _goTo(clipIndex: chosen.clipIndex, target: chosen.target, label: chosen.label);
+    if (chosen == null) return;
+    _rememberSpot();
+    await _goTo(clipIndex: chosen.clipIndex, target: chosen.target, label: chosen.label);
   }
 
   Future<void> _openSettings() async {
@@ -566,6 +570,124 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _contentsDepth = settings.contentsDepth;
     });
     await _setTextOnly(settings.screenReaderMode);
+  }
+
+  // ---- Go back, and bookmarks ---------------------------------------------------------
+
+  final _backStack = <Spot>[];
+  final _forwardStack = <Spot>[];
+  static const _historyMax = 100;
+  late final BookmarkStore _bookmarks = BookmarkStore(widget.book.id);
+
+  /// The reader's place now.
+  Spot get _spot => _usesClips || _doc == null
+      ? Spot(clipIndex: _clipIndex)
+      : Spot(clipIndex: _clipIndex, docPath: _doc!.path, block: _doc!.index);
+
+  /// Remembers the place before a jump (a link, the contents, a page number, a bookmark), for Go back.
+  void _rememberSpot([Spot? spot]) {
+    final here = spot ?? _spot;
+    if (_backStack.isEmpty || !_backStack.last.sameAs(here)) _backStack.add(here);
+    if (_backStack.length > _historyMax) _backStack.removeAt(0);
+    _forwardStack.clear();
+    if (mounted) setState(() {});
+  }
+
+  /// A link in the book was followed, from block [from] (when the page knows it).
+  Future<void> _followLink(TextRef target, (String, int)? from) async {
+    if (_usesClips) return;
+    _rememberSpot(from == null ? null : Spot(clipIndex: _clipIndex, docPath: from.$1, block: from.$2));
+    AppLog.info('reader', 'Link to ${target.path}#${target.fragment ?? ''}');
+    await _goToText(target);
+    if (!_speech.playing) _sayBlock();
+  }
+
+  /// Go back (-1) to the place before the last jump, or forward (1) again.
+  Future<void> _stepHistory(int direction) async {
+    final from = direction < 0 ? _backStack : _forwardStack;
+    final to = direction < 0 ? _forwardStack : _backStack;
+    if (from.isEmpty) return _announce(direction < 0 ? 'Nothing to go back to' : 'Nothing to go forward to');
+    final spot = from.removeLast();
+    to.add(_spot);
+    setState(() {});
+    AppLog.info('reader', '${direction < 0 ? 'Go back' : 'Go forward'} to ${jsonEncode(spot.toJson())}');
+    await _goToSpot(spot);
+  }
+
+  /// Moves to a place, and the screen reader with it; [said] comes first ("Bookmark: …").
+  Future<void> _goToSpot(Spot spot, {String? said}) async {
+    if (_usesClips || spot.docPath == null) {
+      _recorded?.seek(spot.clipIndex);
+      if (!_isPlaying) {
+        await _updateLocation();
+        _announce([said ?? '', _heading, _page].where((s) => s.isNotEmpty).join('. '));
+      }
+      return;
+    }
+    await _loadDoc(await _bridge.call<Map<String, dynamic>>('textAt', [TextRef(spot.docPath!).toJson(), null]),
+        highlight: false);
+    final doc = _doc;
+    if (doc == null || doc.blocks.isEmpty) return;
+    final block = (spot.block ?? 0).clamp(0, doc.blocks.length - 1);
+    _speech.jump(block);
+    if (_speech.playing) return;
+    _onBlock(block);
+    if (_screenReaderOn && _mode != ReadingMode.audio) {
+      if (said != null) _announce(said);
+      await _moveScreenReaderToPlace();
+    } else {
+      _announce([said ?? '', doc.blocks[block].text].where((s) => s.isNotEmpty).join('. '));
+    }
+  }
+
+  /// The block's words, cut to a few, as a suggested bookmark name.
+  String _shortText(String text) {
+    final words = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (words.length <= 60) return words;
+    final cut = words.lastIndexOf(' ', 60);
+    return '${words.substring(0, cut > 30 ? cut : 60)}…';
+  }
+
+  Future<void> _addBookmark() async {
+    final spot = _spot;
+    await _updateLocation();
+    final doc = _doc;
+    final text = !_usesClips && doc != null && doc.index < doc.blocks.length ? doc.blocks[doc.index].text : '';
+    final where = [_heading, _page, if (_usesClips) _time.split(' of ').first].where((s) => s.isNotEmpty).join(', ');
+    final suggested = _shortText(text).isNotEmpty ? _shortText(text) : (_heading.isNotEmpty ? _heading : where);
+    if (!mounted) return;
+    final name = await askBookmarkName(context, title: 'Add bookmark', action: 'Add', initial: suggested, where: where);
+    if (name == null) return;
+    final clean = name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final list = await _bookmarks.load();
+    for (final b in list) {
+      if (b.spot.sameAs(spot)) {
+        b.name = clean.isNotEmpty ? clean : b.name;
+        await _bookmarks.save(list);
+        return _announce('There was already a bookmark here; it is now called ${b.name}.');
+      }
+    }
+    final docOrder = spot.docPath == null ? -1 : (_book?.readingOrder.indexOf(spot.docPath!) ?? -1);
+    final bookmark = Bookmark(
+      id: '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${math.Random().nextInt(1 << 20).toRadixString(36)}',
+      name: clean.isNotEmpty ? clean : (suggested.isNotEmpty ? suggested : 'Bookmark'),
+      where: where,
+      spot: spot,
+      order: docOrder < 0 ? [-1, spot.clipIndex] : [docOrder, spot.block ?? 0, spot.clipIndex],
+      created: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _bookmarks.save([...list, bookmark]);
+    AppLog.info('reader', 'Bookmark added at ${jsonEncode(spot.toJson())}');
+    _announce('Bookmark added: ${bookmark.name}');
+  }
+
+  Future<void> _showBookmarks() async {
+    final chosen = await Navigator.of(context)
+        .push<Bookmark>(MaterialPageRoute(builder: (_) => BookmarksScreen(store: _bookmarks)));
+    if (chosen == null || !mounted) return;
+    _rememberSpot();
+    AppLog.info('reader', 'Bookmark: ${jsonEncode(chosen.spot.toJson())}');
+    await _goToSpot(chosen.spot, said: 'Bookmark ${chosen.name}');
   }
 
   // ---- location -----------------------------------------------------------------------
@@ -609,12 +731,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
       appBar: AppBar(
         title: Text(book?.title ?? widget.book.title, overflow: TextOverflow.ellipsis),
         actions: [
+          if (_backStack.isNotEmpty)
+            IconButton(
+                tooltip: 'Go back to where you were', icon: const Icon(Icons.undo), onPressed: () => _stepHistory(-1)),
           IconButton(tooltip: 'Contents', icon: const Icon(Icons.toc), onPressed: book == null ? null : _showContents),
           PopupMenuButton<String>(
             tooltip: 'More reading options',
             enabled: book != null,
             onSelected: (choice) => switch (_logged(choice)) {
               'page' => _goToPage(),
+              'back' => _stepHistory(-1),
+              'forward' => _stepHistory(1),
+              'add-bookmark' => _addBookmark(),
+              'bookmarks' => _showBookmarks(),
               'next-page' => _stepPage(1),
               'prev-page' => _stepPage(-1),
               'next-section' => _stepSection(1),
@@ -625,6 +754,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
               _ => null,
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(value: 'add-bookmark', child: Text('Add bookmark')),
+              const PopupMenuItem(value: 'bookmarks', child: Text('Bookmarks')),
+              if (_backStack.isNotEmpty) const PopupMenuItem(value: 'back', child: Text('Go back')),
+              if (_forwardStack.isNotEmpty) const PopupMenuItem(value: 'forward', child: Text('Go forward')),
               const PopupMenuItem(value: 'page', child: Text('Go to page')),
               const PopupMenuItem(value: 'next-page', child: Text('Next page')),
               const PopupMenuItem(value: 'prev-page', child: Text('Previous page')),

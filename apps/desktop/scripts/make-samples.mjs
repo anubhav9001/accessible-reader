@@ -174,9 +174,12 @@ ${chapters
     (ch, c) =>
       `<h${ch.level} id="h${c}">${esc(ch.heading)}</h${ch.level}>` +
       (ch.page ? `<span epub:type="pagebreak" role="doc-pagebreak" id="page${ch.page}" aria-label="Page ${ch.page}"/>` : '') +
-      ch.phrases.map((t) => `<p>${esc(t)}</p>`).join(''),
+      ch.phrases.map((t) => `<p>${esc(t)}</p>`).join('') +
+      // A footnote, for trying Go back (Backspace) after following a link.
+      (c === 0 ? '<p>This sentence has a footnote.<a epub:type="noteref" role="doc-noteref" href="#fn1" id="ref1">1</a> Follow it, then go back.</p>' : ''),
   )
   .join('\n')}
+<aside epub:type="footnote" role="doc-footnote" id="fn1"><p>1. This is the footnote. Press Backspace to go back to where you were.</p></aside>
 </body></html>`;
 const epub = {
   mimetype: 'application/epub+zip',

@@ -20,7 +20,8 @@ class ReaderBridge {
   }
 
   final WebViewController controller = WebViewController();
-  final void Function(TextRef target) onLink;
+  /// A link in the book was followed; [from] is the block it was in (document path and block), for Go back.
+  final void Function(TextRef target, (String, int)? from) onLink;
 
   /// The screen reader moved to block [index] of the document at [path]; [clip] narrates it.
   final void Function(String path, int index, int? clip) onPlace;
@@ -57,7 +58,9 @@ class ReaderBridge {
           completer.complete(msg['value']);
         }
       case 'link':
-        onLink(TextRef.fromJson(msg['target'] as Map<String, dynamic>));
+        final from = msg['from'] as Map<String, dynamic>?;
+        onLink(TextRef.fromJson(msg['target'] as Map<String, dynamic>),
+            from == null ? null : (from['path'] as String, from['index'] as int));
       case 'log':
         AppLog.write(msg['level'] as String? ?? 'info', 'web', msg['message'] as String? ?? '');
       case 'place':

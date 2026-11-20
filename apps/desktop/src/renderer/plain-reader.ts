@@ -11,6 +11,10 @@ export interface PlainReaderEvents {
   table(item: PlainItem): void;
   /** Enter on an equation: show it on its own, with its words. */
   math(item: PlainItem): void;
+  /** About to follow a link: the place it leaves from, for Go back. */
+  leaving(): void;
+  /** Backspace (-1, Go back) or Shift+Backspace (1, Go forward). */
+  history(direction: 1 | -1): void;
 }
 
 /** Single-letter navigation keys, as in browse mode and Paperback. Shift goes backwards. */
@@ -326,6 +330,12 @@ export class PlainReader {
     }
   }
 
+  /** Moves the cursor as the reader's own move (Go back, a bookmark), so the app follows it. */
+  jumpTo(offset: number): void {
+    if (!this.book) return;
+    this.moveTo(Math.max(0, Math.min(offset, this.book.text.length)));
+  }
+
   /** The reader's own move: report it, and keep the cursor line in view. */
   private moveTo(offset: number): void {
     this.setCaret(offset);
@@ -375,6 +385,8 @@ export class PlainReader {
       this.events.announce(this.whereAmI());
     } else if (event.key === 'Enter' || event.key === ' ') {
       this.followLink();
+    } else if (event.key === 'Backspace') {
+      this.events.history(event.shiftKey ? 1 : -1);
     } else {
       const key = KEYS[event.key.toLowerCase()];
       if (key) this.go(key.kind, back, key.name);
@@ -455,6 +467,7 @@ export class PlainReader {
     if (!link.target) return this.events.announce(`${link.label}. This link goes outside the book.`);
     const offset = this.anchorOffset(link.target);
     if (offset === undefined) return this.events.announce('That part of the book could not be found.');
+    this.events.leaving();
     this.moveTo(offset);
     this.events.announce(this.lineAt(offset));
   }

@@ -172,7 +172,30 @@ function clipNear(index: number): number | null {
   return clipsByBlock[index] ?? null;
 }
 
+/** Where a followed link leaves from, for Go back; and no place reports while it is followed. */
+let linkFrom: { path: string; index: number } | null = null;
+let followingLink = false;
+textEl.addEventListener(
+  'click',
+  (event) => {
+    const link = (event.target as Element).closest('a');
+    if (!link || !view?.currentPath) return;
+    if (view instanceof BookPageView) {
+      const block = link.closest<HTMLElement>('[data-block]');
+      const path = view.documentOf(link);
+      linkFrom = block && path ? { path, index: Number(block.dataset.block) } : null;
+    } else {
+      linkFrom = { path: view.currentPath, index: blockIndexFor(link) };
+    }
+    followingLink = true;
+    // Cleared once the view has followed the link (or found nothing to follow).
+    setTimeout(() => (followingLink = false), 0);
+  },
+  true,
+);
+
 function reportPlace(index: number) {
+  if (followingLink) return;
   if (!tracking || !view?.currentPath || index < 0 || index === place) return;
   place = index;
   markPlace(blocks[index]);
@@ -184,7 +207,7 @@ function reportPlace(index: number) {
  * block there with its own document, and the app makes that document the current one.
  */
 function reportPlaceIn(el: Element | undefined) {
-  if (!(view instanceof BookPageView) || !el) return;
+  if (!(view instanceof BookPageView) || !el || followingLink) return;
   const block = el.closest<HTMLElement>('[data-block]');
   const path = view.documentOf(el);
   if (!block || !path) return;
@@ -437,7 +460,10 @@ async function useView(textOnly: boolean) {
   place = -1;
   marked = undefined;
   document.body.classList.toggle('text-only', textOnly);
-  const onLink = (target: TextRef) => post({ type: 'link', target });
+  const onLink = (target: TextRef) => {
+    post({ type: 'link', target, from: linkFrom });
+    linkFrom = null;
+  };
   if (textOnly && book) {
     const page = new BookPageView(textEl, bookUrl, onLink);
     view = page;

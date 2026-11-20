@@ -53,6 +53,7 @@ function readerKey(vk: number, shift: boolean): { key: string; code: string } | 
     case 0xbe: return { key: shift ? '>' : '.', code: 'Period' };
     case VK.RETURN: return { key: 'Enter', code: 'Enter' };
     case VK.SPACE: return { key: ' ', code: 'Space' };
+    case 0x08: return { key: 'Backspace', code: 'Backspace' };
   }
   return undefined;
 }

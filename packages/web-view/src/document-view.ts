@@ -142,7 +142,9 @@ export class DocumentView {
       }
       if (el.localName === 'a') {
         const href = el.getAttribute('href');
-        if (!href || href.startsWith('#')) continue;
+        if (!href || href === '#') continue;
+        // Links within the page too (footnotes, "back to contents"): Reader follows them itself,
+        // so it moves its place there and Go back can return.
         el.setAttribute('href', '#');
         if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) el.setAttribute('data-book-href', href);
       }

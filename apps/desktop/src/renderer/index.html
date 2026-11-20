@@ -124,6 +124,9 @@
           <tr><th scope="row">Next / previous page</th><td>Alt+Page Down / Alt+Page Up</td><td>Moves by printed page.</td></tr>
           <tr><th scope="row">Next / previous section</th><td>Ctrl+Page Down / Ctrl+Page Up</td><td>Moves to the next or previous section of the table of contents at the same level, skipping its sub-sections (for example, chapter to chapter). Next heading stops at every heading instead.</td></tr>
           <tr><th scope="row">Go to page</th><td>Ctrl+G</td><td>Goes to a printed page number.</td></tr>
+          <tr><th scope="row">Go back / Go forward</th><td>Backspace / Shift+Backspace</td><td>After following a link or footnote, or jumping by the contents, a page number or a bookmark, goes back to where you were (and forward again). Works in the book text and the contents.</td></tr>
+          <tr><th scope="row">Add bookmark</th><td>Ctrl+D</td><td>Bookmarks your place. Type a name or keep the suggested one (the start of the paragraph), then press Enter.</td></tr>
+          <tr><th scope="row">Bookmarks</th><td>Ctrl+Shift+B</td><td>Lists this book's bookmarks in book order. Enter goes to one, F2 renames it, Delete removes it.</td></tr>
           <tr><th scope="row">Heading depth</th><td>Settings, or Navigate menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
         </tbody>
       </table>
@@ -147,7 +150,7 @@
           <tr><th scope="row">Heading at a level</th><td>1 to 6 / Shift+1 to Shift+6</td><td>Next or previous heading at that level.</td></tr>
           <tr><th scope="row">Sentence</th><td>. (full stop) / Shift+.</td><td>Next or previous sentence, and reads it. Works with any screen reader, including Narrator.</td></tr>
           <tr><th scope="row">Page</th><td>P / Shift+P</td><td>Next or previous printed page.</td></tr>
-          <tr><th scope="row">Link</th><td>K / Shift+K</td><td>Next or previous link. Enter or Space follows a link inside the book.</td></tr>
+          <tr><th scope="row">Link</th><td>K / Shift+K</td><td>Next or previous link. Enter or Space follows a link inside the book; Backspace comes back.</td></tr>
           <tr><th scope="row">Table</th><td>T / Shift+T</td><td>Next or previous table. A line before the table gives its size; each row is a line, cells divided by a bar and each cell starting with its column heading, then End of table. Enter on a table opens it as a real table, for your screen reader's table commands.</td></tr>
           <tr><th scope="row">Equation</th><td>M / Shift+M</td><td>Next or previous equation (maths). Equations are read in words, in English or Hindi to match the book, for example "x equals the fraction with numerator …"; one on a line of its own starts with "Equation:". Enter on an equation opens it on its own, with its words and the equation as drawn.</td></tr>
           <tr><th scope="row">List, list item</th><td>L / Shift+L, I / Shift+I</td><td>Next or previous list, or list item.</td></tr>
@@ -217,6 +220,30 @@
       <p>Move from cell to cell with the arrow keys; Home and End go to the ends of a row, Control+Home and Control+End to the first and last cells. Your screen reader's table commands work too. Escape goes back to the text.</p>
       <div id="ui-table-body" role="application" aria-roledescription="table window"></div>
       <form method="dialog"><button value="close">Close</button></form>
+    </dialog>
+    <dialog id="ui-bookmarks-dialog" class="ui-help ui-bookmarks" aria-labelledby="ui-bookmarks-title">
+      <h2 id="ui-bookmarks-title" tabindex="-1">Bookmarks</h2>
+      <p id="ui-bookmarks-status" role="status"></p>
+      <label for="ui-bookmarks-list" class="visually-hidden">Bookmarks</label>
+      <select id="ui-bookmarks-list" size="10"></select>
+      <div class="ui-dialog-buttons">
+        <button id="ui-bookmarks-go" type="button">Go to bookmark</button>
+        <button id="ui-bookmarks-rename" type="button">Rename…</button>
+        <button id="ui-bookmarks-delete" type="button">Delete</button>
+        <form method="dialog"><button id="ui-bookmarks-close" value="close">Close</button></form>
+      </div>
+    </dialog>
+    <dialog id="ui-bookmark-name-dialog" aria-labelledby="ui-bookmark-name-title">
+      <form method="dialog">
+        <h2 id="ui-bookmark-name-title">Add bookmark</h2>
+        <p id="ui-bookmark-where"></p>
+        <label for="ui-bookmark-name">Name</label>
+        <input id="ui-bookmark-name" autocomplete="off" aria-describedby="ui-bookmark-where" />
+        <div class="ui-dialog-buttons">
+          <button id="ui-bookmark-name-ok" value="ok">Add</button>
+          <button value="cancel" formnovalidate>Cancel</button>
+        </div>
+      </form>
     </dialog>
     <dialog id="ui-goto-dialog" aria-labelledby="ui-goto-title">
       <form method="dialog">
