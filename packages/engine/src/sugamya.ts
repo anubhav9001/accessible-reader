@@ -223,15 +223,58 @@ export function sugamyaAccountFields(
   return {};
 }
 
+/**
+ * The library's own web addresses, where the reader's password may go (over HTTPS only).
+ * library.daisyindia.org is DAISY Forum of India's older address for the same library; it now
+ * forwards to sugamyapustakalaya.org.in.
+ */
+export const SUGAMYA_HOSTS = ['sugamyapustakalaya.org.in', 'www.sugamyapustakalaya.org.in', 'library.daisyindia.org'];
+
 /** Whether a download link is the library's own, over HTTPS, so the reader's password may go with it. */
 export function isSugamyaDownloadUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    return u.protocol === 'https:' && u.hostname === 'sugamyapustakalaya.org.in';
+    return u.protocol === 'https:' && SUGAMYA_HOSTS.includes(u.hostname.toLowerCase()) && !u.username && !u.password;
   } catch {
     return false;
   }
 }
+
+/** A download link as Reader will use it, or why it can't; `shape` is safe for the log. */
+export type SugamyaDownloadLink = { url: string; shape: string } | { problem: string; shape: string };
+
+/**
+ * Makes a download link from fetchUserDownloadRequests usable: a link relative to the site is
+ * made whole, and http on the library's own host becomes https (the site answers only https).
+ * Only links that then point at the library over HTTPS are returned with a `url`; FTP links
+ * (as in the API guide's example) and other hosts get a `problem` to show the reader.
+ * `shape` is the link without its file name (scheme, host, the first part of the path), for the log.
+ */
+export function sugamyaDownloadLink(raw: string): SugamyaDownloadLink {
+  const text = raw.trim();
+  if (!text) return { problem: 'Sugamya Pustakalaya has not given a download link for this book yet. Try again later.', shape: '(none)' };
+  let u: URL;
+  try {
+    u = new URL(text, `${SUGAMYA_SITE}/`);
+  } catch {
+    return { problem: SUGAMYA_LINK_PROBLEM, shape: '(not a link)' };
+  }
+  const host = u.hostname.toLowerCase();
+  const folders = u.pathname.split('/').slice(0, -1); // without the file name
+  const shape = `${u.protocol}//${u.host}${folders.slice(0, 4).join('/')}/…`;
+  if (u.protocol === 'http:' && SUGAMYA_HOSTS.includes(host)) u.protocol = 'https:';
+  if (u.protocol === 'ftp:') {
+    return {
+      problem: "Sugamya Pustakalaya gave an FTP link for this book, which Reader can't download. Download it on the Sugamya Pustakalaya website, then open it in Reader.",
+      shape,
+    };
+  }
+  if (!isSugamyaDownloadUrl(u.href)) return { problem: SUGAMYA_LINK_PROBLEM, shape };
+  return { url: u.href, shape };
+}
+
+const SUGAMYA_LINK_PROBLEM =
+  "This download link isn't on Sugamya Pustakalaya's own website, so Reader won't send your password to it. Download the book on the Sugamya Pustakalaya website, then open it in Reader.";
 
 /** The library's own message in a reply (e.g. "Your download request has been registered…"). */
 export function parseSugamyaMessage(xml: XmlPlatform, body: string): string | undefined {

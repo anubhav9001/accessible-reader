@@ -35,6 +35,30 @@ void main() {
     expect(sugamyaAuthorization('reader', 'pass'), 'Basic cmVhZGVyOnBhc3M=');
     expect(isSugamyaDownloadUrl('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/a b.zip'), isTrue);
     expect(isSugamyaDownloadUrl('https://sugamyapustakalaya.org.in.evil.example/x.zip'), isFalse);
+    expect(isSugamyaDownloadUrl('https://www.sugamyapustakalaya.org.in/x.zip'), isTrue);
+    expect(isSugamyaDownloadUrl('https://library.daisyindia.org/User_935/x.zip'), isTrue);
+    expect(isSugamyaDownloadUrl('http://sugamyapustakalaya.org.in/x.zip'), isFalse);
+    expect(isSugamyaDownloadUrl('https://me:pw@sugamyapustakalaya.org.in/x.zip'), isFalse);
+  });
+
+  test('makes download links usable, or says why not', () {
+    String ok(String raw) {
+      final link = sugamyaDownloadLink(raw);
+      return link.url?.toString() ?? 'PROBLEM ${link.problem}';
+    }
+
+    expect(ok('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Business study NCERT 11th-6.zip'),
+        'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Business%20study%20NCERT%2011th-6.zip');
+    expect(ok('  http://sugamyapustakalaya.org.in/rest/x.epub\n'), 'https://sugamyapustakalaya.org.in/rest/x.epub');
+    expect(ok('http://www.sugamyapustakalaya.org.in/rest/x.epub'), 'https://www.sugamyapustakalaya.org.in/rest/x.epub');
+    expect(ok('/rest/NALPAPIService/downloadFile/a.epub'), 'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/a.epub');
+    expect(ok('https://library.daisyindia.org/User_935/a.zip'), 'https://library.daisyindia.org/User_935/a.zip');
+    expect(ok('ftp://library.daisyindia.org:21/User_935/Sangeet Manjusha-6.zip'), contains('FTP link'));
+    expect(ok('https://files.example.com/a.epub'), contains("isn't on Sugamya Pustakalaya's own website"));
+    expect(ok(''), contains('not given a download link'));
+    expect(sugamyaDownloadLink('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Secret Title.zip').shape,
+        'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/…');
+    expect(sugamyaDownloadLink('https://evil.example/My Title.zip').shape, 'https://evil.example/…');
     expect(SugamyaPopular(DateTime.utc(2026, 11, 10)).path(1),
         'popularbooks/noOfTimesDelivered/50/startDate/2025-11-10/endDate/2026-11-10/page/1/limit/20/format/xml');
   });

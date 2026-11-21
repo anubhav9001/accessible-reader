@@ -4,6 +4,7 @@ import {
   isSugamyaAuthFailure,
   isSugamyaRequestAccepted,
   isSugamyaDownloadUrl,
+  sugamyaDownloadLink,
   isSugamyaPath,
   parseSugamyaMessage,
   parseSugamyaRequests,
@@ -94,6 +95,34 @@ describe('Sugamya Pustakalaya account', () => {
     expect(isSugamyaDownloadUrl('http://sugamyapustakalaya.org.in/x.zip')).toBe(false);
     expect(isSugamyaDownloadUrl('https://sugamyapustakalaya.org.in.evil.example/x.zip')).toBe(false);
     expect(isSugamyaDownloadUrl('ftp://library.daisyindia.org/x.zip')).toBe(false);
+    expect(isSugamyaDownloadUrl('https://www.sugamyapustakalaya.org.in/x.zip')).toBe(true);
+    expect(isSugamyaDownloadUrl('https://library.daisyindia.org/User_935/x.zip')).toBe(true);
+    expect(isSugamyaDownloadUrl('https://evil.example/?u=https://sugamyapustakalaya.org.in/')).toBe(false);
+    expect(isSugamyaDownloadUrl('https://me:pw@sugamyapustakalaya.org.in/x.zip')).toBe(false);
+  });
+
+  it('makes download links usable, or says why not', () => {
+    const ok = (raw: string) => {
+      const link = sugamyaDownloadLink(raw);
+      return 'url' in link ? link.url : `PROBLEM ${link.problem}`;
+    };
+    // As in the API guide: the library's own link, with spaces in the file name.
+    expect(ok('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Business study NCERT 11th-6.zip')).toBe(
+      'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Business%20study%20NCERT%2011th-6.zip',
+    );
+    expect(ok('  http://sugamyapustakalaya.org.in/rest/x.epub\n')).toBe('https://sugamyapustakalaya.org.in/rest/x.epub');
+    expect(ok('http://www.sugamyapustakalaya.org.in/rest/x.epub')).toBe('https://www.sugamyapustakalaya.org.in/rest/x.epub');
+    expect(ok('/rest/NALPAPIService/downloadFile/a.epub')).toBe('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/a.epub');
+    expect(ok('https://library.daisyindia.org/User_935/a.zip')).toBe('https://library.daisyindia.org/User_935/a.zip');
+    expect(ok('ftp://library.daisyindia.org:21/User_935/Sangeet Manjusha-6.zip')).toMatch(/^PROBLEM .*FTP link/);
+    expect(ok('https://files.example.com/a.epub')).toMatch(/^PROBLEM .*isn't on Sugamya Pustakalaya's own website/);
+    expect(ok('http://files.example.com/a.epub')).toMatch(/^PROBLEM /);
+    expect(ok('')).toMatch(/^PROBLEM .*not given a download link/);
+    // The shape for the log leaves out the file name.
+    expect(sugamyaDownloadLink('https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/Secret Title.zip').shape).toBe(
+      'https://sugamyapustakalaya.org.in/rest/NALPAPIService/downloadFile/…',
+    );
+    expect(sugamyaDownloadLink('https://evil.example/My Title.zip').shape).toBe('https://evil.example/…');
   });
 
   it('reads download requests', () => {

@@ -65,7 +65,8 @@ export function isPreRelease(version: string, packaged: boolean): boolean {
 /** Full paths name the user's folders; keep only the file name. */
 function scrub(message: string): string {
   return message
-    .replace(/[A-Za-z]:[\\/][^\s'"<>|]*[\\/]([^\\/\s'"<>|]+)/g, '…/$1')
+    // A drive letter, not the "s:" of "https://": web addresses are kept.
+    .replace(/(?<![A-Za-z])[A-Za-z]:[\\/](?![\\/])[^\s'"<>|]*[\\/]([^\\/\s'"<>|]+)/g, '…/$1')
     .replace(/\/(?:Users|home)\/[^\s'"]*\/([^/\s'"]+)/g, '…/$1')
     .replace(/[\r\n]+/g, ' ⏎ ')
     .slice(0, 2000);

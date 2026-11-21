@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:xml/xml.dart';
@@ -59,10 +60,58 @@ int? sugamyaFormatId(String format) => _formatIds[format.trim().replaceAll(RegEx
 String sugamyaAuthorization(String user, String password) =>
     'Basic ${base64.encode(utf8.encode('${user.trim()}:$password'))}';
 
+/// The library's own web addresses, where the reader's password may go (over HTTPS only).
+/// library.daisyindia.org is DAISY Forum of India's older address for the same library; it now
+/// forwards to sugamyapustakalaya.org.in.
+const sugamyaHosts = ['sugamyapustakalaya.org.in', 'www.sugamyapustakalaya.org.in', 'library.daisyindia.org'];
+
 /// Whether a download link is the library's own, over HTTPS, so the reader's password may go with it.
 bool isSugamyaDownloadUrl(String url) {
   final uri = Uri.tryParse(url);
-  return uri != null && uri.scheme == 'https' && uri.host == 'sugamyapustakalaya.org.in';
+  return uri != null && uri.scheme == 'https' && sugamyaHosts.contains(uri.host.toLowerCase()) && uri.userInfo.isEmpty;
+}
+
+const _linkProblem = "This download link isn't on Sugamya Pustakalaya's own website, so Reader won't send your password to it. "
+    'Download the book on the Sugamya Pustakalaya website, then open it in Reader.';
+
+/// A download link as the app will use it ([url]), or why it can't ([problem]); [shape] is the
+/// link without its file name (scheme, host, the first part of the path), safe for the log.
+class SugamyaDownloadLink {
+  const SugamyaDownloadLink({this.url, this.problem, required this.shape});
+
+  final Uri? url;
+  final String? problem;
+  final String shape;
+}
+
+/// Makes a download link from fetchUserDownloadRequests usable: a link relative to the site is
+/// made whole, spaces are encoded, and http on the library's own host becomes https (the site
+/// answers only https). FTP links (as in the API guide's example) and other hosts get a problem.
+SugamyaDownloadLink sugamyaDownloadLink(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) {
+    return const SugamyaDownloadLink(
+        problem: 'Sugamya Pustakalaya has not given a download link for this book yet. Try again later.', shape: '(none)');
+  }
+  Uri uri;
+  try {
+    uri = Uri.parse('$sugamyaSite/').resolveUri(Uri.parse(Uri.encodeFull(text)));
+  } on FormatException {
+    return const SugamyaDownloadLink(problem: _linkProblem, shape: '(not a link)');
+  }
+  final host = uri.host.toLowerCase();
+  final shape = '${uri.scheme}://${uri.hasPort ? '${uri.host}:${uri.port}' : uri.host}'
+      // Without the file name.
+      '${uri.pathSegments.length < 2 ? '' : '/${uri.pathSegments.take(math.min(3, uri.pathSegments.length - 1)).join('/')}'}/…';
+  if (uri.scheme == 'http' && sugamyaHosts.contains(host)) uri = uri.replace(scheme: 'https');
+  if (uri.scheme == 'ftp') {
+    return SugamyaDownloadLink(
+        problem: "Sugamya Pustakalaya gave an FTP link for this book, which Reader can't download. "
+            'Download it on the Sugamya Pustakalaya website, then open it in Reader.',
+        shape: shape);
+  }
+  if (!isSugamyaDownloadUrl(uri.toString())) return SugamyaDownloadLink(problem: _linkProblem, shape: shape);
+  return SugamyaDownloadLink(url: uri, shape: shape);
 }
 
 bool _isNalp(String body) => RegExp(r'<nalp[\s>]').hasMatch(body);
@@ -323,11 +372,15 @@ class SugamyaAccount {
 
   /// Downloads a ready book to [file], reporting progress (0 to 1, or -1 when the size is unknown).
   Future<void> download(String url, File file, void Function(double fraction) progress) async {
-    final allowed = isSugamyaDownloadUrl(url) || (_local && url.startsWith('$_base/'));
-    if (!allowed) {
-      throw const CatalogException("This download link isn't Sugamya Pustakalaya's own secure link, so Reader won't send your password to it.");
+    final link = _local && url.startsWith('$_base/')
+        ? SugamyaDownloadLink(url: Uri.parse(url), shape: 'test server')
+        : sugamyaDownloadLink(url);
+    if (link.url == null) {
+      AppLog.info('sugamya', 'Download link refused: ${link.shape}');
+      throw CatalogException(link.problem!);
     }
-    final request = await _http.getUrl(Uri.parse(url));
+    AppLog.info('sugamya', 'Download link: ${link.shape}');
+    final request = await _http.getUrl(link.url!);
     request.headers.set(HttpHeaders.authorizationHeader, _authorization());
     final HttpClientResponse response;
     try {

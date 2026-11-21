@@ -2,7 +2,7 @@ import {
   SUGAMYA_ACCOUNT_API,
   SUGAMYA_WRONG_PASSWORD,
   isSugamyaAuthFailure,
-  isSugamyaDownloadUrl,
+  sugamyaDownloadLink,
   parseSugamyaMessage,
   parseSugamyaRequests,
   parseSugamyaUser,
@@ -146,9 +146,15 @@ export class SugamyaAccount {
 
   /** Downloads a ready book into `dir`, reporting progress (0 to 1, or -1 when the size is unknown). */
   async download(url: string, title: string, dir: string, progress: (fraction: number) => void): Promise<string> {
-    const allowed = isSugamyaDownloadUrl(url) || (!!this.testServer && url.startsWith(this.testServer + '/'));
-    if (!allowed) throw new Error("This download link isn't Sugamya Pustakalaya's own secure link, so Reader won't send your password to it.");
-    const response = await net.fetch(new URL(url).href, {
+    const local = !!this.testServer && url.startsWith(this.testServer + '/');
+    const link = local ? { url: new URL(url).href, shape: 'test server' } : sugamyaDownloadLink(url);
+    if ('problem' in link) {
+      this.log.write('warn', 'sugamya', `Download link refused: ${link.shape}`);
+      throw new Error(link.problem);
+    }
+    this.log.info('sugamya', `Download link: ${link.shape}`);
+    url = link.url;
+    const response = await net.fetch(url, {
       headers: { authorization: this.authorization(), 'user-agent': this.userAgent },
     });
     if (!response.ok || !response.body) {
