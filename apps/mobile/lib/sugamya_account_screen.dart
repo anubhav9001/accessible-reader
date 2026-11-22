@@ -69,9 +69,14 @@ class _SugamyaRequestPartState extends State<SugamyaRequestPart> {
   Future<void> _ask() async {
     setState(() => _asking = true);
     try {
-      final reply = await widget.services.account.requestBook(widget.id, widget.format);
+      final reply = await widget.services.account.requestBook(widget.id, widget.format, title: widget.title);
       if (!mounted) return;
       setState(() => _reply = reply);
+      if (isSugamyaRequestAccepted(reply) && isSugamyaInstantFormat(widget.format)) {
+        // The library makes this format in seconds: wait for the link and download, as if it were direct.
+        _push(SugamyaRequestsScreen(services: widget.services, waitFor: (title: widget.title, format: widget.format)));
+        return;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) => _replyFocus.requestFocus());
     } catch (e) {
       if (!mounted) return;
@@ -106,9 +111,11 @@ class _SugamyaRequestPartState extends State<SugamyaRequestPart> {
         Focus(
           focusNode: _replyFocus,
           child: Text(accepted
-              ? '$reply Sugamya Pustakalaya prepares the book, which can take a few hours. When it\'s ready, it shows '
-                  'in My download requests (and the library sends you an email or SMS); download it from there.'
-              : 'Sugamya Pustakalaya says: $reply $sugamyaRequestRefused'),
+              ? isSugamyaInstantFormat(widget.format)
+                  ? '${_sentence(reply)} When it\'s ready, it shows in My download requests; download it from there.'
+                  : '${_sentence(reply)} Sugamya Pustakalaya prepares the book, which can take a few hours. When it\'s ready, it shows '
+                      'in My download requests (and the library sends you an email or SMS); download it from there.'
+              : 'Sugamya Pustakalaya says: ${_sentence(reply)} $sugamyaRequestRefused'),
         ),
         const SizedBox(height: 8),
         accepted
@@ -262,9 +269,12 @@ class _SugamyaSignInScreenState extends State<SugamyaSignInScreen> {
 
 /// The books the reader asked for; ready ones download into My books.
 class SugamyaRequestsScreen extends StatefulWidget {
-  const SugamyaRequestsScreen({super.key, required this.services});
+  const SugamyaRequestsScreen({super.key, required this.services, this.waitFor});
 
   final SugamyaServices services;
+
+  /// A book just asked for in a format the library makes at once: wait for it and download it.
+  final ({String title, String format})? waitFor;
 
   @override
   State<SugamyaRequestsScreen> createState() => _SugamyaRequestsScreenState();
@@ -280,7 +290,47 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    final waitFor = widget.waitFor;
+    if (waitFor == null) {
+      _load();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _waitForBook(waitFor.title, waitFor.format));
+    }
+  }
+
+  Future<void> _waitForBook(String title, String format) async {
+    // The list stays on its loading indicator meanwhile.
+    _announcer.say(context, 'Sugamya Pustakalaya is making $title. This usually takes a few seconds.');
+    try {
+      if (await _downloadWhenReady(title, format)) return;
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      _announcer.say(context, "$title: Sugamya Pustakalaya hasn't finished making it yet. Choose Refresh in a minute.");
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _downloading = '');
+      await _load();
+    }
+  }
+
+  /// After asking for a format the library makes at once: waits for its link (seen within
+  /// seconds; up to 30 s), then downloads and opens it. False when the link didn't come.
+  Future<bool> _downloadWhenReady(String title, String format) async {
+    final wanted = SugamyaRequest(title: title, format: format, status: '', ready: false, url: '');
+    setState(() => _downloading = title);
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      final fresh = (await widget.services.account.requests()).where((x) => x.ready && _same(x, wanted)).firstOrNull;
+      if (!mounted) return true;
+      if (fresh != null) {
+        setState(() => _downloading = '');
+        await _download(fresh);
+        return true;
+      }
+    }
+    if (mounted) setState(() => _downloading = '');
+    return false;
   }
 
   @override
@@ -308,11 +358,93 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
     }
   }
 
-  Future<void> _download(SugamyaRequest r) async {
-    if (!r.ready) {
-      _announcer.say(context, '${r.title}: not ready yet. Sugamya Pustakalaya is preparing it; choose Refresh later.');
-      return;
+  /// What choosing a download request does, by what Reader knows of it.
+  Future<void> _choose(SugamyaRequest r) async {
+    switch (r.state) {
+      case SugamyaRequestState.ready:
+        return _download(r);
+      case SugamyaRequestState.renew:
+        return _renew(r);
+      case SugamyaRequestState.preparing:
+        _announcer.say(context, '${r.title}: being prepared. This can take a few hours; choose Refresh later.');
+      case SugamyaRequestState.expired:
+        return _askAgain(r);
+      case SugamyaRequestState.unknown:
+        if (r.ready) return _download(r);
+        _announcer.say(
+            context,
+            '${r.title}: no download link yet. If you asked for it more than $sugamyaLinkDays days ago, the link has expired: '
+            'find the book and choose Ask for this book again.');
     }
+  }
+
+  /// The book's ID: remembered when Reader asked for it, or found by its exact title.
+  Future<String?> _bookIdFor(SugamyaRequest r) async {
+    if (r.bookId != null) return r.bookId;
+    final found = await widget.services.client.books(SugamyaSearch(r.title), 1);
+    return sugamyaBookByTitle(found.items, r.title)?.id;
+  }
+
+  bool _same(SugamyaRequest a, SugamyaRequest b) =>
+      a.title.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase() == b.title.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase() &&
+      a.format.trim().toLowerCase() == b.format.trim().toLowerCase();
+
+  /// A format the library makes at once whose link expired: ask again, wait for the link, download.
+  Future<void> _renew(SugamyaRequest r) async {
+    if (_downloading.isNotEmpty) return;
+    setState(() => _downloading = r.title);
+    _announcer.say(context, '${r.title}: the download link expired. Asking Sugamya Pustakalaya for a new one.');
+    try {
+      final id = await _bookIdFor(r);
+      if (!mounted) return;
+      if (id == null) {
+        setState(() => _downloading = '');
+        _announcer.say(context,
+            "${r.title}: the download link expired, and Reader couldn't find the book to ask again. Search for it and choose Ask for this book.");
+        return;
+      }
+      final reply = await widget.services.account.requestBook(id, r.format, title: r.title);
+      if (!mounted) return;
+      if (!isSugamyaRequestAccepted(reply)) {
+        setState(() => _downloading = '');
+        _announcer.say(context, '${r.title}: Sugamya Pustakalaya says: $reply');
+        return;
+      }
+      setState(() => _downloading = '');
+      if (await _downloadWhenReady(r.title, r.format) || !mounted) return;
+      _announcer.say(context, "${r.title}: Reader asked for a new link, but it isn't ready yet. Choose Refresh in a minute.");
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _downloading = '');
+      _announcer.say(context, '${r.title}: ${_message(e)}');
+    }
+  }
+
+  /// A format the library prepares over hours whose link expired: ask again.
+  Future<void> _askAgain(SugamyaRequest r) async {
+    _announcer.say(context, '${r.title}: the download link expired. Asking Sugamya Pustakalaya again.');
+    try {
+      final id = await _bookIdFor(r);
+      if (!mounted) return;
+      if (id == null) {
+        _announcer.say(context, '${r.title}: the download link expired. Search for the book and choose Ask for this book again.');
+        return;
+      }
+      final reply = await widget.services.account.requestBook(id, r.format, title: r.title);
+      if (!mounted) return;
+      _announcer.say(
+          context,
+          isSugamyaRequestAccepted(reply)
+              ? '${r.title}: the download link expired, so Reader asked for the book again. '
+                  'Sugamya Pustakalaya prepares it, which can take a few hours; choose Refresh later.'
+              : '${r.title}: Sugamya Pustakalaya says: $reply');
+    } catch (e) {
+      if (!mounted) return;
+      _announcer.say(context, '${r.title}: ${_message(e)}');
+    }
+  }
+
+  Future<void> _download(SugamyaRequest r) async {
     if (_downloading.isNotEmpty) return;
     setState(() => _downloading = r.title);
     _announcer.say(context, 'Downloading ${r.title}');
@@ -381,11 +513,23 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
                           title: Text(r.title),
                           subtitle: Text([
                             if (r.format.isNotEmpty && r.format != sugamyaNotAvailable) sugamyaFormatLabel(r.format),
-                            _downloading == r.title ? 'Downloading…' : (r.ready ? 'Ready to download' : (r.status.isEmpty ? 'Being prepared' : r.status)),
+                            _downloading == r.title ? 'Downloading…' : _detail(r),
                           ].join('. ')),
-                          onTap: _downloading.isEmpty ? () => _download(r) : null,
+                          onTap: _downloading.isEmpty ? () => _choose(r) : null,
                         ),
                     ]),
     );
   }
 }
+
+/// How a download request reads in the list.
+String _detail(SugamyaRequest r) => switch (r.state) {
+      SugamyaRequestState.ready => 'Ready to download',
+      SugamyaRequestState.renew => 'Download link expired. Choose it to download again',
+      SugamyaRequestState.preparing => 'Being prepared',
+      SugamyaRequestState.expired => 'Download link expired (links last $sugamyaLinkDays days). Choose it to ask again',
+      SugamyaRequestState.unknown => r.ready ? 'Ready to download' : (r.status.isEmpty ? 'No download link yet' : r.status),
+    };
+
+/// The library's replies sometimes lack a full stop ("…available for download").
+String _sentence(String text) => RegExp(r'[.!?]$').hasMatch(text.trim()) ? text.trim() : '${text.trim()}.';

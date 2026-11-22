@@ -89,7 +89,7 @@ export interface ReaderApi {
     signIn(user: string, password: string): Promise<{ user: string; name: string }>;
     signOut(): Promise<void>;
     /** Asks the library for a book; resolves to the library's reply. */
-    request(bookId: string, format: string): Promise<string>;
+    request(bookId: string, format: string, title?: string): Promise<string>;
     requests(): Promise<SugamyaRequest[]>;
     /** Downloads a ready book into My books and opens it. */
     download(url: string, title: string): Promise<BookInfo>;

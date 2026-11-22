@@ -10,7 +10,11 @@ import {
   sugamyaAccountProblem,
   sugamyaAuthorization,
   sugamyaFormatId,
+  isSugamyaRequestAccepted,
+  sugamyaAskedToKeep,
+  sugamyaRequestsWithState,
   type SugamyaAccountCall,
+  type SugamyaAsked,
   type SugamyaRequest,
 } from '@accessible-reader/engine';
 import { xmldomPlatform } from '@accessible-reader/engine/xmldom';
@@ -37,6 +41,8 @@ interface Saved {
   name: string;
   /** The password, encrypted with Windows' own data protection (safeStorage); base64. */
   password: string;
+  /** Books asked for in Reader: the library's list has no date or book ID. */
+  asked?: SugamyaAsked[];
 }
 
 /**
@@ -89,6 +95,7 @@ export class SugamyaAccount {
       user,
       name: reader.name,
       password: safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(password).toString('base64') : '',
+      asked: this.saved?.user === user ? this.saved.asked : undefined,
     };
     // Without Windows' data protection the password is kept for this session only.
     if (this.saved.password) await writeFile(this.file, JSON.stringify(this.saved));
@@ -104,13 +111,18 @@ export class SugamyaAccount {
   }
 
   /** Asks the library for a book; returns the library's reply, to show the reader. */
-  async requestBook(bookId: string, format: string): Promise<string> {
+  async requestBook(bookId: string, format: string, title = ''): Promise<string> {
     const formatId = sugamyaFormatId(format);
     if (!formatId) throw new Error(`Reader doesn't know Sugamya Pustakalaya's format "${format}", so it can't ask for this book.`);
     const body = await this.post('raiseBookDownloadRequest', undefined, undefined, sugamyaAccountFields('raiseBookDownloadRequest', { bookId, formatId }));
     const message = parseSugamyaMessage(xmldomPlatform, body);
     this.log.info('sugamya', `Requested book ${bookId} (format ${formatId}): ${message ?? 'no message'}`);
     if (!message) throw new Error("Sugamya Pustakalaya didn't confirm the request. Check My download requests, or try again later.");
+    if (title && this.saved && isSugamyaRequestAccepted(message)) {
+      const now = Date.now();
+      this.saved.asked = sugamyaAskedToKeep([...(this.saved.asked ?? []), { title, format, bookId, at: now }], now);
+      if (this.saved.password) await writeFile(this.file, JSON.stringify(this.saved)).catch(() => undefined);
+    }
     return message;
   }
 
@@ -141,7 +153,7 @@ export class SugamyaAccount {
       if (page === REQUEST_PAGES_MAX) stopped = `; stopped after ${REQUEST_PAGES_MAX} pages`;
     }
     this.log.info('sugamya', `Download requests: ${all.length} of ${total} in ${pages} page${pages === 1 ? '' : 's'} (${all.filter((r) => r.ready).length} ready)${stopped}.`);
-    return all;
+    return sugamyaRequestsWithState(all, this.saved?.asked ?? [], Date.now());
   }
 
   /** Downloads a ready book into `dir`, reporting progress (0 to 1, or -1 when the size is unknown). */

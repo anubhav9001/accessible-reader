@@ -38,6 +38,30 @@ void main() {
     expect(reopened.folder(book.id).existsSync(), isFalse);
   });
 
+  test('unpacks a book sent inside a zip of its own (as Sugamya Pustakalaya does)', () async {
+    final store = await BookStore.open(Directory(p.join(temp.path, 'books')));
+    final inner = Archive()
+      ..addFile(ArchiveFile.bytes('mimetype', utf8.encode('application/epub+zip')))
+      ..addFile(ArchiveFile.bytes('META-INF/container.xml', utf8.encode('<container/>')))
+      ..addFile(ArchiveFile.bytes('OEBPS/book.opf', utf8.encode('<package/>')));
+    final outer = Archive()
+      ..addFile(ArchiveFile.bytes('The Book.epub', ZipEncoder().encode(inner)))
+      ..addFile(ArchiveFile.bytes('__MACOSX/._The Book.epub', utf8.encode('x')));
+    final zip = File(p.join(temp.path, 'wrapped.zip'))..writeAsBytesSync(ZipEncoder().encode(outer));
+
+    final book = await store.import(zip.path, 'Requested title.zip');
+    expect((await store.listFiles(book.id))..sort(), ['META-INF/container.xml', 'OEBPS/book.opf', 'mimetype']);
+    expect(Directory('${store.folder(book.id).path}.inner').existsSync(), isFalse);
+  });
+
+  test('finds the one book inside a zip, and only then', () {
+    expect(wrappedBookPath(['The Book.epub']), 'The Book.epub');
+    expect(wrappedBookPath(['b/x.zip', '__MACOSX/b/._x.zip', '.DS_Store']), 'b/x.zip');
+    expect(wrappedBookPath(['META-INF/container.xml', 'extra.epub']), isNull);
+    expect(wrappedBookPath(['a.epub', 'b.epub']), isNull);
+    expect(wrappedBookPath(['notes.txt']), isNull);
+  });
+
   test('rejects a file that is not a zip', () async {
     final store = await BookStore.open(Directory(p.join(temp.path, 'books')));
     final notZip = File(p.join(temp.path, 'notes.txt'))..writeAsStringSync('hello');

@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  sugamyaRequestsWithState,
+  sugamyaBookByTitle,
+  isSugamyaInstantFormat,
   isSugamyaAuthFailure,
   isSugamyaRequestAccepted,
   isSugamyaDownloadUrl,
@@ -149,5 +152,59 @@ describe('Sugamya Pustakalaya account', () => {
     expect(isSugamyaRequestAccepted('The Book is currently not available for download. An offline request may be raised for this book.')).toBe(false);
     expect(isSugamyaAuthFailure('No data existing')).toBe(false);
     expect(sugamyaAccountFields('raiseBookDownloadRequest', { bookId: '28', formatId: 6 })).toEqual({ bookId: '28', formatId: '6' });
+  });
+});
+
+describe('download request states', () => {
+  const day = 86_400_000;
+  const now = Date.UTC(2026, 10, 22);
+  const epub = 'Structured Epub without proofreading';
+  const audio = 'DAISY Audio Only';
+  const req = (title: string, format: string, url = '') => ({
+    title,
+    format,
+    status: url ? 'Available for Download' : '',
+    ready: !!url,
+    url,
+  });
+
+  it('knows which formats the library makes at once', () => {
+    expect(isSugamyaInstantFormat(epub)).toBe(true);
+    expect(isSugamyaInstantFormat(audio)).toBe(false);
+  });
+
+  it('says ready, renew, preparing, expired or unknown', () => {
+    const list = sugamyaRequestsWithState(
+      [req('Ready', audio, 'https://sugamyapustakalaya.org.in/a.zip'), req('Old EPUB', epub), req('New audio', audio), req('Old audio', audio), req('Website audio', audio)],
+      [
+        { title: 'New audio', format: audio, bookId: '1', at: now - 2 * day },
+        { title: 'Old audio', format: audio, bookId: '2', at: now - 8 * day },
+      ],
+      now,
+    );
+    expect(list.map((r) => `${r.title}: ${r.state}`)).toEqual([
+      'Ready: ready',
+      'Old EPUB: renew',
+      'New audio: preparing',
+      'Old audio: expired',
+      'Website audio: unknown',
+    ]);
+    expect(list[3]!.bookId).toBe('2');
+  });
+
+  it('keeps one entry per book and format, the ready one first', () => {
+    const list = sugamyaRequestsWithState(
+      [req('Book', epub), req('Other', epub), req('book ', epub, 'https://sugamyapustakalaya.org.in/b.zip'), req('Book', epub)],
+      [],
+      now,
+    );
+    expect(list.map((r) => `${r.title}: ${r.state}`)).toEqual(['book : ready', 'Other: renew']);
+  });
+
+  it('finds a book by its exact title only when there is one', () => {
+    const book = (id: string, title: string) =>
+      ({ id, title, author: '', publisher: '', synopsis: '', format: '', size: '', language: '', isbn: '', freelyAvailable: false });
+    expect(sugamyaBookByTitle([book('1', 'SBI Clerical Recruitment Exam'), book('2', 'SBI Clerical Exam Guide')], 'sbi clerical  recruitment exam')?.id).toBe('1');
+    expect(sugamyaBookByTitle([book('1', 'Same'), book('2', 'Same')], 'Same')).toBeUndefined();
   });
 });

@@ -144,7 +144,16 @@ SugamyaUser? parseSugamyaUser(String body) {
 
 /// One of the reader's download requests.
 class SugamyaRequest {
-  const SugamyaRequest({required this.title, required this.format, required this.status, required this.ready, required this.url});
+  const SugamyaRequest({
+    required this.title,
+    required this.format,
+    required this.status,
+    required this.ready,
+    required this.url,
+    this.state = SugamyaRequestState.unknown,
+    this.bookId,
+    this.askedAt,
+  });
 
   final String title;
   final String format;
@@ -157,6 +166,95 @@ class SugamyaRequest {
 
   /// The download link (needs the reader's sign-in, valid for 7 days); empty until ready.
   final String url;
+
+  /// What Reader makes of it ([sugamyaRequestsWithState]); the library's list alone doesn't say.
+  final SugamyaRequestState state;
+
+  /// The book's ID, when Reader asked for it (the library's list leaves it out).
+  final String? bookId;
+
+  /// When Reader asked for it, if it did.
+  final DateTime? askedAt;
+
+  SugamyaRequest withState(SugamyaRequestState state, SugamyaAsked? asked) => SugamyaRequest(
+      title: title, format: format, status: status, ready: ready, url: url, state: state, bookId: asked?.bookId, askedAt: asked?.at);
+}
+
+/// How long the library's download links last, in days.
+const sugamyaLinkDays = 7;
+
+/// Formats the library makes as soon as it's asked (seconds, not hours), so an expired link is
+/// simply asked for again. Seen ready within seconds: EPUB Text Only (22), Structured EPUB without
+/// proofreading (24).
+const _instantFormatIds = {22, 24};
+
+bool isSugamyaInstantFormat(String format) => _instantFormatIds.contains(sugamyaFormatId(format));
+
+/// ready: has a link. renew: an instant format without a link (it expired): Reader asks again
+/// and downloads. preparing: Reader asked less than 7 days ago. expired: Reader asked more than
+/// 7 days ago and there's no link. unknown: no link, and Reader doesn't know when it was asked.
+enum SugamyaRequestState { ready, renew, preparing, expired, unknown }
+
+/// A request Reader made, remembered because the library's list has no date or book ID.
+class SugamyaAsked {
+  const SugamyaAsked({required this.title, required this.format, required this.bookId, required this.at});
+
+  factory SugamyaAsked.fromJson(Map<String, dynamic> j) => SugamyaAsked(
+      title: j['title'] as String,
+      format: j['format'] as String,
+      bookId: j['bookId'] as String,
+      at: DateTime.fromMillisecondsSinceEpoch(j['at'] as int));
+
+  final String title;
+  final String format;
+  final String bookId;
+  final DateTime at;
+
+  Map<String, dynamic> toJson() => {'title': title, 'format': format, 'bookId': bookId, 'at': at.millisecondsSinceEpoch};
+}
+
+String _norm(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+String _requestKey(String title, String format) => '${_norm(title)}|${_norm(format)}';
+
+/// Adds Reader's view to the library's list, and keeps one entry per book and format (asking
+/// again adds a new entry beside the expired one): the ready one if there is one.
+List<SugamyaRequest> sugamyaRequestsWithState(List<SugamyaRequest> items, List<SugamyaAsked> asked, DateTime now) {
+  final latest = <String, SugamyaAsked>{};
+  for (final a in asked) {
+    final key = _requestKey(a.title, a.format);
+    if (latest[key] == null || latest[key]!.at.isBefore(a.at)) latest[key] = a;
+  }
+  final kept = <String, SugamyaRequest>{};
+  for (final r in items) {
+    final key = _requestKey(r.title, r.format);
+    final had = kept[key];
+    if (had != null && (had.ready || !r.ready)) continue;
+    final a = latest[key];
+    final state = r.ready
+        ? SugamyaRequestState.ready
+        : isSugamyaInstantFormat(r.format)
+            ? SugamyaRequestState.renew
+            : a == null
+                ? SugamyaRequestState.unknown
+                : now.difference(a.at) > const Duration(days: sugamyaLinkDays)
+                    ? SugamyaRequestState.expired
+                    : SugamyaRequestState.preparing;
+    // A Dart map keeps a key's first position when it is set again.
+    kept[key] = r.withState(state, a);
+  }
+  return kept.values.toList();
+}
+
+/// The requests Reader still needs to remember: a link can't outlive 7 days, so 30 is plenty.
+List<SugamyaAsked> sugamyaAskedToKeep(List<SugamyaAsked> asked, DateTime now) {
+  final kept = asked.where((a) => now.difference(a.at) < const Duration(days: 30)).toList();
+  return kept.length > 200 ? kept.sublist(kept.length - 200) : kept;
+}
+
+/// The book in search results with exactly this title, if there's only one.
+SugamyaBook? sugamyaBookByTitle(List<SugamyaBook> books, String title) {
+  final same = books.where((b) => _norm(b.title) == _norm(title)).toList();
+  return same.length == 1 ? same.single : null;
 }
 
 /// The total-results of a list reply, or null when it has none.
@@ -229,7 +327,7 @@ abstract class SugamyaSecrets {
 
 class KeystoreSecrets implements SugamyaSecrets {
   static const _storage = FlutterSecureStorage();
-  static const _keys = ['user', 'name', 'password'];
+  static const _keys = ['user', 'name', 'password', 'asked'];
 
   @override
   Future<Map<String, String>?> read() async {
@@ -287,6 +385,9 @@ class SugamyaAccount {
   String _password = '';
   bool _loaded = false;
 
+  /// Books asked for in Reader (the library's list has no date or book ID).
+  List<SugamyaAsked> _asked = [];
+
   bool get _local => allowLocal || sugamyaTestServer.isNotEmpty;
 
   Future<SugamyaAccountInfo?> info() async {
@@ -296,6 +397,12 @@ class SugamyaAccount {
       if (saved != null) {
         _info = SugamyaAccountInfo(saved['user']!, saved['name'] ?? '');
         _password = saved['password']!;
+        try {
+          final asked = saved['asked'] ?? '';
+          _asked = asked.isEmpty ? [] : [for (final a in jsonDecode(asked) as List) SugamyaAsked.fromJson(a as Map<String, dynamic>)];
+        } on Object {
+          _asked = [];
+        }
       }
     }
     return _info;
@@ -308,10 +415,12 @@ class SugamyaAccount {
     final body = await _post('getUserInfo', user: user, password: password);
     final reader = parseSugamyaUser(body);
     if (reader == null) throw CatalogException(parseSugamyaMessage(body) ?? sugamyaAccountProblem('getUserInfo', 404));
+    final sameReader = _info?.user == user;
     _info = SugamyaAccountInfo(user, reader.name);
     _password = password;
     _loaded = true;
-    await _secrets.write({'user': user, 'name': reader.name, 'password': password});
+    if (!sameReader) _asked = [];
+    await _secrets.write({'user': user, 'name': reader.name, 'password': password, 'asked': jsonEncode(_asked)});
     AppLog.info('sugamya', 'Signed in.');
     return _info!;
   }
@@ -319,12 +428,13 @@ class SugamyaAccount {
   Future<void> signOut() async {
     _info = null;
     _password = '';
+    _asked = [];
     await _secrets.clear();
     AppLog.info('sugamya', 'Signed out.');
   }
 
   /// Asks the library for a book; returns the library's reply, to show the reader.
-  Future<String> requestBook(String bookId, String format) async {
+  Future<String> requestBook(String bookId, String format, {String title = ''}) async {
     final formatId = sugamyaFormatId(format);
     if (formatId == null) {
       throw CatalogException("Reader doesn't know Sugamya Pustakalaya's format \"$format\", so it can't ask for this book.");
@@ -334,6 +444,15 @@ class SugamyaAccount {
     AppLog.info('sugamya', 'Requested book $bookId (format $formatId): ${message ?? 'no message'}');
     if (message == null) {
       throw const CatalogException("Sugamya Pustakalaya didn't confirm the request. Check My download requests, or try again later.");
+    }
+    if (title.isNotEmpty && _info != null && isSugamyaRequestAccepted(message)) {
+      final now = DateTime.now();
+      _asked = sugamyaAskedToKeep([..._asked, SugamyaAsked(title: title, format: format, bookId: bookId, at: now)], now);
+      try {
+        await _secrets.write({'asked': jsonEncode(_asked)});
+      } on Object {
+        // Remembering is a help, not a must.
+      }
     }
     return message;
   }
@@ -367,7 +486,7 @@ class SugamyaAccount {
     }
     AppLog.info('sugamya',
         'Download requests: ${all.length} of ${total ?? all.length} in $pages page${pages == 1 ? '' : 's'} (${all.where((r) => r.ready).length} ready)$stopped.');
-    return all;
+    return sugamyaRequestsWithState(all, _asked, DateTime.now());
   }
 
   /// Downloads a ready book to [file], reporting progress (0 to 1, or -1 when the size is unknown).

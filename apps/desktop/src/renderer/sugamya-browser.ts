@@ -16,7 +16,11 @@ import {
   sugamyaFormatReadable,
   sugamyaPath,
   sugamyaPopularQuery,
+  sugamyaBookByTitle,
+  isSugamyaInstantFormat,
+  SUGAMYA_LINK_DAYS,
   type SugamyaQuery,
+  type SugamyaRequest,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
 import type { BookInfo, ReaderApi } from '../shared/api';
@@ -261,13 +265,22 @@ export class SugamyaBrowser {
       ask.disabled = true;
       this.setStatus('Asking Sugamya Pustakalaya…');
       try {
-        const reply = await this.api.sugamya.request(id, format);
+        const reply = await this.api.sugamya.request(id, format, title);
         const accepted = isSugamyaRequestAccepted(reply);
+        // The library makes some formats in seconds: wait for the link and download, as if it were direct.
+        const instant = accepted && isSugamyaInstantFormat(format);
+        if (instant) {
+          this.setStatus(`Sugamya Pustakalaya is making ${title}. This usually takes a few seconds…`);
+          if (await this.downloadWhenReady(title, format)) return;
+        }
         const note = paragraph(
-          accepted
-            ? `${reply} Sugamya Pustakalaya prepares the book, which can take a few hours. When it's ready, ` +
-                'it shows in My download requests (and the library sends you an email or SMS); download it from there.'
-            : `Sugamya Pustakalaya says: ${reply} ${SUGAMYA_REQUEST_REFUSED}`,
+          instant
+            ? `${sentence(reply)} Sugamya Pustakalaya hasn't finished making it yet. When it's ready, it shows in ` +
+                'My download requests; download it from there.'
+            : accepted
+              ? `${sentence(reply)} Sugamya Pustakalaya prepares the book, which can take a few hours. When it's ready, ` +
+                  'it shows in My download requests (and the library sends you an email or SMS); download it from there.'
+              : `Sugamya Pustakalaya says: ${sentence(reply)} ${SUGAMYA_REQUEST_REFUSED}`,
         );
         note.tabIndex = -1;
         if (accepted) ask.replaceWith(note, this.button('My download requests', () => this.show({ kind: 'requests' })));
@@ -361,13 +374,8 @@ export class SugamyaBrowser {
     list.className = 'catalog-list';
     for (const r of requests) {
       const format = r.format && r.format !== SUGAMYA_NOT_AVAILABLE ? sugamyaFormatLabel(r.format) : '';
-      const detail = [format, r.ready ? 'Ready to download' : r.status || 'Being prepared'].filter(Boolean).join('. ');
-      list.append(
-        this.entry(r.title, detail, async () => {
-          if (!r.ready) return this.setStatus(`${r.title}: not ready yet. Sugamya Pustakalaya is preparing it; choose Refresh later.`);
-          await this.download(r.url, r.title);
-        }),
-      );
+      const detail = [format, requestDetail(r)].filter(Boolean).join('. ');
+      list.append(this.entry(r.title, detail, () => this.chooseRequest(r)));
     }
     const ready = requests.filter((r) => r.ready).length;
     this.el.results.replaceChildren(
@@ -376,6 +384,97 @@ export class SugamyaBrowser {
       refresh,
     );
     this.setStatus(`${requests.length} ${requests.length === 1 ? 'request' : 'requests'}, ${ready} ready to download.`);
+  }
+
+  /** What choosing a download request does, by what Reader knows of it (sugamyaRequestsWithState). */
+  private async chooseRequest(r: SugamyaRequest): Promise<void> {
+    switch (r.state) {
+      case 'ready':
+        return this.download(r.url, r.title);
+      case 'renew':
+        return this.renew(r);
+      case 'preparing':
+        return this.setStatus(`${r.title}: being prepared. This can take a few hours; choose Refresh later.`);
+      case 'expired':
+        return this.askAgain(r);
+      default:
+        if (r.ready) return this.download(r.url, r.title);
+        return this.setStatus(
+          `${r.title}: no download link yet. If you asked for it more than ${SUGAMYA_LINK_DAYS} days ago, the link has expired: ` +
+            'find the book and choose Ask for this book again.',
+        );
+    }
+  }
+
+  /** The book's ID: remembered when Reader asked for it, or found by its exact title. */
+  private async bookIdFor(r: SugamyaRequest): Promise<string | undefined> {
+    if (r.bookId) return r.bookId;
+    const found = parseSugamyaBooks(browserPlatform, await this.fetch(sugamyaPath({ kind: 'search', terms: r.title }))).items;
+    return sugamyaBookByTitle(found, r.title)?.id;
+  }
+
+  /** A format the library makes at once whose link expired: ask again, wait for the link, download. */
+  private async renew(r: SugamyaRequest): Promise<void> {
+    if (this.downloading) return this.setStatus(`Still downloading ${this.downloading}.`);
+    this.downloading = r.title;
+    this.setStatus(`${r.title}: the download link expired. Asking Sugamya Pustakalaya for a new one…`);
+    try {
+      const id = await this.bookIdFor(r);
+      if (!id) {
+        this.downloading = '';
+        return this.setStatus(`${r.title}: the download link expired, and Reader couldn't find the book to ask again. Search for it and choose Ask for this book.`);
+      }
+      const reply = await this.api.sugamya.request(id, r.format, r.title);
+      if (!isSugamyaRequestAccepted(reply)) {
+        this.downloading = '';
+        return this.setStatus(`${r.title}: Sugamya Pustakalaya says: ${reply}`);
+      }
+      this.downloading = '';
+      if (await this.downloadWhenReady(r.title, r.format)) return;
+      this.setStatus(`${r.title}: Reader asked for a new link, but it isn't ready yet. Choose Refresh in a minute.`);
+    } catch (err) {
+      this.downloading = '';
+      this.setStatus(`${r.title}: ${errorMessage(err)}`);
+    }
+  }
+
+  /**
+   * After asking for a format the library makes at once: waits for its link (seen within
+   * seconds; up to 30 s), then downloads and opens it. False when the link didn't come.
+   */
+  private async downloadWhenReady(title: string, format: string): Promise<boolean> {
+    this.downloading = title;
+    try {
+      for (let i = 0; i < 10; i++) {
+        await new Promise((done) => setTimeout(done, 3000));
+        const fresh = (await this.api.sugamya.requests()).find((x) => x.ready && sameRequest(x, { title, format }));
+        if (fresh) {
+          this.downloading = '';
+          await this.download(fresh.url, title);
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      if (this.downloading === title) this.downloading = '';
+    }
+  }
+
+  /** A format the library prepares over hours whose link expired: ask again. */
+  private async askAgain(r: SugamyaRequest): Promise<void> {
+    this.setStatus(`${r.title}: the download link expired. Asking Sugamya Pustakalaya again…`);
+    try {
+      const id = await this.bookIdFor(r);
+      if (!id) return this.setStatus(`${r.title}: the download link expired. Search for the book and choose Ask for this book again.`);
+      const reply = await this.api.sugamya.request(id, r.format, r.title);
+      this.setStatus(
+        isSugamyaRequestAccepted(reply)
+          ? `${r.title}: the download link expired, so Reader asked for the book again. Sugamya Pustakalaya prepares it, which can take a few hours; choose Refresh later.`
+          : `${r.title}: Sugamya Pustakalaya says: ${reply}`,
+      );
+    } catch (err) {
+      this.setStatus(`${r.title}: ${errorMessage(err)}`);
+    }
   }
 
   private async download(url: string, title: string): Promise<void> {
@@ -453,3 +552,24 @@ function paragraph(text: string): HTMLParagraphElement {
   p.textContent = text;
   return p;
 }
+
+/** How a download request reads in the list. */
+function requestDetail(r: SugamyaRequest): string {
+  switch (r.state) {
+    case 'ready':
+      return 'Ready to download';
+    case 'renew':
+      return 'Download link expired. Choose it to download again';
+    case 'preparing':
+      return 'Being prepared';
+    case 'expired':
+      return `Download link expired (links last ${SUGAMYA_LINK_DAYS} days). Choose it to ask again`;
+    default:
+      return r.ready ? 'Ready to download' : r.status || 'No download link yet';
+  }
+}
+
+const norm = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+/** The library's replies sometimes lack a full stop ("…available for download"). */
+const sentence = (text: string) => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+const sameRequest = (a: { title: string; format: string }, b: { title: string; format: string }) => norm(a.title) === norm(b.title) && norm(a.format) === norm(b.format);

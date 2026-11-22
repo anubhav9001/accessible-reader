@@ -132,7 +132,9 @@ ipcMain.handle('sugamya-account', async () => {
 });
 ipcMain.handle('sugamya-sign-in', async (_event, user: string, password: string) => sugamya.signIn(String(user), String(password)));
 ipcMain.handle('sugamya-sign-out', () => sugamya.signOut());
-ipcMain.handle('sugamya-request', (_event, bookId: string, format: string) => sugamya.requestBook(String(bookId), String(format)));
+ipcMain.handle('sugamya-request', (_event, bookId: string, format: string, title?: string) =>
+  sugamya.requestBook(String(bookId), String(format), String(title ?? '')),
+);
 ipcMain.handle('sugamya-requests', () => sugamya.requests());
 ipcMain.handle('sugamya-download', async (event, url: string, title: string) => {
   let reported = -1;

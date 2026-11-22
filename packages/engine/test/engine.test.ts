@@ -13,6 +13,7 @@ import {
   readingModes,
   type Publication,
   type ReadingMode,
+  wrappedBookPath,
 } from '../src/index.js';
 import { xmldomPlatform } from '../src/platform/xmldom.js';
 import { daisy202AudioOnly, daisy202FullText, daisy3, epub3, zip } from './fixtures.js';
@@ -157,5 +158,28 @@ describe('navigation', () => {
   it('works from an unzipped folder too', async () => {
     const pub = await openPublication(new MemoryContainer(daisy3()), xmldomPlatform);
     expect(pub.narration).toHaveLength(2);
+  });
+});
+
+describe('a book inside a zip of its own', () => {
+  it('opens the one EPUB inside (as Sugamya Pustakalaya sends them)', async () => {
+    const pub = await open({ 'The Book.epub': zip(epub3()) });
+    expect(pub.format).toBe('epub');
+    expect(pub.readingOrder.length).toBeGreaterThan(0);
+  });
+
+  it('ignores Mac zip leftovers', async () => {
+    const pub = await open({ 'b/The Book.epub': zip(epub3()), '__MACOSX/b/._The Book.epub': 'x', '.DS_Store': 'x' });
+    expect(pub.format).toBe('epub');
+  });
+
+  it('leaves real books and unclear zips alone', () => {
+    expect(wrappedBookPath(ZipContainer.fromBytes(zip(epub3())))).toBeUndefined();
+    expect(wrappedBookPath(ZipContainer.fromBytes(zip({ 'a.epub': 'x', 'b.epub': 'y' })))).toBeUndefined();
+    expect(wrappedBookPath(ZipContainer.fromBytes(zip({ 'notes.txt': 'x' })))).toBeUndefined();
+  });
+
+  it('still says when there is no book', async () => {
+    await expect(open({ 'notes.txt': 'x' })).rejects.toThrow('Not a supported book');
   });
 });

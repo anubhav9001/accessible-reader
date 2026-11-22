@@ -1,4 +1,4 @@
-import type { Container } from './container.js';
+import { ZipContainer, type Container } from './container.js';
 import { findPackage, parseDaisy3 } from './daisy3.js';
 import { findNcc, parseDaisy202 } from './daisy202.js';
 import { parseEpub } from './epub.js';
@@ -13,7 +13,23 @@ export function detectFormat(container: Container): BookFormat | undefined {
 }
 
 /** Opens any supported book (EPUB 2/3, DAISY 3, DAISY 2.02) into the common publication model. */
-export async function openPublication(container: Container, xml: XmlPlatform): Promise<Publication> {
+/**
+ * The one book inside a zip that holds no book itself, if there is one: Sugamya Pustakalaya
+ * sends an EPUB inside a .zip of its own. Mac zip leftovers (__MACOSX/, dot files) are ignored.
+ */
+export function wrappedBookPath(container: Container): string | undefined {
+  if (detectFormat(container)) return undefined;
+  const inner = container.paths.filter((path) => {
+    const lower = path.toLowerCase();
+    const name = lower.split('/').pop() ?? '';
+    return !lower.startsWith('__macosx/') && !name.startsWith('.') && /\.(epub|zip)$/.test(name);
+  });
+  return inner.length === 1 ? inner[0] : undefined;
+}
+
+export async function openPublication(container: Container, xml: XmlPlatform, depth = 0): Promise<Publication> {
+  const inner = depth < 2 ? wrappedBookPath(container) : undefined;
+  if (inner) return openPublication(ZipContainer.fromBytes(await container.readBytes(inner)), xml, depth + 1);
   switch (detectFormat(container)) {
     case 'epub':
       return parseEpub(container, xml);

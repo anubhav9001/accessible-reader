@@ -305,6 +305,89 @@ export interface SugamyaRequest {
   ready: boolean;
   /** The download link (needs the reader's sign-in, valid for 7 days); empty until ready. */
   url: string;
+  /** What Reader makes of it (sugamyaRequestsWithState); the library's list alone doesn't say. */
+  state?: SugamyaRequestState;
+  /** The book's ID, when Reader asked for it (the library's list leaves it out). */
+  bookId?: string;
+  /** When Reader asked for it (ms since 1970), if it did. */
+  askedAt?: number;
+}
+
+/** How long the library's download links last, in days. */
+export const SUGAMYA_LINK_DAYS = 7;
+
+/**
+ * Formats the library makes as soon as it's asked (seconds, not hours), so an expired link is
+ * simply asked for again. Seen ready within seconds: EPUB Text Only (22), Structured EPUB without
+ * proofreading (24).
+ */
+const INSTANT_FORMAT_IDS = new Set([22, 24]);
+
+export function isSugamyaInstantFormat(format: string): boolean {
+  const id = sugamyaFormatId(format);
+  return id !== undefined && INSTANT_FORMAT_IDS.has(id);
+}
+
+/** A request Reader made, remembered because the library's list has no date or book ID. */
+export interface SugamyaAsked {
+  title: string;
+  format: string;
+  bookId: string;
+  /** ms since 1970. */
+  at: number;
+}
+
+/**
+ * ready: has a link. renew: an instant format without a link (it expired): Reader asks again
+ * and downloads. preparing: Reader asked less than 7 days ago. expired: Reader asked more than
+ * 7 days ago and there's no link. unknown: no link, and Reader doesn't know when it was asked
+ * (asked on the website): it may still be being prepared, or its link may have expired.
+ */
+export type SugamyaRequestState = 'ready' | 'renew' | 'preparing' | 'expired' | 'unknown';
+
+const requestKey = (title: string, format: string) =>
+  `${title.replace(/\s+/g, ' ').trim().toLowerCase()}|${format.replace(/\s+/g, ' ').trim().toLowerCase()}`;
+
+/**
+ * Adds Reader's view to the library's list, and keeps one entry per book and format (asking
+ * again adds a new entry beside the expired one): the ready one if there is one.
+ */
+export function sugamyaRequestsWithState(items: SugamyaRequest[], asked: SugamyaAsked[], now: number): SugamyaRequest[] {
+  const latest = new Map<string, SugamyaAsked>();
+  for (const a of asked) {
+    const key = requestKey(a.title, a.format);
+    if (!latest.has(key) || latest.get(key)!.at < a.at) latest.set(key, a);
+  }
+  const kept = new Map<string, SugamyaRequest>();
+  for (const r of items) {
+    const key = requestKey(r.title, r.format);
+    const had = kept.get(key);
+    if (had && (had.ready || !r.ready)) continue;
+    const a = latest.get(key);
+    const state: SugamyaRequestState = r.ready
+      ? 'ready'
+      : isSugamyaInstantFormat(r.format)
+        ? 'renew'
+        : !a
+          ? 'unknown'
+          : now - a.at > SUGAMYA_LINK_DAYS * 86_400_000
+            ? 'expired'
+            : 'preparing';
+    // Re-inserting would move it; Map keeps the first position when a key is set again.
+    kept.set(key, { ...r, state, ...(a ? { bookId: a.bookId, askedAt: a.at } : {}) });
+  }
+  return [...kept.values()];
+}
+
+/** The requests Reader still needs to remember: a link can't outlive 7 days, so 30 is plenty. */
+export function sugamyaAskedToKeep(asked: SugamyaAsked[], now: number): SugamyaAsked[] {
+  return asked.filter((a) => now - a.at < 30 * 86_400_000).slice(-200);
+}
+
+/** The book in search results with exactly this title, if there's only one. */
+export function sugamyaBookByTitle(books: SugamyaBook[], title: string): SugamyaBook | undefined {
+  const same = books.filter((b) => requestKey(b.title, '') === requestKey(title, ''));
+  return same.length === 1 ? same[0] : undefined;
 }
 
 /** Reads fetchUserDownloadRequests. */

@@ -1,7 +1,7 @@
 export * from './model.js';
 export { BaseContainer, HttpContainer, MemoryContainer, ZipContainer, decodeText, type Container } from './container.js';
 export type { XmlPlatform } from './xml.js';
-export { detectFormat, openPublication } from './open.js';
+export { detectFormat, openPublication, wrappedBookPath } from './open.js';
 export { parseEpub } from './epub.js';
 export { parseDaisy3 } from './daisy3.js';
 export { parseDaisy202 } from './daisy202.js';
@@ -59,6 +59,13 @@ export {
   type SugamyaQuery,
   type SugamyaAccountCall,
   type SugamyaRequest,
+  type SugamyaRequestState,
+  type SugamyaAsked,
+  SUGAMYA_LINK_DAYS,
+  isSugamyaInstantFormat,
+  sugamyaRequestsWithState,
+  sugamyaAskedToKeep,
+  sugamyaBookByTitle,
   type SugamyaUser,
 } from './sugamya.js';
 export { resolveHref, resolvePath } from './paths.js';

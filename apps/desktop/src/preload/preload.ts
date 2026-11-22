@@ -9,7 +9,7 @@ const api: ReaderApi = {
     account: () => ipcRenderer.invoke('sugamya-account'),
     signIn: (user, password) => ipcRenderer.invoke('sugamya-sign-in', user, password),
     signOut: () => ipcRenderer.invoke('sugamya-sign-out'),
-    request: (bookId, format) => ipcRenderer.invoke('sugamya-request', bookId, format),
+    request: (bookId, format, title) => ipcRenderer.invoke('sugamya-request', bookId, format, title),
     requests: () => ipcRenderer.invoke('sugamya-requests'),
     download: (url, title) => ipcRenderer.invoke('sugamya-download', url, title),
     onProgress: (listener) => void ipcRenderer.on('sugamya-progress', (_e, fraction: number) => listener(fraction)),

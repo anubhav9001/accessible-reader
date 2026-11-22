@@ -134,7 +134,7 @@ void main() {
 
       final info = await account.signIn(' tester ', 's3cret pass');
       expect(info.name, 'EndUser One');
-      expect(secrets.values, {'user': 'tester', 'name': 'EndUser One', 'password': 's3cret pass'});
+      expect(secrets.values, {'user': 'tester', 'name': 'EndUser One', 'password': 's3cret pass', 'asked': '[]'});
 
       expect(await account.requestBook('28', 'DAISY Audio Only'), startsWith('Your download request has been registered'));
       expect(calls.last, contains('bookId=28&formatId=6&strapikey='));
@@ -182,4 +182,50 @@ void main() {
       expect(pagesAsked, [1, 1]);
     });
   });
+
+  group('download request states', () {
+    final now = DateTime.utc(2026, 11, 22);
+    const epub = 'Structured Epub without proofreading';
+    const audio = 'DAISY Audio Only';
+    SugamyaRequest req(String title, String format, [String url = '']) =>
+        SugamyaRequest(title: title, format: format, status: url.isEmpty ? '' : 'Available for Download', ready: url.isNotEmpty, url: url);
+
+    test('knows which formats the library makes at once', () {
+      expect(isSugamyaInstantFormat(epub), isTrue);
+      expect(isSugamyaInstantFormat(audio), isFalse);
+    });
+
+    test('says ready, renew, preparing, expired or unknown', () {
+      final list = sugamyaRequestsWithState([
+        req('Ready', audio, 'https://sugamyapustakalaya.org.in/a.zip'),
+        req('Old EPUB', epub),
+        req('New audio', audio),
+        req('Old audio', audio),
+        req('Website audio', audio),
+      ], [
+        SugamyaAsked(title: 'New audio', format: audio, bookId: '1', at: now.subtract(const Duration(days: 2))),
+        SugamyaAsked(title: 'Old audio', format: audio, bookId: '2', at: now.subtract(const Duration(days: 8))),
+      ], now);
+      expect(list.map((r) => '${r.title}: ${r.state.name}'),
+          ['Ready: ready', 'Old EPUB: renew', 'New audio: preparing', 'Old audio: expired', 'Website audio: unknown']);
+      expect(list[3].bookId, '2');
+    });
+
+    test('keeps one entry per book and format, the ready one first', () {
+      final list = sugamyaRequestsWithState(
+          [req('Book', epub), req('Other', epub), req('book ', epub, 'https://sugamyapustakalaya.org.in/b.zip'), req('Book', epub)], [], now);
+      expect(list.map((r) => '${r.title}: ${r.state.name}'), ['book : ready', 'Other: renew']);
+    });
+
+    test('remembers what Reader asked for, across a restart', () async {
+      final secrets = _MemorySecrets()..values = {'user': 'tester', 'name': 'Test', 'password': 'pw'};
+      final asked = [SugamyaAsked(title: 'A', format: audio, bookId: '7', at: DateTime.now())];
+      secrets.values!['asked'] = jsonEncode(asked);
+      final account = SugamyaAccount(secrets: secrets);
+      expect((await account.info())?.user, 'tester');
+      expect(sugamyaAskedToKeep(asked, DateTime.now()).single.bookId, '7');
+      expect(sugamyaAskedToKeep(asked, DateTime.now().add(const Duration(days: 31))), isEmpty);
+    });
+  });
 }
+
