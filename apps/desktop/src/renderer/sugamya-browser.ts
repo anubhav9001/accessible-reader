@@ -17,6 +17,8 @@ import {
   sugamyaPath,
   sugamyaPopularQuery,
   sugamyaBookByTitle,
+  sugamyaTitlesDiffer,
+  sugamyaWrongBookNote,
   isSugamyaInstantFormat,
   SUGAMYA_LINK_DAYS,
   type SugamyaQuery,
@@ -69,7 +71,7 @@ export class SugamyaBrowser {
   constructor(
     private readonly el: Elements,
     private readonly api: ReaderApi,
-    private readonly onBook: (info: BookInfo) => Promise<void>,
+    private readonly onBook: (info: BookInfo, note?: string) => Promise<void>,
   ) {
     api.sugamya.onProgress((fraction) => {
       if (!this.downloading) return;
@@ -485,7 +487,8 @@ export class SugamyaBrowser {
       const info = await this.api.sugamya.download(url, title);
       this.downloading = '';
       this.el.dialog.close();
-      await this.onBook(info);
+      const got = info.metadata.title;
+      await this.onBook(info, got && sugamyaTitlesDiffer(title, got) ? sugamyaWrongBookNote(title, got) : undefined);
     } catch (err) {
       this.downloading = '';
       this.setStatus(`Download failed. ${errorMessage(err)}`);
@@ -561,7 +564,7 @@ function requestDetail(r: SugamyaRequest): string {
     case 'renew':
       return 'Download link expired. Choose it to download again';
     case 'preparing':
-      return 'Being prepared';
+      return r.status && !/^available/i.test(r.status) ? `Being prepared (${r.status})` : 'Being prepared';
     case 'expired':
       return `Download link expired (links last ${SUGAMYA_LINK_DAYS} days). Choose it to ask again`;
     default:

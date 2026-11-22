@@ -217,6 +217,18 @@ void main() {
       expect(list.map((r) => '${r.title}: ${r.state.name}'), ['book : ready', 'Other: renew']);
     });
 
+    test("trusts the library's status: Queued is being prepared, not expired", () {
+      final queued = SugamyaRequest(title: 'Queued EPUB', format: epub, status: 'Queued', ready: false, url: '');
+      expect(sugamyaRequestsWithState([queued], [], now).single.state, SugamyaRequestState.preparing);
+    });
+
+    test('notices when the library sent a different book', () {
+      expect(sugamyaTitlesDiffer('THE Social Dimensions OF Early Buddhism', 'The Social Construction of Reality'), isTrue);
+      expect(sugamyaTitlesDiffer('MSO-001 Sociological Theories and Concepts Block-7 Theories of Social Satisfaction',
+          'Block-7 Theories of Social Satisfaction'), isFalse);
+      expect(sugamyaTitlesDiffer('A', ''), isFalse);
+    });
+
     test('remembers what Reader asked for, across a restart', () async {
       final secrets = _MemorySecrets()..values = {'user': 'tester', 'name': 'Test', 'password': 'pw'};
       final asked = [SugamyaAsked(title: 'A', format: audio, bookId: '7', at: DateTime.now())];

@@ -230,15 +230,21 @@ List<SugamyaRequest> sugamyaRequestsWithState(List<SugamyaRequest> items, List<S
     final had = kept[key];
     if (had != null && (had.ready || !r.ready)) continue;
     final a = latest[key];
+    // A status other than "Available…" (e.g. "Queued") means the library is still working on it.
+    // An expired link leaves no status at all (and "NA" for the link).
+    final status = r.status.trim();
+    final working = !r.ready && status.isNotEmpty && !RegExp('^available', caseSensitive: false).hasMatch(status);
     final state = r.ready
         ? SugamyaRequestState.ready
-        : isSugamyaInstantFormat(r.format)
-            ? SugamyaRequestState.renew
-            : a == null
-                ? SugamyaRequestState.unknown
-                : now.difference(a.at) > const Duration(days: sugamyaLinkDays)
-                    ? SugamyaRequestState.expired
-                    : SugamyaRequestState.preparing;
+        : working
+            ? SugamyaRequestState.preparing
+            : isSugamyaInstantFormat(r.format)
+                ? SugamyaRequestState.renew
+                : a == null
+                    ? SugamyaRequestState.unknown
+                    : now.difference(a.at) > const Duration(days: sugamyaLinkDays)
+                        ? SugamyaRequestState.expired
+                        : SugamyaRequestState.preparing;
     // A Dart map keeps a key's first position when it is set again.
     kept[key] = r.withState(state, a);
   }
@@ -572,3 +578,20 @@ class SugamyaAccount {
     return body;
   }
 }
+
+Set<String> _titleWords(String title) =>
+    title.toLowerCase().split(RegExp(r'[^\p{L}\p{M}\p{N}]+', unicode: true)).where((w) => w.length > 3).toSet();
+
+/// Whether the book the library sent looks like a different book from the one asked for: fewer
+/// than half the longer words shared. Sugamya Pustakalaya once sent "The Social Construction of
+/// Reality" for "THE Social Dimensions OF Early Buddhism".
+bool sugamyaTitlesDiffer(String asked, String got) {
+  final a = _titleWords(asked);
+  final b = _titleWords(got);
+  if (a.isEmpty || b.isEmpty) return false;
+  return b.where(a.contains).length / (a.length < b.length ? a.length : b.length) < 0.5;
+}
+
+/// What Reader says when the library sent a different book.
+String sugamyaWrongBookNote(String asked, String got) =>
+    'Sugamya Pustakalaya sent "$got", not "$asked", which you asked for. You may want to tell the library.';

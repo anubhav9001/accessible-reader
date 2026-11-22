@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   sugamyaRequestsWithState,
+  sugamyaTitlesDiffer,
   sugamyaBookByTitle,
   isSugamyaInstantFormat,
   isSugamyaAuthFailure,
@@ -199,6 +200,20 @@ describe('download request states', () => {
       now,
     );
     expect(list.map((r) => `${r.title}: ${r.state}`)).toEqual(['book : ready', 'Other: renew']);
+  });
+
+  it("trusts the library's status: Queued is being prepared, not expired", () => {
+    const queued = { ...req('Queued EPUB', epub), status: 'Queued' };
+    const queuedAudio = { ...req('Queued audio', audio), status: 'Queued' };
+    const list = sugamyaRequestsWithState([queued, queuedAudio], [{ title: 'Queued audio', format: audio, bookId: '3', at: now - 9 * day }], now);
+    expect(list.map((r) => r.state)).toEqual(['preparing', 'preparing']);
+  });
+
+  it('notices when the library sent a different book', () => {
+    expect(sugamyaTitlesDiffer('THE Social Dimensions OF Early Buddhism', 'The Social Construction of Reality')).toBe(true);
+    expect(sugamyaTitlesDiffer('MSO-001 Sociological Theories and Concepts Block-7 Theories of Social Satisfaction', 'Block-7 Theories of Social Satisfaction')).toBe(false);
+    expect(sugamyaTitlesDiffer('Saddam Hussein and the Crisis in the Gulf', 'Saddam Hussein and the Crisis in the Gulf')).toBe(false);
+    expect(sugamyaTitlesDiffer('A', '')).toBe(false);
   });
 
   it('finds a book by its exact title only when there is one', () => {

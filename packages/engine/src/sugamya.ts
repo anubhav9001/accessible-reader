@@ -338,9 +338,10 @@ export interface SugamyaAsked {
 }
 
 /**
- * ready: has a link. renew: an instant format without a link (it expired): Reader asks again
- * and downloads. preparing: Reader asked less than 7 days ago. expired: Reader asked more than
- * 7 days ago and there's no link. unknown: no link, and Reader doesn't know when it was asked
+ * ready: has a link. renew: an instant format with no link and no status (it expired): Reader
+ * asks again and downloads. preparing: the library's status says it's working on it (e.g.
+ * "Queued"), or Reader asked less than 7 days ago. expired: Reader asked more than 7 days ago,
+ * and there's no link or status. unknown: no link, and Reader doesn't know when it was asked
  * (asked on the website): it may still be being prepared, or its link may have expired.
  */
 export type SugamyaRequestState = 'ready' | 'renew' | 'preparing' | 'expired' | 'unknown';
@@ -364,15 +365,20 @@ export function sugamyaRequestsWithState(items: SugamyaRequest[], asked: Sugamya
     const had = kept.get(key);
     if (had && (had.ready || !r.ready)) continue;
     const a = latest.get(key);
+    // A status other than "Available…" (e.g. "Queued") means the library is still working on it.
+    // An expired link leaves no status at all (and "NA" for the link).
+    const working = !r.ready && !!r.status.trim() && !/^available/i.test(r.status.trim());
     const state: SugamyaRequestState = r.ready
       ? 'ready'
-      : isSugamyaInstantFormat(r.format)
-        ? 'renew'
-        : !a
-          ? 'unknown'
-          : now - a.at > SUGAMYA_LINK_DAYS * 86_400_000
-            ? 'expired'
-            : 'preparing';
+      : working
+        ? 'preparing'
+        : isSugamyaInstantFormat(r.format)
+          ? 'renew'
+          : !a
+            ? 'unknown'
+            : now - a.at > SUGAMYA_LINK_DAYS * 86_400_000
+              ? 'expired'
+              : 'preparing';
     // Re-inserting would move it; Map keeps the first position when a key is set again.
     kept.set(key, { ...r, state, ...(a ? { bookId: a.bookId, askedAt: a.at } : {}) });
   }
@@ -437,4 +443,26 @@ export function sugamyaAccountProblem(call: SugamyaAccountCall, status: number):
   if (call === 'getUserInfo') return status === 404 ? "Sugamya Pustakalaya didn't recognise this user ID or email. Check it and try again." : `Sugamya Pustakalaya couldn't sign you in right now (error ${status}). Try again later.`;
   if (call === 'raiseBookDownloadRequest') return `Sugamya Pustakalaya couldn't take the request for this book (error ${status}). Try again later, or ask for it on the Sugamya Pustakalaya website.`;
   return `Sugamya Pustakalaya couldn't do this right now (error ${status}). Try again later.`;
+}
+
+const titleWords = (title: string) =>
+  new Set(title.toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).filter((w) => w.length > 3));
+
+/**
+ * Whether the book the library sent looks like a different book from the one asked for: fewer
+ * than half the longer words shared. Sugamya Pustakalaya once sent "The Social Construction of
+ * Reality" for "THE Social Dimensions OF Early Buddhism".
+ */
+export function sugamyaTitlesDiffer(asked: string, got: string): boolean {
+  const a = titleWords(asked);
+  const b = titleWords(got);
+  if (!a.size || !b.size) return false;
+  let shared = 0;
+  for (const w of b) if (a.has(w)) shared++;
+  return shared / Math.min(a.size, b.size) < 0.5;
+}
+
+/** What Reader says when the library sent a different book. */
+export function sugamyaWrongBookNote(asked: string, got: string): string {
+  return `Sugamya Pustakalaya sent "${got}", not "${asked}", which you asked for. You may want to tell the library.`;
 }

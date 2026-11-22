@@ -52,6 +52,7 @@ void main() {
     final book = await store.import(zip.path, 'Requested title.zip');
     expect((await store.listFiles(book.id))..sort(), ['META-INF/container.xml', 'OEBPS/book.opf', 'mimetype']);
     expect(Directory('${store.folder(book.id).path}.inner').existsSync(), isFalse);
+    expect(book.wrappedName, 'The Book');
   });
 
   test('finds the one book inside a zip, and only then', () {

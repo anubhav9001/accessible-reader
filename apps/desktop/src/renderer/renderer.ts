@@ -158,7 +158,7 @@ const sugamya = new SugamyaBrowser(
     results: $('ui-catalog-results'),
   },
   window.reader,
-  (info) => openBook(info),
+  (info, note) => openBook(info, note),
 );
 
 // Online libraries: one window, with a choice of library that is remembered.
@@ -529,7 +529,8 @@ async function closeBook(): Promise<void> {
   announce(`Closed ${title}.`);
 }
 
-async function openBook(info: BookInfo): Promise<void> {
+/** Opens a book; `note` is said after "Opened …" (e.g. the library sent a different book). */
+async function openBook(info: BookInfo, note?: string): Promise<void> {
   flushPosition();
   recorded?.stop();
   speech.pause();
@@ -582,7 +583,7 @@ async function openBook(info: BookInfo): Promise<void> {
   }
   if (srMode) await showPlain(saved?.plainOffset);
   updateNow();
-  announce(`Opened ${ui.title.textContent}. ${MODE_LABELS[mode]} mode.`);
+  announce(`Opened ${ui.title.textContent}. ${MODE_LABELS[mode]} mode.${note ? ` ${note}` : ''}`);
   // Straight into the book, at the saved place, so the screen reader starts reading there.
   if (mode !== 'audio') focusPlace();
   window.reader.bookReady();

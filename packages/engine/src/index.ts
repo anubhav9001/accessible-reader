@@ -66,6 +66,8 @@ export {
   sugamyaRequestsWithState,
   sugamyaAskedToKeep,
   sugamyaBookByTitle,
+  sugamyaTitlesDiffer,
+  sugamyaWrongBookNote,
   type SugamyaUser,
 } from './sugamya.js';
 export { resolveHref, resolvePath } from './paths.js';

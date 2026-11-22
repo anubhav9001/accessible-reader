@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 
 /// A book unpacked into the app's storage.
 class StoredBook {
-  StoredBook({required this.id, required this.title, this.authors = const [], required this.addedAt});
+  StoredBook({required this.id, required this.title, this.authors = const [], required this.addedAt, this.wrappedName});
 
   factory StoredBook.fromJson(Map<String, dynamic> json) => StoredBook(
         id: json['id'] as String,
@@ -19,6 +19,9 @@ class StoredBook {
   String title;
   List<String> authors;
   final DateTime addedAt;
+
+  /// Just imported only: the name of the book file found inside a zip of its own (not saved).
+  final String? wrappedName;
 
   Map<String, dynamic> toJson() => {'id': id, 'title': title, 'authors': authors, 'addedAt': addedAt.toIso8601String()};
 }
@@ -52,6 +55,7 @@ class BookStore {
   Future<StoredBook> import(String zipPath, String fileName) async {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     final target = folder(id);
+    String? wrappedName;
     try {
       // Streams from disk, so large audio books are not loaded into memory at once.
       await extractFileToDisk(zipPath, target.path);
@@ -60,6 +64,7 @@ class BookStore {
       for (var depth = 0; depth < 2; depth++) {
         final inner = wrappedBookPath(files);
         if (inner == null) break;
+        wrappedName = p.posix.basenameWithoutExtension(inner);
         if (!p.isWithin(target.path, p.join(target.path, inner))) throw const FormatException('Unsafe file path in archive.');
         final unpacked = Directory('${target.path}.inner');
         if (await unpacked.exists()) await unpacked.delete(recursive: true);
@@ -78,7 +83,7 @@ class BookStore {
       if (await unpacked.exists()) await unpacked.delete(recursive: true);
       rethrow;
     }
-    final book = StoredBook(id: id, title: p.basenameWithoutExtension(fileName), addedAt: DateTime.now());
+    final book = StoredBook(id: id, title: p.basenameWithoutExtension(fileName), addedAt: DateTime.now(), wrappedName: wrappedName);
     books.insert(0, book);
     await save();
     return book;

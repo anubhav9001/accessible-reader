@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'announcer.dart';
+import 'app_log.dart';
 import 'book_store.dart';
 import 'opds.dart';
 import 'sugamya.dart';
@@ -462,6 +463,13 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
       // The title as the library gives it ("Business study NCERT 11th"), not the file's name.
       final book = await widget.services.store.import(file.path, '${r.title}.zip');
       if (!mounted) return;
+      final got = book.wrappedName;
+      if (got != null && sugamyaTitlesDiffer(r.title, got)) {
+        AppLog.info('sugamya', 'The library sent a different book: asked for "${r.title}", got "$got".');
+        // The app-wide messenger: it stays up over the book that opens next.
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(sugamyaWrongBookNote(r.title, got)), duration: const Duration(seconds: 12)));
+      }
       Navigator.of(context).popUntil((route) => route.isFirst);
       await widget.services.onBook(book);
     } catch (e) {
@@ -526,7 +534,8 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
 String _detail(SugamyaRequest r) => switch (r.state) {
       SugamyaRequestState.ready => 'Ready to download',
       SugamyaRequestState.renew => 'Download link expired. Choose it to download again',
-      SugamyaRequestState.preparing => 'Being prepared',
+      SugamyaRequestState.preparing =>
+        r.status.isNotEmpty && !RegExp('^available', caseSensitive: false).hasMatch(r.status) ? 'Being prepared (${r.status})' : 'Being prepared',
       SugamyaRequestState.expired => 'Download link expired (links last $sugamyaLinkDays days). Choose it to ask again',
       SugamyaRequestState.unknown => r.ready ? 'Ready to download' : (r.status.isEmpty ? 'No download link yet' : r.status),
     };
