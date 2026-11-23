@@ -242,9 +242,18 @@ export class NativeBox {
     const above = Number(api.SendMessageW(this.hwnd, EM_LINEINDEX, line - 1, 0));
     api.SendRange(this.hwnd, EM_EXSETSEL, 0, { cpMin: above, cpMax: above });
     api.SendMessageW(this.hwnd, EM_SCROLLCARET, 0, 0);
-    // VK_DOWN, an extended key (KEYEVENTF_EXTENDEDKEY 1; KEYEVENTF_KEYUP 2).
+    // A Shift held for Shift+H would make it Shift+Down, selecting a line: let go of it for the
+    // Down Arrow, then press it again so it still counts for the next key.
+    // VK_LSHIFT, VK_RSHIFT; KEYEVENTF_EXTENDEDKEY 1, KEYEVENTF_KEYUP 2.
+    const shifts = [
+      { vk: 0xa0, scan: 0x2a, flags: 0 },
+      { vk: 0xa1, scan: 0x36, flags: 0 },
+    ].filter((s) => (api.GetKeyState(s.vk) & 0x8000) !== 0);
+    for (const s of shifts) api.keybd_event(s.vk, s.scan, s.flags | 2, 0);
+    // VK_DOWN, an extended key.
     api.keybd_event(0x28, 0x50, 1, 0);
     api.keybd_event(0x28, 0x50, 1 | 2, 0);
+    for (const s of shifts) api.keybd_event(s.vk, s.scan, s.flags, 0);
     return true;
   }
 

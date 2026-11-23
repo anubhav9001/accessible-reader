@@ -462,8 +462,9 @@ ipcMain.on('native-style', (_e, fg: string, bg: string, face: string, px: number
 ipcMain.on('native-focus', () => nativeBox?.focus());
 // NVDA reads nothing the native box or the page sends while the box has the keyboard (issue 7),
 // so Reader's messages go straight to NVDA when it runs. False otherwise: the page then uses its
-// live region. (Narrator reads none of these either, nor UI Automation notifications from a
-// window of Reader's own or from the page; see NativeBox.arriveByKey for what it does follow.)
+// live region. (Narrator reads none of these either, nor UI Automation notifications as Paperback
+// sends them, from a window inside Chromium's, of its own, or inside the box; see
+// NativeBox.arriveByKey for what it does follow.)
 let nvda: Nvda | undefined | null = null;
 ipcMain.handle('native-say', (_e, message: string) => {
   if (nvda === null) nvda = Nvda.create(log);
