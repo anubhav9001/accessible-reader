@@ -209,7 +209,7 @@ let srMode = (() => {
     return false;
   }
 })();
-useSpeech(window.reader.native);
+useSpeech(window.reader);
 const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
   announce: (message) => announce(message),

@@ -8,16 +8,50 @@ import type { ReaderApi } from '../shared/api';
  * for any of them, so search results, download progress and every other message were silent with
  * NVDA. So a message goes straight to NVDA when it runs (its controller client, see nvda.ts), and
  * the status line is made not live for it, so a screen reader that does read live regions doesn't
- * hear it twice. Without NVDA, the status line is a polite live region, which Narrator reads.
+ * hear it twice. Without NVDA, the status line is a polite live region.
+ *
+ * Narrator reads no live region here either, nor ariaNotify (tried in its speech recap), but it
+ * reads a change to the name of the item that has focus. So with Narrator running, the focused
+ * item takes the message as its name for the moment, and gets its own name back when focus leaves.
  */
 
 let speech: Pick<ReaderApi['native'], 'say'> | undefined;
+let narrator = false;
 /** The last message written to each status line, for sayAfterFocus. */
 const last = new WeakMap<HTMLElement, string>();
 
-/** Gives this module the way to reach NVDA (window.reader.native). */
-export function useSpeech(api: Pick<ReaderApi['native'], 'say'>): void {
-  speech = api;
+/** Gives this module the way to reach NVDA, and tells it whether Narrator is running. */
+export function useSpeech(api: Pick<ReaderApi, 'native' | 'onNarrator' | 'narratorRunning'>): void {
+  speech = api.native;
+  api.onNarrator((running) => (narrator = running));
+  void api.narratorRunning().then((running) => (narrator = running));
+}
+
+/** Items whose name is a message for now, with the name to give back (null: none of their own). */
+const named = new Map<HTMLElement, string | null>();
+let toggle = false;
+
+/** Says a message to Narrator as the name of the item that has focus (see above). */
+function nameFocus(message: string): void {
+  const focused = document.activeElement;
+  // A focused progress bar speaks for itself (see download-progress.ts).
+  if (!(focused instanceof HTMLElement) || focused === document.body || focused instanceof HTMLProgressElement) return;
+  if (!named.has(focused)) {
+    named.set(focused, focused.getAttribute('aria-label'));
+    focused.addEventListener(
+      'blur',
+      () => {
+        const own = named.get(focused);
+        named.delete(focused);
+        if (own === null || own === undefined) focused.removeAttribute('aria-label');
+        else focused.setAttribute('aria-label', own);
+      },
+      { once: true },
+    );
+  }
+  // A hair space alternates at the end, so the same message twice is still a change.
+  toggle = !toggle;
+  focused.setAttribute('aria-label', message + (toggle ? '\u200a' : ''));
 }
 
 /**
@@ -41,7 +75,9 @@ export function sayStatus(el: HTMLElement, message: string, fresh = false): void
   speech.say(message).then(
     (spoken) => {
       // Unless a newer message came meanwhile.
-      if (last.get(el) === message) write(!spoken);
+      if (last.get(el) !== message) return;
+      write(!spoken);
+      if (!spoken && narrator) nameFocus(message);
     },
     () => write(true),
   );
