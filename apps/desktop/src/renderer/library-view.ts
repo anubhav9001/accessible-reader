@@ -1,5 +1,6 @@
 import type { BookInfo, LibraryEntry, ReaderApi } from '../shared/api';
 import { openDialog } from './open-dialog';
+import { sayStatus } from './status-speech';
 
 interface Elements {
   dialog: HTMLDialogElement;
@@ -77,13 +78,13 @@ export class LibraryView {
   }
 
   private async openEntry(entry: LibraryEntry): Promise<void> {
-    this.el.status.textContent = `Opening ${entry.title}…`;
+    sayStatus(this.el.status, `Opening ${entry.title}…`);
     try {
       const info = await this.api.openFromLibrary(entry.id);
       this.el.dialog.close();
       await this.onBook(info);
     } catch (err) {
-      this.el.status.textContent = errorMessage(err);
+      sayStatus(this.el.status, errorMessage(err));
     }
   }
 
@@ -97,7 +98,7 @@ export class LibraryView {
     const neighbour = (li.nextElementSibling ?? li.previousElementSibling)?.querySelector<HTMLButtonElement>('.catalog-entry');
     const entries = await this.api.listLibrary();
     this.render(entries);
-    this.el.status.textContent = `Removed ${entry.title}.`;
+    sayStatus(this.el.status, `Removed ${entry.title}.`);
     const title = neighbour?.querySelector('.catalog-entry-title')?.textContent;
     const again = [...this.el.list.querySelectorAll<HTMLButtonElement>('.catalog-entry')].find(
       (b) => b.querySelector('.catalog-entry-title')?.textContent === title,

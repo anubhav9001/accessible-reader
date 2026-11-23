@@ -28,6 +28,7 @@ import { browserPlatform } from '@accessible-reader/engine/browser';
 import type { BookInfo, ReaderApi } from '../shared/api';
 import type { DownloadProgress } from './download-progress';
 import { openDialog } from './open-dialog';
+import { sayAfterFocus, sayStatus } from './status-speech';
 
 interface Elements {
   dialog: HTMLDialogElement;
@@ -104,7 +105,7 @@ export class SugamyaBrowser {
   }
 
   private setStatus(message: string): void {
-    this.el.status.textContent = message;
+    sayStatus(this.el.status, message);
   }
 
   private async fetch(path: string): Promise<string> {
@@ -123,6 +124,7 @@ export class SugamyaBrowser {
       if (remember && this.current) this.history.push(this.current);
       this.current = view;
       this.el.heading.focus();
+      sayAfterFocus(this.el.status);
     } catch (err) {
       this.setStatus(errorMessage(err));
       const retry = document.createElement('button');

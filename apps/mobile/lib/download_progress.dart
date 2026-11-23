@@ -17,6 +17,10 @@ String downloadProgressText(int received, int total) {
   return '${sizeText(received)} so far';
 }
 
+/// The least time between spoken progress messages, long enough for one to be heard in full: on a
+/// short download the 10 percent steps came every half second and each one cut the last off.
+const sayProgressEvery = Duration(seconds: 3);
+
 /// Changes when the reader should hear how a download is going: every 10 percent, or every
 /// 10 MB when the size isn't known. Starts at 0.
 int downloadStep(int received, int total) => total > 0 ? (received * 10 ~/ total).clamp(0, 10) : received ~/ 10000000;

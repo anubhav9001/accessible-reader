@@ -8,6 +8,7 @@ import {
   type OpdsFeed,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
+import { sayAfterFocus, sayStatus } from './status-speech';
 import type { BookInfo, ReaderApi } from '../shared/api';
 import type { DownloadProgress } from './download-progress';
 import { openDialog } from './open-dialog';
@@ -63,7 +64,7 @@ export class CatalogBrowser {
   }
 
   private setStatus(message: string): void {
-    this.el.status.textContent = message;
+    sayStatus(this.el.status, message);
   }
 
   private async load(url: string, remember = true): Promise<void> {
@@ -107,8 +108,9 @@ export class CatalogBrowser {
       }
       this.setStatus(feed.entries.length ? `${feed.title}: ${list.children.length} items` : 'Nothing found.');
     }
-    // Put the screen reader at the top of the new page.
+    // Put the screen reader at the top of the new page, then say the status after it.
     this.el.heading.focus();
+    sayAfterFocus(this.el.status);
   }
 
   private renderEntry(entry: OpdsEntry): HTMLLIElement {

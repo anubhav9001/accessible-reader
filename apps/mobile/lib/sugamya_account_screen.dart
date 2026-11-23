@@ -460,6 +460,7 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
     final temp = await getTemporaryDirectory();
     final file = File(p.join(temp.path, 'sugamya-${DateTime.now().microsecondsSinceEpoch}.zip'));
     var shown = DateTime.now();
+    var said = DateTime.now();
     try {
       await widget.services.account.download(r.url, file, (received, total) {
         if (!mounted) return;
@@ -469,12 +470,14 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
           shown = now;
           setState(() => _progress = (received, total));
         }
-        // Spoken every 10 percent, or every 10 MB when the size isn't known.
+        // Spoken every 10 percent (or every 10 MB when the size isn't known), but no closer
+        // together than sayProgressEvery; the title was said at the start.
         final step = downloadStep(received, total);
-        if (step > _lastStep) {
+        final done = total > 0 && received >= total;
+        if (done || (step > _lastStep && now.difference(said) >= sayProgressEvery)) {
           _lastStep = step;
-          _announcer.say(context,
-              received == total ? '${r.title}: downloaded. Opening it.' : 'Downloading ${r.title}: ${downloadProgressText(received, total)}');
+          said = now;
+          _announcer.say(context, done ? '${r.title}: downloaded. Opening it.' : downloadProgressText(received, total));
         }
       });
       if (mounted) setState(() => _progress = null);

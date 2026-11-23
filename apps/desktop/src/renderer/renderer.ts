@@ -31,6 +31,7 @@ import { log } from './log';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
+import { sayStatus, useSpeech } from './status-speech';
 
 declare global {
   interface Window {
@@ -208,6 +209,7 @@ let srMode = (() => {
     return false;
   }
 })();
+useSpeech(window.reader.native);
 const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
   announce: (message) => announce(message),
@@ -412,8 +414,8 @@ function announce(message: string): void {
 }
 
 function liveRegion(message: string): void {
-  ui.status.textContent = '';
-  setTimeout(() => (ui.status.textContent = message), 50);
+  // NVDA directly when it runs (it reads no live region here), the live region otherwise.
+  sayStatus(ui.status, message, true);
 }
 
 function formatTime(seconds: number): string {

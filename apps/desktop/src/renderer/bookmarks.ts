@@ -1,4 +1,5 @@
 import { openDialog } from './open-dialog';
+import { sayStatus } from './status-speech';
 
 /**
  * A place in a book, as Go back and bookmarks keep it: the paragraph (block) of a text file,
@@ -176,9 +177,12 @@ export class Bookmarks {
     this.list.replaceChildren(...list.map((b) => new Option(b.where ? `${b.name}, ${b.where}` : b.name, b.id)));
     this.list.hidden = !list.length;
     for (const id of ['ui-bookmarks-go', 'ui-bookmarks-rename', 'ui-bookmarks-delete']) $<HTMLButtonElement>(id).disabled = !list.length;
-    this.listStatus.textContent = list.length
-      ? `${list.length} bookmark${list.length === 1 ? '' : 's'}, in book order. Enter goes to one, F2 renames it, Delete removes it.`
-      : 'No bookmarks in this book yet. While reading, press Control D to add one.';
+    sayStatus(
+      this.listStatus,
+      list.length
+        ? `${list.length} bookmark${list.length === 1 ? '' : 's'}, in book order. Enter goes to one, F2 renames it, Delete removes it.`
+        : 'No bookmarks in this book yet. While reading, press Control D to add one.',
+    );
     if (list.length) {
       const i = Math.max(0, list.findIndex((b) => b.id === keep));
       this.list.selectedIndex = i;
@@ -188,8 +192,7 @@ export class Bookmarks {
   /** While the list is open, its own status line speaks (the page's live region is behind the dialog). */
   private say(message: string): void {
     if (!this.listDialog.open) return this.host.announce(message);
-    this.listStatus.textContent = '';
-    setTimeout(() => (this.listStatus.textContent = message), 50);
+    sayStatus(this.listStatus, message, true);
   }
 
   private selected(): Bookmark | undefined {

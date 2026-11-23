@@ -135,6 +135,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final temp = await getTemporaryDirectory();
     final file = File(p.join(temp.path, 'download-${DateTime.now().microsecondsSinceEpoch}.epub'));
     var shown = DateTime.now();
+    var said = DateTime.now();
     try {
       await widget.client.download(link.href, file, (received, total) {
         if (!mounted) return;
@@ -143,10 +144,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
           shown = now;
           setState(() => _progress = (received, total));
         }
+        // Every 10 percent, but no closer together than sayProgressEvery (see download_progress.dart).
         final step = downloadStep(received, total);
-        if (step > _lastStep && received != total) {
+        if (step > _lastStep && received != total && now.difference(said) >= sayProgressEvery) {
           _lastStep = step;
-          _announce('Downloading ${entry.title}: ${downloadProgressText(received, total)}');
+          said = now;
+          _announce(downloadProgressText(received, total));
         }
       });
       final book = await widget.store.import(file.path, '${entry.title}.epub');
