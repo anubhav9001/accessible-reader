@@ -402,7 +402,8 @@ let followingCaret = false;
 function announce(message: string): void {
   log(`Said: ${message}`);
   // In the text box, the box speaks for itself (see PlainReader.say). In the native box that is
-  // NVDA directly, which reads nothing else there (issue 7); Narrator reads the live region.
+  // NVDA directly, which reads nothing else there (issue 7). Narrator reads nothing Reader sends
+  // there either; it hears headings from the line itself ("Heading level 2: …", see plain-text.ts).
   if (plain.hasFocus) {
     void plain.say(message).then((spoken) => spoken || liveRegion(message));
     return;

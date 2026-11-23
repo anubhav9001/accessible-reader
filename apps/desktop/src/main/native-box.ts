@@ -27,6 +27,7 @@ type Koffi = typeof import('koffi');
 const WM_SETFOCUS = 0x0007, WM_KILLFOCUS = 0x0008, WM_SETTEXT = 0x000c, WM_GETDLGCODE = 0x0087;
 const WM_KEYDOWN = 0x0100, WM_KEYUP = 0x0101, WM_CHAR = 0x0102, WM_SYSKEYDOWN = 0x0104, WM_SYSKEYUP = 0x0105, WM_SYSCHAR = 0x0106;
 const WM_LBUTTONUP = 0x0202, WM_NCDESTROY = 0x0082;
+const EM_EXLINEFROMCHAR = 0x0436, EM_LINEINDEX = 0x00bb;
 const EM_SCROLLCARET = 0x00b7, EM_EXGETSEL = 0x0434, EM_EXLIMITTEXT = 0x0435, EM_EXSETSEL = 0x0437, EM_SETBKGNDCOLOR = 0x0443;
 const EM_SETCHARFORMAT = 0x0444, EM_GETTEXTLENGTHEX = 0x045f;
 const WS_CHILD = 0x40000000, WS_VSCROLL = 0x00200000, WS_TABSTOP = 0x00010000, WS_CLIPSIBLINGS = 0x04000000;
@@ -146,6 +147,7 @@ export class NativeBox {
       SetFocus: user32.func('void* __stdcall SetFocus(void* hwnd)'),
       GetFocus: user32.func('void* __stdcall GetFocus()'),
       GetKeyState: user32.func('int16 __stdcall GetKeyState(int vk)'),
+      keybd_event: user32.func('void __stdcall keybd_event(uint8 vk, uint8 scan, uint32 flags, uintptr extra)'),
       GetClassNameW: user32.func('int __stdcall GetClassNameW(uintptr hwnd, _Out_ uint16* name, int max)'),
       SetWindowSubclass: comctl32.func('int __stdcall SetWindowSubclass(void* hwnd, READER_SUBCLASSPROC* proc, uintptr id, uintptr ref)'),
       RemoveWindowSubclass: comctl32.func('int __stdcall RemoveWindowSubclass(void* hwnd, READER_SUBCLASSPROC* proc, uintptr id)'),
@@ -217,8 +219,33 @@ export class NativeBox {
 
   setCaret(offset: number): void {
     const at = Math.max(0, Math.min(offset, this.text.length));
+    if (this.narrator && this.hasKeyboard && this.arriveByKey(at)) return;
     this.api.SendRange(this.hwnd, EM_EXSETSEL, 0, { cpMin: at, cpMax: at });
     this.api.SendMessageW(this.hwnd, EM_SCROLLCARET, 0, 0);
+  }
+
+  /** Whether Narrator is running (main.ts keeps this up to date). */
+  narrator = false;
+
+  /**
+   * Moves the cursor to the start of a line the way Narrator follows: to the line above, then one
+   * Down Arrow key press. Narrator keeps its own place in the text and moves it only for keys it
+   * knows move the cursor, so after a jump by Reader's own keys (H, K...) it read some other line
+   * and its sentence and paragraph commands started from there (issue 7). False when the jump
+   * isn't to the start of a line below the first, so it has to be made the ordinary way.
+   */
+  private arriveByKey(at: number): boolean {
+    const { api } = this;
+    const line = Number(api.SendMessageW(this.hwnd, EM_EXLINEFROMCHAR, 0, at));
+    if (line < 1 || Number(api.SendMessageW(this.hwnd, EM_LINEINDEX, line, 0)) !== at) return false;
+    if (this.caret === at) return false;
+    const above = Number(api.SendMessageW(this.hwnd, EM_LINEINDEX, line - 1, 0));
+    api.SendRange(this.hwnd, EM_EXSETSEL, 0, { cpMin: above, cpMax: above });
+    api.SendMessageW(this.hwnd, EM_SCROLLCARET, 0, 0);
+    // VK_DOWN, an extended key (KEYEVENTF_EXTENDEDKEY 1; KEYEVENTF_KEYUP 2).
+    api.keybd_event(0x28, 0x50, 1, 0);
+    api.keybd_event(0x28, 0x50, 1 | 2, 0);
+    return true;
   }
 
   /** Where the box goes, in the window's pixels, or hidden. */

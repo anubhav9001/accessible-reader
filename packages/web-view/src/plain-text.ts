@@ -276,6 +276,9 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
         w.marker('• ');
       }
     }
+    // The level as part of the line, so every screen reader says it whenever it reads the line:
+    // Narrator reads only the line after a heading key, none of Reader's messages (issue 7).
+    if (heading) w.marker(`Heading level ${heading[1]}: `);
 
     const start = w.here;
     const cell = tag === 'td' || tag === 'th' || tag === 'caption';
@@ -290,7 +293,8 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     if (block !== undefined) book.blocks.push({ path, index: block, start, end });
 
     if (heading) {
-      book.items.push({ kind: 'heading', start, end, level: Number(heading[1]), label: clean(el.textContent) });
+      // From the start of the line, marker included, so arriving there reads it all.
+      book.items.push({ kind: 'heading', start: introAt, end, level: Number(heading[1]), label: clean(el.textContent) });
     } else if (tag === 'a' && el.getAttribute('href')) {
       const href = el.getAttribute('href')!;
       const target = href.startsWith('#')
