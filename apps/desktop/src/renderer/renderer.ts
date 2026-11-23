@@ -21,6 +21,7 @@ import type { BookInfo, Command, ReaderApi } from '../shared/api';
 import { blockAt, DocumentView } from '@accessible-reader/web-view';
 import { Bookmarks, type Spot } from './bookmarks';
 import { CatalogBrowser } from './catalog-browser';
+import { DownloadProgress } from './download-progress';
 import { SugamyaBrowser } from './sugamya-browser';
 import { LibraryView } from './library-view';
 import { MenuBar } from './menu-bar';
@@ -130,6 +131,11 @@ const library = new LibraryView(
   window.reader,
   (info) => openBook(info),
 );
+// One progress bar in the online library window, for downloads from either library.
+const downloadProgress = new DownloadProgress(
+  { box: $('ui-download'), label: $('ui-download-label'), bar: $<HTMLProgressElement>('ui-download-bar') },
+  window.reader,
+);
 const catalogs = new CatalogBrowser(
   {
     dialog: $<HTMLDialogElement>('ui-catalog'),
@@ -144,6 +150,7 @@ const catalogs = new CatalogBrowser(
   },
   window.reader,
   (info) => openBook(info),
+  downloadProgress,
 );
 const sugamya = new SugamyaBrowser(
   {
@@ -159,6 +166,7 @@ const sugamya = new SugamyaBrowser(
   },
   window.reader,
   (info, note) => openBook(info, note),
+  downloadProgress,
 );
 
 // Online libraries: one window, with a choice of library that is remembered.
@@ -393,10 +401,16 @@ let followingCaret = false;
 /** Speaks a short message through the screen reader (polite live region). */
 function announce(message: string): void {
   log(`Said: ${message}`);
-  // In the page's own text box, the box speaks for itself (see PlainReader.say). Not the native
-  // box: its UI Automation notifications reach no screen reader (NVDA ignores rich edit boxes'
-  // and Narrator never got them), but both read the page's live region while it has the keyboard.
-  if (plain.hasFocus && !plain.usingNative) return plain.say(message);
+  // In the text box, the box speaks for itself (see PlainReader.say). In the native box that is
+  // NVDA directly, which reads nothing else there (issue 7); Narrator reads the live region.
+  if (plain.hasFocus) {
+    void plain.say(message).then((spoken) => spoken || liveRegion(message));
+    return;
+  }
+  liveRegion(message);
+}
+
+function liveRegion(message: string): void {
   ui.status.textContent = '';
   setTimeout(() => (ui.status.textContent = message), 50);
 }

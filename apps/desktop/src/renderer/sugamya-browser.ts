@@ -26,6 +26,7 @@ import {
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
 import type { BookInfo, ReaderApi } from '../shared/api';
+import type { DownloadProgress } from './download-progress';
 import { openDialog } from './open-dialog';
 
 interface Elements {
@@ -72,11 +73,8 @@ export class SugamyaBrowser {
     private readonly el: Elements,
     private readonly api: ReaderApi,
     private readonly onBook: (info: BookInfo, note?: string) => Promise<void>,
+    private readonly progress: DownloadProgress,
   ) {
-    api.sugamya.onProgress((fraction) => {
-      if (!this.downloading) return;
-      this.setStatus(fraction < 0 ? `Downloading ${this.downloading}…` : `Downloading ${this.downloading}: ${Math.round(fraction * 100)}%`);
-    });
     el.searchForm.addEventListener('submit', (event) => {
       if (!this.active) return;
       event.preventDefault();
@@ -482,14 +480,16 @@ export class SugamyaBrowser {
   private async download(url: string, title: string): Promise<void> {
     if (this.downloading) return this.setStatus(`Still downloading ${this.downloading}.`);
     this.downloading = title;
-    this.setStatus(`Downloading ${title}…`);
+    this.progress.start(title, (message) => this.setStatus(message));
     try {
       const info = await this.api.sugamya.download(url, title);
+      this.progress.finish();
       this.downloading = '';
       this.el.dialog.close();
       const got = info.metadata.title;
       await this.onBook(info, got && sugamyaTitlesDiffer(title, got) ? sugamyaWrongBookNote(title, got) : undefined);
     } catch (err) {
+      this.progress.finish();
       this.downloading = '';
       this.setStatus(`Download failed. ${errorMessage(err)}`);
     }

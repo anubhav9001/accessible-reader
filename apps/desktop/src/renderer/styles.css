@@ -500,6 +500,21 @@ dialog input {
   color: var(--muted);
 }
 
+.ui-download {
+  margin: 0 0 12px;
+}
+
+.ui-download label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ui-download progress {
+  width: 100%;
+  height: 1.25em;
+  accent-color: var(--accent, currentColor);
+}
+
 .catalog-list {
   margin: 0 0 12px;
   padding: 0;

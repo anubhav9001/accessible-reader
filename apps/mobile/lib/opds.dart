@@ -215,10 +215,21 @@ class CatalogClient {
     return parseOpdsFeed(await response.transform(utf8.decoder).join(), url);
   }
 
-  /// Downloads a book to [file].
-  Future<void> download(String url, File file) async {
+  /// Downloads a book to [file], reporting progress (bytes so far, and the total or 0 when unknown).
+  Future<void> download(String url, File file, [void Function(int received, int total)? progress]) async {
     final response = await _get(url, 'application/epub+zip, application/zip;q=0.9, */*;q=0.5');
-    await response.pipe(file.openWrite());
+    final total = response.contentLength > 0 ? response.contentLength : 0;
+    var received = 0;
+    final sink = file.openWrite();
+    try {
+      await for (final chunk in response) {
+        received += chunk.length;
+        sink.add(chunk);
+        progress?.call(received, total);
+      }
+    } finally {
+      await sink.close();
+    }
   }
 
   void close() => _client.close();

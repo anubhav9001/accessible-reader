@@ -11,6 +11,7 @@ import { FileCache, mimeType, openContainer } from './book-files';
 import { Library } from './library';
 import { AppLog, isPreRelease } from './log';
 import { NativeBox } from './native-box';
+import { Nvda } from './nvda';
 import { SugamyaAccount } from './sugamya-account';
 
 // One custom scheme serves both the reader UI (reader://app/…) and the open book's files
@@ -136,16 +137,19 @@ ipcMain.handle('sugamya-request', (_event, bookId: string, format: string, title
   sugamya.requestBook(String(bookId), String(format), String(title ?? '')),
 );
 ipcMain.handle('sugamya-requests', () => sugamya.requests());
+/** Sends a download's progress to the page, at most every quarter second (and the last one). */
+function progressSender(sender: Electron.WebContents): (received: number, total: number) => void {
+  let last = 0;
+  return (received, total) => {
+    const now = Date.now();
+    if (now - last < 250 && received !== total) return;
+    last = now;
+    sender.send('download-progress', received, total);
+  };
+}
+
 ipcMain.handle('sugamya-download', async (event, url: string, title: string) => {
-  let reported = -1;
-  const file = await sugamya.download(String(url), String(title), booksDir(), (fraction) => {
-    // Every 10 per cent is plenty for a status line.
-    const step = fraction < 0 ? -1 : Math.floor(fraction * 10);
-    if (step !== reported) {
-      reported = step;
-      event.sender.send('sugamya-progress', fraction);
-    }
-  });
+  const file = await sugamya.download(String(url), String(title), booksDir(), progressSender(event.sender));
   return loadBook(file);
 });
 ipcMain.handle('open-external', (_event, url: string) => {
@@ -153,9 +157,24 @@ ipcMain.handle('open-external', (_event, url: string) => {
   if (/^https:\/\/sugamyapustakalaya\.org\.in(\/|$)/.test(String(url))) void shell.openExternal(String(url));
 });
 
-ipcMain.handle('catalog-download', async (_event, url: string, title: string) => {
+ipcMain.handle('catalog-download', async (event, url: string, title: string) => {
   const response = await catalogFetch(url, 'application/epub+zip, application/zip;q=0.9, */*;q=0.5');
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const total = Number(response.headers.get('content-length')) || 0;
+  const progress = progressSender(event.sender);
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  const reader = response.body?.getReader();
+  for (let part = await reader?.read(); part && !part.done; part = await reader!.read()) {
+    chunks.push(part.value);
+    received += part.value.length;
+    progress(received, total);
+  }
+  const bytes = new Uint8Array(received);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.length;
+  }
   const ext = /epub/i.test(response.headers.get('content-type') ?? '') || /epub/i.test(url) ? '.epub' : '.zip';
   const dir = booksDir();
   await mkdir(dir, { recursive: true });
@@ -440,7 +459,14 @@ ipcMain.on('native-style', (_e, fg: string, bg: string, face: string, px: number
   nativeBox?.style(fg, bg, face, px * 0.75 * (window?.webContents.getZoomFactor() ?? 1)),
 );
 ipcMain.on('native-focus', () => nativeBox?.focus());
-ipcMain.on('native-say', (_e, message: string) => nativeBox?.say(message));
+// NVDA reads nothing the native box or the page sends while the box has the keyboard (issue 7),
+// so Reader's messages go straight to NVDA when it runs. False otherwise: the page then uses its
+// live region.
+let nvda: Nvda | undefined | null = null;
+ipcMain.handle('native-say', (_e, message: string) => {
+  if (nvda === null) nvda = Nvda.create(log);
+  return nvda?.say(message) ?? false;
+});
 ipcMain.on('focus-page', (_e, why?: string) => {
   if (!nativeBox) return;
   log.info('native', `Page takes the keyboard (${why ?? 'focus moved'})`);

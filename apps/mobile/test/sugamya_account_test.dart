@@ -144,11 +144,11 @@ void main() {
 
       final dir = await Directory.systemTemp.createTemp('sugamya-test');
       final file = File('${dir.path}/book.zip');
-      final steps = <double>[];
-      await account.download(requests.first.url, file, steps.add);
+      final steps = <(int, int)>[];
+      await account.download(requests.first.url, file, (received, total) => steps.add((received, total)));
       expect(await file.readAsBytes(), [1, 2, 3, 4]);
-      expect(steps.last, 1.0);
-      await expectLater(account.download('https://evil.example/x.zip', file, (_) {}),
+      expect(steps.last.$1, 4);
+      await expectLater(account.download('https://evil.example/x.zip', file, (_, _) {}),
           throwsA(isA<CatalogException>().having((e) => e.message, 'message', contains("won't send your password"))));
       await dir.delete(recursive: true);
 

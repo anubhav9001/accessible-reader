@@ -156,8 +156,8 @@ export class SugamyaAccount {
     return sugamyaRequestsWithState(all, this.saved?.asked ?? [], Date.now());
   }
 
-  /** Downloads a ready book into `dir`, reporting progress (0 to 1, or -1 when the size is unknown). */
-  async download(url: string, title: string, dir: string, progress: (fraction: number) => void): Promise<string> {
+  /** Downloads a ready book into `dir`, reporting progress (bytes so far, and the total or 0 when unknown). */
+  async download(url: string, title: string, dir: string, progress: (received: number, total: number) => void): Promise<string> {
     const local = !!this.testServer && url.startsWith(this.testServer + '/');
     const link = local ? { url: new URL(url).href, shape: 'test server' } : sugamyaDownloadLink(url);
     if ('problem' in link) {
@@ -187,7 +187,7 @@ export class SugamyaAccount {
     const body = Readable.fromWeb(response.body as import('node:stream/web').ReadableStream);
     body.on('data', (chunk: Buffer) => {
       received += chunk.length;
-      progress(total ? received / total : -1);
+      progress(received, total);
     });
     try {
       await pipeline(body, createWriteStream(file));

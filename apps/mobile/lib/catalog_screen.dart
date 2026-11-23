@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'announcer.dart';
+import 'download_progress.dart';
 import 'book_store.dart';
 import 'opds.dart';
 
@@ -40,6 +41,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
   String? _error;
   bool _loadingMore = false;
   bool _downloading = false;
+
+  /// Bytes so far and the whole size (0 when unknown) of the download under way.
+  (int, int) _progress = (0, 0);
+  int _lastStep = 0;
 
   @override
   void initState() {
@@ -121,12 +126,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   Future<void> _download(OpdsEntry entry, OpdsLink link) async {
-    setState(() => _downloading = true);
-    _announce('Downloading ${entry.title}');
+    setState(() {
+      _downloading = true;
+      _progress = (0, 0);
+      _lastStep = 0;
+    });
+    _announce("Downloading ${entry.title}. Reader will say how it's going.");
     final temp = await getTemporaryDirectory();
     final file = File(p.join(temp.path, 'download-${DateTime.now().microsecondsSinceEpoch}.epub'));
+    var shown = DateTime.now();
     try {
-      await widget.client.download(link.href, file);
+      await widget.client.download(link.href, file, (received, total) {
+        if (!mounted) return;
+        final now = DateTime.now();
+        if (now.difference(shown).inMilliseconds >= 250 || received == total) {
+          shown = now;
+          setState(() => _progress = (received, total));
+        }
+        final step = downloadStep(received, total);
+        if (step > _lastStep && received != total) {
+          _lastStep = step;
+          _announce('Downloading ${entry.title}: ${downloadProgressText(received, total)}');
+        }
+      });
       final book = await widget.store.import(file.path, '${entry.title}.epub');
       if (entry.authors.isNotEmpty) {
         book.authors = entry.authors;
@@ -231,6 +253,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
             label: Text(_downloading ? 'Downloading…' : 'Download and open$size'),
           ),
         ),
+        if (_downloading) DownloadProgressBar(title: entry.title, received: _progress.$1, total: _progress.$2),
         if (entry.summary != null) Text(entry.summary!),
       ],
     );

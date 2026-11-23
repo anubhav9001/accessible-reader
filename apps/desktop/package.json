@@ -62,6 +62,16 @@
     "electronVersion": "45.2.1",
     "asarUnpack": [
       "**/node_modules/koffi/**"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/nvda",
+        "to": "nvda",
+        "filter": [
+          "nvdaControllerClient.dll",
+          "license.txt"
+        ]
+      }
     ]
   },
   "dependencies": {

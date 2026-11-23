@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'announcer.dart';
 import 'app_log.dart';
+import 'download_progress.dart';
 import 'book_store.dart';
 import 'opds.dart';
 import 'sugamya.dart';
@@ -286,7 +287,10 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
   List<SugamyaRequest>? _requests;
   String? _error;
   String _downloading = '';
-  int _lastStep = -2;
+  int _lastStep = 0;
+
+  /// Bytes so far and the whole size (0 when unknown) of the download under way, or null.
+  (int, int)? _progress;
 
   @override
   void initState() {
@@ -447,19 +451,33 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
 
   Future<void> _download(SugamyaRequest r) async {
     if (_downloading.isNotEmpty) return;
-    setState(() => _downloading = r.title);
-    _announcer.say(context, 'Downloading ${r.title}');
+    setState(() {
+      _downloading = r.title;
+      _progress = (0, 0);
+      _lastStep = 0;
+    });
+    _announcer.say(context, "Downloading ${r.title}. Reader will say how it's going.");
     final temp = await getTemporaryDirectory();
     final file = File(p.join(temp.path, 'sugamya-${DateTime.now().microsecondsSinceEpoch}.zip'));
+    var shown = DateTime.now();
     try {
-      await widget.services.account.download(r.url, file, (fraction) {
-        // Every 10 per cent is plenty to say.
-        final step = fraction < 0 ? -1 : (fraction * 10).floor();
-        if (step != _lastStep && step > 0 && mounted) {
+      await widget.services.account.download(r.url, file, (received, total) {
+        if (!mounted) return;
+        // The bar: a few times a second is plenty.
+        final now = DateTime.now();
+        if (now.difference(shown).inMilliseconds >= 250 || received == total) {
+          shown = now;
+          setState(() => _progress = (received, total));
+        }
+        // Spoken every 10 percent, or every 10 MB when the size isn't known.
+        final step = downloadStep(received, total);
+        if (step > _lastStep) {
           _lastStep = step;
-          _announcer.say(context, '${r.title}: ${step * 10}%');
+          _announcer.say(context,
+              received == total ? '${r.title}: downloaded. Opening it.' : 'Downloading ${r.title}: ${downloadProgressText(received, total)}');
         }
       });
+      if (mounted) setState(() => _progress = null);
       // The title as the library gives it ("Business study NCERT 11th"), not the file's name.
       final book = await widget.services.store.import(file.path, '${r.title}.zip');
       if (!mounted) return;
@@ -474,7 +492,10 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
       await widget.services.onBook(book);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _downloading = '');
+      setState(() {
+        _downloading = '';
+        _progress = null;
+      });
       _announcer.say(context, 'Download failed. ${_message(e)}');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed. ${_message(e)}')));
     } finally {
@@ -490,7 +511,13 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
         title: const Text('My download requests'),
         actions: [IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: _downloading.isEmpty ? _load : null)],
       ),
-      bottomNavigationBar: SafeArea(child: AnnouncementRegion(announcer: _announcer)),
+      bottomNavigationBar: SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (_progress case (final received, final total))
+            DownloadProgressBar(title: _downloading, received: received, total: total),
+          AnnouncementRegion(announcer: _announcer),
+        ]),
+      ),
       body: _error != null
           ? Center(
               child: Padding(

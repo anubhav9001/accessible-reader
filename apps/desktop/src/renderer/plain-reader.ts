@@ -141,12 +141,15 @@ export class PlainReader {
    * Speaks a message while the text box has focus. NVDA in focus mode on the box does not read
    * the page's live region, but it always reads a change to the focused field's name, so the
    * message becomes the box's name for the moment. A hair space alternates at the end so the
-   * same message twice is still a change.
+   * same message twice is still a change. With the native box, NVDA reads none of that, so the
+   * message goes to NVDA directly; false when NVDA isn't running (Narrator then reads the page's
+   * live region).
    */
-  say(message: string): void {
+  say(message: string): Promise<boolean> {
     if (this.native) return this.native.say(message);
     this.toggle = !this.toggle;
     this.area.setAttribute('aria-label', message + (this.toggle ? '\u200a' : ''));
+    return Promise.resolve(true);
   }
 
   private toggle = false;

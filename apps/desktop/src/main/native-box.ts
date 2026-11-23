@@ -78,7 +78,6 @@ export class NativeBox {
   private parent: unknown;
   /** Whether the box is showing (it hides while a dialog or menu is over it). */
   shown = false;
-  private provider: unknown;
   private altAlone = false;
   private subclass: unknown;
   private text = '';
@@ -115,8 +114,6 @@ export class NativeBox {
     const user32 = k.load('user32.dll');
     const comctl32 = k.load('comctl32.dll');
     const kernel32 = k.load('kernel32.dll');
-    const uia = k.load('uiautomationcore.dll');
-    const oleaut32 = k.load('oleaut32.dll');
     const CHARRANGE = k.struct('READER_CHARRANGE', { cpMin: 'int32', cpMax: 'int32' });
     const GETTEXTLENGTHEX = k.struct('READER_GETTEXTLENGTHEX', { flags: 'uint32', codepage: 'uint32' });
     const CHARFORMATW = k.struct('READER_CHARFORMATW', {
@@ -153,10 +150,6 @@ export class NativeBox {
       SetWindowSubclass: comctl32.func('int __stdcall SetWindowSubclass(void* hwnd, READER_SUBCLASSPROC* proc, uintptr id, uintptr ref)'),
       RemoveWindowSubclass: comctl32.func('int __stdcall RemoveWindowSubclass(void* hwnd, READER_SUBCLASSPROC* proc, uintptr id)'),
       DefSubclassProc: comctl32.func('intptr __stdcall DefSubclassProc(void* hwnd, uint32 msg, uintptr w, intptr l)'),
-      UiaHostProviderFromHwnd: uia.func('int32 __stdcall UiaHostProviderFromHwnd(void* hwnd, _Out_ void** provider)'),
-      UiaRaiseNotificationEvent: uia.func('int32 __stdcall UiaRaiseNotificationEvent(void* provider, int kind, int processing, void* text, void* activity)'),
-      SysAllocString: oleaut32.func('void* __stdcall SysAllocString(str16 s)'),
-      SysFreeString: oleaut32.func('void __stdcall SysFreeString(void* s)'),
       CHARRANGE,
       GETTEXTLENGTHEX,
     };
@@ -177,8 +170,6 @@ export class NativeBox {
     api.SendMessageW(this.hwnd, EM_EXLIMITTEXT, 0, 0x7fffffff);
     this.subclass = k.register((hwnd: unknown, msg: number, w: number | bigint, l: number | bigint) => this.onMessage(hwnd, msg, Number(w), l), k.pointer(api.SUBCLASSPROC));
     api.SetWindowSubclass(this.hwnd, this.subclass, 1, 0);
-    const out = [null];
-    if (api.UiaHostProviderFromHwnd(this.hwnd, out) === 0) this.provider = out[0];
     this.nameBox('Book text');
     this.log.info('native', 'Native text box ready.');
   }
@@ -283,17 +274,6 @@ export class NativeBox {
   release(): void {
     this.wanted = false;
     if (this.hasKeyboard) this.api.SetFocus(this.parent);
-  }
-
-  /** Speaks a message through the screen reader (a UI Automation notification from the box). */
-  say(message: string): void {
-    if (!this.provider) return;
-    const text = this.api.SysAllocString(message);
-    const activity = this.api.SysAllocString('ReaderMessage');
-    // NotificationKind_Other (4), NotificationProcessing_ImportantMostRecent (1).
-    this.api.UiaRaiseNotificationEvent(this.provider, 4, 1, text, activity);
-    this.api.SysFreeString(text);
-    this.api.SysFreeString(activity);
   }
 
   destroy(): void {

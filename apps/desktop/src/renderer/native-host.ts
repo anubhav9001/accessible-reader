@@ -77,8 +77,9 @@ export class NativeHost {
     }, HAND_ON);
   }
 
-  say(message: string): void {
-    this.api.say(message);
+  /** Speaks through NVDA directly when it runs; false when it doesn't. */
+  say(message: string): Promise<boolean> {
+    return this.api.say(message);
   }
 
   /** Puts the box over the placeholder (inside its padding), or hides it. */

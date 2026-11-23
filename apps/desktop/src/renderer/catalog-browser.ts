@@ -9,6 +9,7 @@ import {
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
 import type { BookInfo, ReaderApi } from '../shared/api';
+import type { DownloadProgress } from './download-progress';
 import { openDialog } from './open-dialog';
 
 interface Elements {
@@ -38,6 +39,7 @@ export class CatalogBrowser {
     private readonly el: Elements,
     private readonly api: ReaderApi,
     private readonly onBook: (info: BookInfo) => Promise<void>,
+    private readonly progress: DownloadProgress,
   ) {
     el.searchForm.addEventListener('submit', (event) => {
       if (!this.active) return;
@@ -143,12 +145,14 @@ export class CatalogBrowser {
     button.textContent = `Download and open${length ? ` (${Math.max(1, Math.round(length / 1024))} KB)` : ''}`;
     button.addEventListener('click', async () => {
       button.disabled = true;
-      this.setStatus(`Downloading ${entry.title}…`);
+      this.progress.start(entry.title, (message) => this.setStatus(message));
       try {
         const info = await this.api.downloadBook(href, entry.title);
+        this.progress.finish();
         this.el.dialog.close();
         await this.onBook(info);
       } catch (err) {
+        this.progress.finish();
         this.setStatus(`Download failed. ${errorMessage(err)}`);
         button.disabled = false;
       }

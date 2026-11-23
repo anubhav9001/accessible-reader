@@ -84,3 +84,4 @@ export {
   previousHeading,
   previousPage,
 } from './navigation.js';
+export { downloadProgressText, downloadStep, sizeText } from './progress.js';

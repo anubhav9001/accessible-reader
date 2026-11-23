@@ -495,8 +495,8 @@ class SugamyaAccount {
     return sugamyaRequestsWithState(all, _asked, DateTime.now());
   }
 
-  /// Downloads a ready book to [file], reporting progress (0 to 1, or -1 when the size is unknown).
-  Future<void> download(String url, File file, void Function(double fraction) progress) async {
+  /// Downloads a ready book to [file], reporting progress (bytes so far, and the total or 0 when unknown).
+  Future<void> download(String url, File file, void Function(int received, int total) progress) async {
     final link = _local && url.startsWith('$_base/')
         ? SugamyaDownloadLink(url: Uri.parse(url), shape: 'test server')
         : sugamyaDownloadLink(url);
@@ -527,7 +527,7 @@ class SugamyaAccount {
       await for (final chunk in response) {
         received += chunk.length;
         sink.add(chunk);
-        progress(total > 0 ? received / total : -1);
+        progress(received, total > 0 ? total : 0);
       }
       await sink.close();
     } catch (e) {

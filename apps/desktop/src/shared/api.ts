@@ -93,13 +93,13 @@ export interface ReaderApi {
     requests(): Promise<SugamyaRequest[]>;
     /** Downloads a ready book into My books and opens it. */
     download(url: string, title: string): Promise<BookInfo>;
-    /** Download progress: 0 to 1, or -1 when the size isn't known. */
-    onProgress(listener: (fraction: number) => void): void;
     /** Opens the library's website (sign-in help) in the browser. */
     openWebsite(url: string): void;
   };
   /** Downloads a book from a catalogue into the app's books folder and opens it. */
   downloadBook(url: string, title: string): Promise<BookInfo>;
+  /** Progress of a book download (either library): bytes so far, and the total or 0 when unknown. */
+  onDownloadProgress(listener: (received: number, total: number) => void): void;
   /** "My books", most recently read first. */
   listLibrary(): Promise<LibraryEntry[]>;
   openFromLibrary(id: string): Promise<BookInfo>;
@@ -132,7 +132,8 @@ export interface ReaderApi {
     layout(visible: boolean, x: number, y: number, w: number, h: number): void;
     style(fg: string, bg: string, face: string, px: number): void;
     focus(): void;
-    say(message: string): void;
+    /** Speaks through NVDA directly when it runs; false when it doesn't (then use the live region). */
+    say(message: string): Promise<boolean>;
     onCaret(listener: (offset: number) => void): void;
     onKey(listener: (key: { key: string; code: string; shift: boolean; caret: number }) => void): void;
     onTab(listener: (shift: boolean) => void): void;
