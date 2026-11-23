@@ -2,7 +2,7 @@
 
 | Version | Date | Platforms | Notes |
 |---|---|---|---|
-| 0.10.1 | 22 November 2026 | Android, Windows | [Sugamya downloads, headings with screen readers, download progress](0.10.1.md) |
+| 0.10.2 | 22 November 2026 | Android, Windows | [Sugamya downloads, headings with screen readers, download progress](0.10.2.md) |
 | 0.10.0 | 20 November 2026 | Android, Windows | [Bookmarks, Go back, Sugamya Pustakalaya, maths](0.10.0.md) |
 | 0.9.0 | 8 November 2026 | Android, Windows | [Fixes for your reports, faster screen reader mode](0.9.0.md) |
 | 0.8.0 | 7 November 2026 | Android, Windows | [Settings, sections and a smoother screen reader mode](0.8.0.md) |
