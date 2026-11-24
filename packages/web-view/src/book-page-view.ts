@@ -18,6 +18,37 @@ const DROPPED = new Set(['audio', 'video', 'canvas', 'svg', 'math', 'head', 'tit
 const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
 /**
+ * Makes a list item one piece of text for TalkBack. It stopped three times on each item: the
+ * item, then the paragraph inside it, then the bullet (Chrome gives the list marker a node of
+ * its own). So a single paragraph inside an item gives the item its text, block number and id,
+ * and the marker is hidden (reader.css), its number written into the text instead. The list
+ * itself stays a list: TalkBack still says "list, 4 items" and "out of list".
+ */
+function flattenListItem(li: HTMLElement): void {
+  const blocks = Array.from(li.children).filter((c): c is HTMLElement => c.localName === 'p' || c.localName === 'div');
+  // Only an item that is one paragraph: an item with several, or a list inside, keeps them.
+  if (blocks.length === 1 && !li.querySelector('ul, ol, table, li, p p') && !li.dataset.block) {
+    const p = blocks[0]!;
+    if (p.dataset.block) li.dataset.block = p.dataset.block;
+    const ids = [p.dataset.id, ...(p.dataset.ids?.split(' ') ?? [])].filter((id): id is string => !!id);
+    if (ids.length && !li.id && p.id) {
+      li.id = p.id;
+      li.dataset.id = ids.shift()!;
+    }
+    if (ids.length) li.dataset.ids = [li.dataset.ids, ...ids].filter(Boolean).join(' ');
+    p.replaceWith(' ', ...Array.from(p.childNodes), ' ');
+  }
+  const list = li.parentElement;
+  if (list?.localName === 'ol') {
+    const items = Array.from(list.children).filter((c) => c.localName === 'li');
+    const reversed = list.hasAttribute('reversed');
+    const start = Number(list.getAttribute('start') ?? (reversed ? items.length : 1)) || 1;
+    const i = items.indexOf(li);
+    li.prepend(`${reversed ? start - i : start + i}. `);
+  }
+}
+
+/**
  * The whole book as one text-only page: every document of the reading order, one after
  * another, with the book's own styling and pictures left out (pictures are replaced by
  * their descriptions) but its headings, lists, tables and links kept. It has the same
@@ -170,6 +201,9 @@ export class BookPageView {
           const p = document.createElement('p');
           p.className = 'math';
           p.textContent = `Equation: ${words}`;
+          const index = blockIndex.get(src);
+          if (index !== undefined) p.dataset.block = String(index);
+          this.keepId(src, p, n);
           into.appendChild(p);
         } else {
           into.appendChild(document.createTextNode(` ${words}`));
@@ -239,6 +273,7 @@ export class BookPageView {
 
     const fragment = document.createDocumentFragment();
     for (const child of Array.from(body.childNodes)) copy(child, fragment);
+    for (const li of Array.from(fragment.querySelectorAll('li'))) flattenListItem(li);
     // Neighbouring pieces of text become one, so each paragraph is read as one piece.
     fragment.normalize();
     return fragment;

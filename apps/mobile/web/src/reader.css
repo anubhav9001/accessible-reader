@@ -42,6 +42,12 @@ body {
   font-family: system-ui, sans-serif;
 }
 
+/* No bullet or number of Chrome's own: TalkBack stopped on it as a separate item. A numbered
+   list's numbers are in the text instead (book-page-view.ts, flattenListItem). */
+.text-only #text li {
+  list-style: none;
+}
+
 .text-only #text .img-alt,
 .text-only #text .pagebreak {
   display: block;
