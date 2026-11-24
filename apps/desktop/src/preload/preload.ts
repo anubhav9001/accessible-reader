@@ -31,6 +31,7 @@ const api: ReaderApi = {
   menuEntries: () => ipcRenderer.invoke('menu-entries'),
   runMenuItem: (path) => ipcRenderer.send('menu-run', path),
   log: (level, message) => ipcRenderer.send('log', level, message),
+  flushStorage: () => ipcRenderer.send('flush-storage'),
   narratorRunning: () => ipcRenderer.invoke('narrator-running'),
   native: {
     available: () => ipcRenderer.invoke('native-available'),

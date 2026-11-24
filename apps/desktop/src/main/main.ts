@@ -626,6 +626,11 @@ function watchNarrator(): void {
 }
 
 ipcMain.handle('narrator-running', () => narrator ?? false);
+// Chromium writes localStorage (settings, places, bookmarks) to disk only now and then, so
+// changes made just before Reader was closed by force, as an installer does when updating it,
+// were lost: testers found their settings back as they were. The page asks for this after each
+// change (renderer/keep-saved.ts).
+ipcMain.on('flush-storage', (event) => event.sender.session.flushStorageData());
 
 app.whenReady().then(() => {
   log.start(app.getVersion(), process.versions);

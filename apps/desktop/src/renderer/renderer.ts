@@ -31,6 +31,7 @@ import { log } from './log';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
+import { keepSaved } from './keep-saved';
 import { sayStatus, useSpeech } from './status-speech';
 
 declare global {
@@ -210,6 +211,7 @@ let srMode = (() => {
   }
 })();
 useSpeech(window.reader);
+keepSaved(window.reader);
 const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
   announce: (message) => announce(message),
