@@ -166,9 +166,23 @@ export class SugamyaAccount {
     }
     this.log.info('sugamya', `Download link: ${link.shape}`);
     url = link.url;
-    const response = await net.fetch(url, {
-      headers: { authorization: this.authorization(), 'user-agent': this.userAgent },
-    });
+    const init = { headers: { authorization: this.authorization(), 'user-agent': this.userAgent } };
+    let response: globalThis.Response;
+    try {
+      response = await net.fetch(url, init);
+    } catch (err) {
+      // The library sometimes sends its file name twice (two Content-Disposition headers), which
+      // Chromium refuses outright (net::ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION). Node's
+      // own fetch accepts it, so the download is tried again that way. Chromium stays the first
+      // choice: it follows Windows' proxy settings.
+      const why = err instanceof Error ? err.message : String(err);
+      if (!/ERR_RESPONSE_HEADERS_MULTIPLE/i.test(why)) {
+        this.log.write('warn', 'sugamya', `Download failed: ${why}`);
+        throw new Error('Could not reach Sugamya Pustakalaya. Check the internet connection and try again.');
+      }
+      this.log.info('sugamya', `Download: ${why.replace(/^.*?(net::\S+).*$/s, '$1')}; trying again without Chromium.`);
+      response = await fetch(url, init);
+    }
     if (!response.ok || !response.body) {
       this.log.write('warn', 'sugamya', `Download failed: HTTP ${response.status}.`);
       throw new Error(
