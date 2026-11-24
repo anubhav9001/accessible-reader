@@ -1,7 +1,7 @@
 import { parseClock } from './clock.js';
-import type { Metadata } from './model.js';
+import type { Metadata, MetadataEntry } from './model.js';
 import { resolvePath } from './paths.js';
-import { attr, children, descendants, first, text, tokens } from './xml.js';
+import { attr, children, descendants, first, localName, text, tokens } from './xml.js';
 
 export interface ManifestItem {
   id: string;
@@ -54,6 +54,7 @@ export function parsePackage(doc: Document, opfPath: string): Package {
     publisher: dc('publisher')[0],
     duration: parseClock(named.get('media:duration') ?? named.get('dtb:totaltime')),
     multimediaType: named.get('dtb:multimediatype'),
+    entries: packageEntries(metaEl),
   };
 
   const manifest = new Map<string, ManifestItem>();
@@ -79,4 +80,36 @@ export function parsePackage(doc: Document, opfPath: string): Package {
     : [];
 
   return { metadata, manifest, spine, tocId: spineEl ? attr(spineEl, 'toc') : undefined };
+}
+
+/**
+ * Every entry of the package metadata, as the book gives it: Dublin Core elements
+ * (dc:title, dc:subject…) and named <meta> values (EPUB 3 property, DAISY 3 and EPUB 2 name).
+ * A refinement (EPUB 3 refines="#id") is listed under the entry it refines, by name.
+ */
+function packageEntries(metaEl: Element): MetadataEntry[] {
+  const entries: MetadataEntry[] = [];
+  const byId = new Map<string, string>();
+  for (const el of descendants(metaEl)) {
+    if (el === metaEl) continue;
+    const local = localName(el);
+    let name: string | undefined;
+    let value: string;
+    if (local === 'meta') {
+      name = attr(el, 'property') ?? attr(el, 'name');
+      value = (attr(el, 'content') ?? text(el)).trim();
+      const refines = attr(el, 'refines');
+      const of = refines ? byId.get(refines.replace(/^#/, '')) : undefined;
+      if (name && refines) name = of ? `${of} (${name})` : name;
+    } else if (local === 'link' || local === 'dc-metadata' || local === 'x-metadata') {
+      continue;
+    } else {
+      name = `dc:${local}`;
+      value = text(el).trim();
+      const id = attr(el, 'id');
+      if (id) byId.set(id, name);
+    }
+    if (name && value) entries.push({ name, value });
+  }
+  return entries;
 }

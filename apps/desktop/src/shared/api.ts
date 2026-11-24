@@ -38,6 +38,7 @@ export const COMMANDS = [
   'focus-toc',
   'focus-text',
   'where-am-i',
+  'book-info',
   'sr-mode',
   'settings',
   'help',

@@ -14,6 +14,14 @@ export interface Metadata {
   duration?: number;
   /** DAISY multimedia type as declared (e.g. audioFullText, audioNcc, textNcx). */
   multimediaType?: string;
+  /** Everything the book declares about itself, in its own order and names (dc:subject, schema:accessMode…), for Book information. */
+  entries?: MetadataEntry[];
+}
+
+export interface MetadataEntry {
+  /** The name as the book gives it, for example "dc:creator", "dc:subject" or "ncc:narrator". */
+  name: string;
+  value: string;
 }
 
 /** A file inside the book container. Paths are relative to the container root. */

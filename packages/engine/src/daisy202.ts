@@ -100,5 +100,10 @@ function nccMetadata(ncc: Document): Metadata {
     publisher: one('dc:publisher'),
     duration: parseClock(one('ncc:totaltime')),
     multimediaType: one('ncc:multimediatype'),
+    entries: descendants(ncc, 'meta').flatMap((m) => {
+      const name = attr(m, 'name');
+      const value = attr(m, 'content')?.trim();
+      return name && value ? [{ name, value }] : [];
+    }),
   };
 }

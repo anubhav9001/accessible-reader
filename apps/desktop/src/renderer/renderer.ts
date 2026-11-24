@@ -31,7 +31,9 @@ import { log } from './log';
 import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
+import { bookInfoSections, showInfo, type InfoSection } from './info-dialog';
 import { keepSaved } from './keep-saved';
+import { ReadingStats } from './reading-stats';
 import { sayStatus, useSpeech } from './status-speech';
 
 declare global {
@@ -212,6 +214,7 @@ let srMode = (() => {
 })();
 useSpeech(window.reader);
 keepSaved(window.reader);
+const readingStats = new ReadingStats(() => isPlaying());
 const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
   announce: (message) => announce(message),
@@ -529,6 +532,7 @@ async function closeBook(): Promise<void> {
   view.clear();
   plain.clear();
   book = undefined;
+  readingStats.close();
   timeline = new NarrationTimeline([]);
   modes = [];
   clipIndex = 0;
@@ -557,6 +561,7 @@ async function openBook(info: BookInfo, note?: string): Promise<void> {
   plain.clear();
 
   book = info;
+  readingStats.open(positionKey().replace(/^position:/, ''));
   clearHistory();
   timeline = new NarrationTimeline(info.narration);
   modes = readingModes(info);
@@ -1494,21 +1499,68 @@ function updateNow(): void {
 
 function whereAmI(): void {
   if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
-  const { heading, page, time } = location();
-  announce(
-    [
-      heading,
-      page,
-      time,
-      `${MODE_LABELS[mode]} mode`,
-      showingPlain() && plain.ready ? plain.whereAmI() : '',
-      srMode ? 'screen reader mode' : '',
-      `speed ${rate}`,
-      isPlaying() ? 'playing' : 'paused',
-    ]
-      .filter(Boolean)
-      .join('. '),
-  );
+  showInfo($<HTMLDialogElement>('ui-info'), 'Where am I?', whereAmISections());
+}
+
+/** Where am I: the place in the book, how reading is set up, and how long this book has been read. */
+function whereAmISections(): InfoSection[] {
+  if (!book) return [];
+  const { heading, page } = location();
+  const order = book.readingOrder;
+  const sectionAt = usesClips()
+    ? order.findIndex((r) => r.path.toLowerCase() === book!.narration[clipIndex]?.text?.path.toLowerCase())
+    : order.findIndex((r) => r.path.toLowerCase() === view.currentPath?.toLowerCase());
+  const lastPage = book.pageList.at(-1)?.label;
+  let percent: number | undefined;
+  if (showingPlain() && plain.ready) {
+    percent = Number(plain.whereAmI().match(/^(\d+) percent/)?.[1]);
+  } else if (usesClips() && timeline.duration > 0) {
+    percent = (timeline.startOf(clipIndex) / timeline.duration) * 100;
+  } else if (sectionAt >= 0) {
+    const blocks = docBlocks();
+    const within = blocks.length ? blockIndexFor(blocks, place ?? view.current) / blocks.length : 0;
+    percent = ((sectionAt + within) / order.length) * 100;
+  }
+  const elapsed = usesClips() && timeline.duration > 0 ? timeline.startOf(clipIndex) : undefined;
+  const left = elapsed === undefined ? undefined : timeline.duration - elapsed;
+  const stats = readingStats.current();
+  const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  const minutes = (s: number) => (s < 60 ? 'less than a minute' : spokenDuration(s));
+  return [
+    {
+      heading: 'Your place',
+      rows: [
+        ['Book', book.metadata.title || ui.title.textContent || undefined],
+        ['Contents entry', currentTocItem()?.label],
+        ['Heading', heading],
+        ['Section', sectionAt >= 0 ? `${sectionAt + 1} of ${order.length}` : undefined],
+        ['Page', page ? `${page.replace(/^Page /, '')}${lastPage ? ` of ${lastPage}` : ''}` : undefined],
+        ['Through the book', percent !== undefined && !Number.isNaN(percent) ? `${Math.round(percent)} percent` : undefined],
+        ['Time', elapsed !== undefined ? `${formatTime(elapsed)} of ${formatTime(timeline.duration)}` : undefined],
+        ['Time left', left !== undefined ? `${minutes(left)}${rate !== 1 ? `, ${minutes(left / rate)} at speed ${rate}` : ''}` : undefined],
+      ],
+    },
+    {
+      heading: 'Reading',
+      rows: [
+        ['Mode', `${MODE_LABELS[mode]}${srMode ? ', screen reader mode' : ''}`],
+        ['Speed', String(rate)],
+        ['Now', isPlaying() ? 'Playing' : 'Paused'],
+        ['Bookmarks in this book', String(bookmarks.all().length)],
+      ],
+    },
+    {
+      heading: 'Reading time',
+      rows: stats
+        ? [
+            ['This time', minutes(stats.session)],
+            ['In all', minutes(stats.seconds)],
+            ['Times opened', String(stats.opens)],
+            ['First opened', day(stats.first)],
+          ]
+        : [],
+    },
+  ];
 }
 
 // ---- settings -----------------------------------------------------------------------
@@ -1673,6 +1725,8 @@ function handle(command: Command): void {
       return mode === 'audio' ? announce('The text is hidden in audio only mode.') : focusPlace();
     case 'where-am-i':
       return whereAmI();
+    case 'book-info':
+      return book ? showInfo($<HTMLDialogElement>('ui-info'), `Book information: ${book.metadata.title || ui.title.textContent}`, bookInfoSections(book, spokenDuration)) : announce('No book open. Press Control B for My books, or Control O to open a book.');
   }
 }
 

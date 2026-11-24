@@ -256,6 +256,7 @@ function buildMenu(): void {
         item('&Open book…', 'open', 'CmdOrCtrl+O'),
         item('Online &libraries…', 'catalogs', 'CmdOrCtrl+L'),
         item('&Close book', 'close-book', 'CmdOrCtrl+W'),
+        item('Book &information…', 'book-info', 'CmdOrCtrl+Shift+I'),
         { type: 'separator' },
         item('&Settings…', 'settings', 'CmdOrCtrl+,'),
         { type: 'separator' },
@@ -296,7 +297,7 @@ function buildMenu(): void {
       submenu: [
         item('&Table of contents', 'focus-toc', 'CmdOrCtrl+T'),
         item('Book &text', 'focus-text', 'CmdOrCtrl+E'),
-        item('&Where am I?', 'where-am-i', 'CmdOrCtrl+I'),
+        item('&Where am I?…', 'where-am-i', 'CmdOrCtrl+I'),
         { type: 'separator' },
         // Handled by the page (see renderer.ts), so Backspace still deletes in search boxes.
         { ...item('Go &back', 'go-back', 'Backspace'), registerAccelerator: false },

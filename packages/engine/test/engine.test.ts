@@ -59,6 +59,12 @@ describe('EPUB 3 with media overlays', () => {
       identifier: 'urn:isbn:9780000000001',
       duration: 5,
     });
+    // Book information lists everything the package declares, by its own names.
+    expect(pub.metadata.entries).toEqual(expect.arrayContaining([
+      { name: 'dc:title', value: 'Sample EPUB' },
+      { name: 'dc:creator', value: 'A. Writer' },
+      { name: 'dc:language', value: 'hi' },
+    ]));
     expect(pub.readingOrder.map((r) => r.path)).toEqual(['OEBPS/text/ch1.xhtml']);
     expect(pub.narration).toHaveLength(3);
     expect(pub.narration[1]).toMatchObject({
@@ -99,6 +105,10 @@ describe('DAISY 3', () => {
       multimediaType: 'audioFullText',
       duration: 6,
     });
+    expect(pub.metadata.entries).toEqual(expect.arrayContaining([
+      { name: 'dc:title', value: 'Sample DAISY 3' },
+      { name: 'dtb:multimediaType', value: 'audioFullText' },
+    ]));
     expect(pub.readingOrder).toEqual([{ path: 'book/dtbook.xml', mediaType: 'application/x-dtbook+xml' }]);
     expect(pub.narration.map((c) => [c.audio?.begin, c.audio?.end])).toEqual([
       [0, 2.5],
@@ -125,6 +135,10 @@ describe('DAISY 2.02', () => {
       narrators: ['E. Speaker'],
       duration: 7,
     });
+    expect(pub.metadata.entries).toEqual(expect.arrayContaining([
+      { name: 'dc:title', value: 'Sample DAISY 2.02 Café' },
+      { name: 'ncc:narrator', value: 'E. Speaker' },
+    ]));
     expect(pub.readingOrder).toEqual([]);
     expect(pub.narration).toHaveLength(3);
     expect(pub.toc).toHaveLength(1);
