@@ -187,9 +187,9 @@ export function sugamyaPopularQuery(now = new Date()): SugamyaQuery {
 
 /** The account services (POST only, with the reader's user ID or email and password). */
 export const SUGAMYA_ACCOUNT_API = 'https://sugamyapustakalaya.org.in/rest/NALPAPIService';
-/** Links for the sign-in screen; the library has no API for these. */
-export const SUGAMYA_FORGOT_PASSWORD = SUGAMYA_SITE;
-export const SUGAMYA_JOIN = SUGAMYA_SITE;
+/** Links for the sign-in screen, as the website's own home page gives them; the library has no API for these. */
+export const SUGAMYA_FORGOT_PASSWORD = `${SUGAMYA_SITE}/forgotPasswordLink.action`;
+export const SUGAMYA_JOIN = `${SUGAMYA_SITE}/signupLink.action`;
 
 export type SugamyaAccountCall = 'getUserInfo' | 'raiseBookDownloadRequest' | 'fetchUserDownloadRequests';
 

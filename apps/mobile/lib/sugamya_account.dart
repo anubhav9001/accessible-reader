@@ -18,9 +18,9 @@ import 'sugamya.dart';
 const sugamyaAccountApi = 'https://sugamyapustakalaya.org.in/rest/NALPAPIService';
 const sugamyaSite = 'https://sugamyapustakalaya.org.in';
 
-/// Links for the sign-in screen; the library has no API for these.
-const sugamyaForgotPassword = sugamyaSite;
-const sugamyaJoin = sugamyaSite;
+/// Links for the sign-in screen, as the website's own home page gives them; the library has no API for these.
+const sugamyaForgotPassword = '$sugamyaSite/forgotPasswordLink.action';
+const sugamyaJoin = '$sugamyaSite/signupLink.action';
 
 /// Development only: a local stand-in for the library, e.g.
 /// `--dart-define=SUGAMYA_TEST_SERVER=http://127.0.0.1:8123` (with `adb reverse`).
