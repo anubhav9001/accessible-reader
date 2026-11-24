@@ -33,6 +33,8 @@ describe('Sugamya Pustakalaya', () => {
     expect(sugamyaPath({ kind: 'search', terms: ' tagore ' })).toBe('authortitle/tagore/page/1/limit/20/format/xml');
     expect(sugamyaPath({ kind: 'category', name: 'Art and Architecture' }, 2)).toBe('category/Art%20and%20Architecture/page/2/limit/20/format/xml');
     expect(sugamyaPath({ kind: 'book', id: '5884' })).toBe('id/5884/page/1/limit/1/format/xml');
+    expect(sugamyaPath({ kind: 'format', name: 'DAISY Audio Only' })).toBe('bookFormat/DAISY%20Audio%20Only/page/1/limit/20/format/xml');
+    expect(isSugamyaPath(sugamyaPath({ kind: 'format', name: 'EPUB Text Only' }))).toBe(true);
     expect(isSugamyaPath(sugamyaPath({ kind: 'grade', name: 'Grade 10' }))).toBe(true);
     expect(isSugamyaPath('../../evil?x=1/format/xml')).toBe(false);
   });

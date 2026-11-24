@@ -21,6 +21,7 @@ import {
   sugamyaWrongBookNote,
   isSugamyaInstantFormat,
   SUGAMYA_LINK_DAYS,
+  SUGAMYA_BROWSE_FORMATS,
   type SugamyaQuery,
   type SugamyaRequest,
 } from '@accessible-reader/engine';
@@ -45,6 +46,7 @@ interface Elements {
 /** A page of the Sugamya browser, kept so Back can show it again. */
 type View =
   | { kind: 'start' }
+  | { kind: 'formats' }
   | { kind: 'list'; title: string; query: SugamyaQuery }
   | { kind: 'book'; id: string }
   | { kind: 'account' }
@@ -114,9 +116,10 @@ export class SugamyaBrowser {
 
   private async show(view: View, remember = true): Promise<void> {
     this.shown++;
-    this.setStatus(view.kind === 'start' ? '' : 'Loading…');
+    this.setStatus(view.kind === 'start' || view.kind === 'formats' ? '' : 'Loading…');
     try {
       if (view.kind === 'start') this.renderStart();
+      else if (view.kind === 'formats') this.renderFormats();
       else if (view.kind === 'book') await this.renderBook(view.id);
       else if (view.kind === 'account') this.renderAccount();
       else if (view.kind === 'requests') await this.renderRequests();
@@ -149,6 +152,7 @@ export class SugamyaBrowser {
       this.entry('School books by grade', 'From pre-kindergarten upwards', () =>
         this.show({ kind: 'list', title: 'Grades', query: { kind: 'grades' } }),
       ),
+      this.entry('Books by format', 'DAISY audio, EPUB text, braille and the other formats', () => this.show({ kind: 'formats' })),
       this.entry('Popular books', `Downloaded ${SUGAMYA_POPULAR_TIMES} times or more in the past year`, () =>
         this.show({ kind: 'list', title: 'Popular books', query: sugamyaPopularQuery() }),
       ),
@@ -163,6 +167,17 @@ export class SugamyaBrowser {
         : this.entry('Sign in', 'With your Sugamya Pustakalaya user ID or email, to download books', () => this.show({ kind: 'account' })),
     );
     this.el.results.replaceChildren(intro, list);
+  }
+
+  /** The formats Reader can open; choosing one lists the library's books in it. */
+  private renderFormats(): void {
+    this.el.heading.textContent = 'Books by format';
+    const list = document.createElement('ul');
+    list.className = 'catalog-list';
+    for (const format of SUGAMYA_BROWSE_FORMATS) {
+      list.append(this.entry(format.label, format.about, () => this.show({ kind: 'list', title: `${format.label} books`, query: { kind: 'format', name: format.name } })));
+    }
+    this.el.results.replaceChildren(paragraph("Choose a format to list the library's books in it."), list);
   }
 
   /** A page of books, or of category or grade names; "More results" adds the next page. */

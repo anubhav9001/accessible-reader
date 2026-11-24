@@ -45,7 +45,25 @@ export type SugamyaQuery =
   | { kind: 'category'; name: string }
   | { kind: 'grades' }
   | { kind: 'grade'; name: string }
+  | { kind: 'format'; name: string }
   | { kind: 'book'; id: string };
+
+/**
+ * Formats to browse by, as the library's Advanced search lists them (bookFormat finds books by
+ * that name, not by format ID or short name): every one, the formats Reader can open first, most
+ * books first, then braille, which Reader lists but can't open. The counts are from November 2026.
+ */
+export const SUGAMYA_BROWSE_FORMATS: readonly { name: string; label: string; about: string }[] = [
+  { name: 'DAISY Audio Only', label: 'DAISY audio', about: 'Recorded audio, about 19,000 books' },
+  { name: 'EPUB Text Only', label: 'EPUB text', about: 'Text, ready in seconds, about 8,000 books' },
+  { name: 'Structured Epub without proofreading', label: 'Structured EPUB', about: 'Text with headings, ready in seconds, about 1,700 books' },
+  { name: 'DAISY Text Only', label: 'DAISY text', about: 'Text, about 800 books' },
+  { name: 'DAISY Multimedia', label: 'DAISY text and audio', about: 'Text with recorded audio, about 350 books' },
+  { name: 'EPUB Audio', label: 'EPUB audio', about: 'About 20 books' },
+  { name: 'EPUB with Media Overlay', label: 'EPUB text and audio', about: 'Text with recorded audio, about 10 books' },
+  { name: 'Formatted Braille', label: 'Formatted braille', about: "About 1,200 books, for a braille display or embosser. Reader can't open braille files" },
+  { name: 'Braille with tactile', label: 'Braille with tactile graphics', about: "About 2 books. Reader can't open braille files" },
+];
 
 /** The request path (after getNALPData/) for a query and page. */
 export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_SIZE): string {
@@ -66,6 +84,8 @@ export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_
       return `gradelist/${tail}`;
     case 'grade':
       return `grade/${part(query.name)}/${tail}`;
+    case 'format':
+      return `bookFormat/${part(query.name)}/${tail}`;
     case 'book':
       return `id/${part(query.id)}/page/1/limit/1/format/xml`;
   }
@@ -73,7 +93,7 @@ export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_
 
 /** Only these characters may reach the library in a path, so a path can't be redirected elsewhere. */
 export function isSugamyaPath(path: string): boolean {
-  return /^(authortitle|latest|popularbooks|categorylist|category|gradelist|grade|id)\/[A-Za-z0-9%._~\-/]*format\/xml$/.test(path);
+  return /^(authortitle|latest|popularbooks|categorylist|category|gradelist|grade|bookFormat|id)\/[A-Za-z0-9%._~\-/]*format\/xml$/.test(path);
 }
 
 const text = (el: Element | undefined, name: string): string => {

@@ -54,6 +54,7 @@ export {
   sugamyaFormatLabel,
   sugamyaFormatReadable,
   sugamyaPath,
+  SUGAMYA_BROWSE_FORMATS,
   type SugamyaBook,
   type SugamyaPage,
   type SugamyaQuery,
