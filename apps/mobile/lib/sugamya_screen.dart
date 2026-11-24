@@ -94,6 +94,11 @@ class _SugamyaStartScreenState extends State<SugamyaStartScreen> {
                   _open(context, SugamyaListScreen(services: services, title: 'Grades', query: const SugamyaNames(grades: true))),
             ),
             ListTile(
+              title: const Text('Books by format'),
+              subtitle: const Text('DAISY audio, EPUB text, braille and the other formats'),
+              onTap: () => _open(context, SugamyaFormatsScreen(services: services)),
+            ),
+            ListTile(
               title: const Text('Popular books'),
               subtitle: const Text('Downloaded $sugamyaPopularTimes times or more in the past year'),
               onTap: () => _open(context, SugamyaListScreen(services: services, title: 'Popular books', query: SugamyaPopular())),
@@ -115,6 +120,31 @@ class _SugamyaStartScreenState extends State<SugamyaStartScreen> {
                   : 'Signed in as ${_account!.shownName}'),
               onTap: () => _open(context, SugamyaSignInScreen(services: services)),
             ),
+          ],
+        ),
+      );
+}
+
+/// The formats Reader can open; choosing one lists the library's books in it.
+class SugamyaFormatsScreen extends StatelessWidget {
+  const SugamyaFormatsScreen({super.key, required this.services});
+
+  final SugamyaServices services;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Books by format')),
+        body: ListView(
+          children: [
+            const Padding(padding: EdgeInsets.all(16), child: Text("Choose a format to list the library's books in it.")),
+            for (final format in sugamyaBrowseFormats)
+              ListTile(
+                title: Text(format.label),
+                subtitle: Text(format.about),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SugamyaListScreen(services: services, title: '${format.label} books', query: SugamyaFormat(format.name)),
+                )),
+              ),
           ],
         ),
       );

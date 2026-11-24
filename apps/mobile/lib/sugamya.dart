@@ -111,6 +111,30 @@ class SugamyaIn extends SugamyaQuery {
   String path(int page) => '${grade ? 'grade' : 'category'}/${Uri.encodeComponent(name.trim())}/${_tail(page)}';
 }
 
+/// Books in one format, by the name the library shows (see [sugamyaBrowseFormats]).
+class SugamyaFormat extends SugamyaQuery {
+  const SugamyaFormat(this.name);
+  final String name;
+  @override
+  String path(int page) => 'bookFormat/${Uri.encodeComponent(name.trim())}/${_tail(page)}';
+}
+
+/// Formats to browse by, as the library's Advanced search lists them (bookFormat finds books by
+/// that name, not by format ID or short name): every one, the formats Reader can open first, most
+/// books first, then braille, which Reader lists but can't open. The counts are from November 2026. As in the engine's
+/// SUGAMYA_BROWSE_FORMATS (desktop).
+const sugamyaBrowseFormats = [
+  (name: 'DAISY Audio Only', label: 'DAISY audio', about: 'Recorded audio, about 19,000 books'),
+  (name: 'EPUB Text Only', label: 'EPUB text', about: 'Text, ready in seconds, about 8,000 books'),
+  (name: 'Structured Epub without proofreading', label: 'Structured EPUB', about: 'Text with headings, ready in seconds, about 1,700 books'),
+  (name: 'DAISY Text Only', label: 'DAISY text', about: 'Text, about 800 books'),
+  (name: 'DAISY Multimedia', label: 'DAISY text and audio', about: 'Text with recorded audio, about 350 books'),
+  (name: 'EPUB Audio', label: 'EPUB audio', about: 'About 20 books'),
+  (name: 'EPUB with Media Overlay', label: 'EPUB text and audio', about: 'Text with recorded audio, about 10 books'),
+  (name: 'Formatted Braille', label: 'Formatted braille', about: "About 1,200 books, for a braille display or embosser. Reader can't open braille files"),
+  (name: 'Braille with tactile', label: 'Braille with tactile graphics', about: "About 2 books. Reader can't open braille files"),
+];
+
 String _tail(int page) => 'page/$page/limit/$sugamyaPageSize/format/xml';
 
 String _text(XmlElement el, String name) =>

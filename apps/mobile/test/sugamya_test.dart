@@ -10,6 +10,7 @@ void main() {
   test('builds request paths without the key', () {
     expect(const SugamyaSearch(' tagore ').path(1), 'authortitle/tagore/page/1/limit/20/format/xml');
     expect(const SugamyaIn('Art and Architecture').path(2), 'category/Art%20and%20Architecture/page/2/limit/20/format/xml');
+    expect(const SugamyaFormat('DAISY Audio Only').path(1), 'bookFormat/DAISY%20Audio%20Only/page/1/limit/20/format/xml');
     expect(const SugamyaNames(grades: true).path(1), 'gradelist/page/1/limit/20/format/xml');
   });
 
