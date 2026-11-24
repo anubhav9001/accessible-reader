@@ -124,6 +124,10 @@ export function isDisplayMath(el: Element): boolean {
 
 /** The text of a block, with each equation as its words (data-speech), for the device voice. */
 export function speakableText(block: Element): string {
+  // An equation standing alone is a block itself (see innermostBlocks).
+  if (block.localName.toLowerCase() === 'math') {
+    return clean(`Equation: ${block.getAttribute('data-speech') || mathDescription(block) || mathSymbols(block)}`);
+  }
   if (!block.querySelector('math, [data-speech]') && !mathElements(block).length) return '';
   let out = '';
   const walk = (node: Node): void => {

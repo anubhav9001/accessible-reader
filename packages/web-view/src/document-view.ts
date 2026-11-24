@@ -23,8 +23,12 @@ export function parseBookDocument(text: string, path: string, mediaType: string)
 
 /** The innermost readable blocks under `root`, in document order. */
 export function innermostBlocks(root: ParentNode): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(BLOCKS)).filter(
-    (b) => !b.querySelector(BLOCKS) && (b.textContent ?? '').trim() !== '',
+  // An equation on its own line, outside any paragraph, is a block of its own: without this,
+  // reading aloud went straight past it (it belonged to no block).
+  return Array.from(root.querySelectorAll<HTMLElement>(`${BLOCKS}, math`)).filter((b) =>
+    b.localName.toLowerCase() === 'math'
+      ? !b.parentElement?.closest(BLOCKS)
+      : !b.querySelector(BLOCKS) && (b.textContent ?? '').trim() !== '',
   );
 }
 

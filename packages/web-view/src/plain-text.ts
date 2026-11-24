@@ -225,6 +225,9 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
       // following comma or full stop stays against them.
       w.text(` ${words}`, false);
       book.items.push({ kind: 'math', start, end: w.length, label: words, html: safeMathMarkup(el) });
+      // An equation standing alone is a block of its own (see innermostBlocks).
+      const block = blockIndex.get(el);
+      if (block !== undefined) book.blocks.push({ path, index: block, start, end: w.length });
       if (display) w.newline();
       return;
     }
