@@ -15,9 +15,11 @@ import 'book_server.dart';
 import 'book_store.dart';
 import 'bookmarks.dart';
 import 'help_screen.dart';
+import 'info_screen.dart';
 import 'models.dart';
 import 'players.dart';
 import 'reader_bridge.dart';
+import 'reading_stats.dart';
 import 'settings.dart';
 
 class ReaderScreen extends StatefulWidget {
@@ -48,6 +50,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   ReadingMode _mode = ReadingMode.text;
   int _clipIndex = 0;
   TextDoc? _doc;
+  late final ReadingStats _stats = ReadingStats(widget.book.id, playing: () => _isPlaying);
   int _headingLevel = 0;
   int _contentsDepth = 0;
   double _rate = 1;
@@ -65,6 +68,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
+    _stats.close();
     _saveTimer?.cancel();
     _save();
     _recorded?.dispose();
@@ -115,6 +119,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _clipIndex = (saved?['clipIndex'] as int?) ?? 0;
       final savedMode = ReadingMode.values.asNameMap()[saved?['mode']];
       setState(() => _book = book);
+      unawaited(_stats.open());
       await _setMode(savedMode != null && book.option(savedMode).available ? savedMode : book.defaultMode,
           restore: true, savedBlockPath: saved?['docPath'] as String?, savedBlock: saved?['block'] as int?);
       if (_screenReaderOn && _mode != ReadingMode.audio) {
@@ -327,6 +332,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   /// TalkBack or VoiceOver read on through the text by itself: remember where it got to.
   Future<void> _onPlace(String path, int index, int? clip) async {
+    _stats.active();
     if (_isPlaying || _book == null) return;
     if (_usesClips) {
       // In screen reader mode TalkBack can read on into another chapter: find its clip there.
@@ -690,6 +696,70 @@ class _ReaderScreenState extends State<ReaderScreen> {
     await _goToSpot(chosen.spot, said: 'Bookmark ${chosen.name}');
   }
 
+  // ---- Where am I, and Book information ----------------------------------------------
+
+  void _showBookInfo() {
+    final book = _book;
+    if (book == null) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => InfoScreen(title: 'Book information', sections: bookInfoSections(book))));
+  }
+
+  /// Your place in the book, how reading is set up, and how long this book has been read.
+  /// As on Windows (renderer.ts, whereAmISections).
+  Future<void> _showWhereAmI() async {
+    final book = _book;
+    if (book == null) return;
+    await _updateLocation();
+    final bookmarks = (await _bookmarks.load()).length;
+    if (!mounted) return;
+    final order = book.readingOrder.map((r) => r.toLowerCase()).toList();
+    final path = _usesClips
+        ? (_clipIndex < book.narration.length ? book.narration[_clipIndex].text?.path : null)
+        : _doc?.path;
+    final section = path == null ? -1 : order.indexOf(path.toLowerCase());
+    double? percent;
+    double? elapsed;
+    if (_usesClips && book.duration > 0 && _clipIndex < book.clipStarts.length) {
+      elapsed = book.clipStarts[_clipIndex];
+      percent = elapsed / book.duration * 100;
+    } else if (section >= 0 && order.isNotEmpty) {
+      final doc = _doc;
+      final within = doc == null || doc.blocks.isEmpty ? 0.0 : doc.index / doc.blocks.length;
+      percent = (section + within) / order.length * 100;
+    }
+    final left = elapsed == null ? null : book.duration - elapsed;
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    String day(DateTime d) => '${d.day} ${months[d.month - 1]} ${d.year}';
+    final speed = _rate == _rate.roundToDouble() ? _rate.toInt().toString() : _rate.toString();
+    final page = _page.replaceFirst(RegExp(r'^Page '), '');
+    final sections = [
+      InfoSection('Your place', [
+        ('Book', book.title),
+        ('Heading', _heading),
+        ('Section', section >= 0 ? '${section + 1} of ${order.length}' : null),
+        ('Page', page.isEmpty ? null : '$page${book.pageLabels.isEmpty ? '' : ' of ${book.pageLabels.last}'}'),
+        ('Through the book', percent == null ? null : '${percent.round()} percent'),
+        ('Time', _time),
+        ('Time left', left == null ? null : '${spokenDuration(left)}${_rate != 1 ? ', ${spokenDuration(left / _rate)} at speed $speed' : ''}'),
+      ]),
+      InfoSection('Reading', [
+        ('Mode', '${_mode.label}${_textOnly && _mode != ReadingMode.audio ? ', screen reader mode' : ''}'),
+        ('Speed', speed),
+        ('Now', _isPlaying ? 'Playing' : 'Paused'),
+        ('Bookmarks in this book', '$bookmarks'),
+      ]),
+      InfoSection('Reading time', [
+        ('This time', spokenDuration(_stats.session)),
+        ('In all', spokenDuration(_stats.seconds)),
+        ('Times opened', '${_stats.opens}'),
+        ('First opened', day(_stats.first)),
+      ]),
+    ];
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => InfoScreen(title: 'Where am I?', sections: sections)));
+  }
+
   // ---- location -----------------------------------------------------------------------
 
   Future<void> _updateLocation() async {
@@ -739,6 +809,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
             tooltip: 'More reading options',
             enabled: book != null,
             onSelected: (choice) => switch (_logged(choice)) {
+              'where' => _showWhereAmI(),
+              'info' => _showBookInfo(),
               'page' => _goToPage(),
               'back' => _stepHistory(-1),
               'forward' => _stepHistory(1),
@@ -754,6 +826,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
               _ => null,
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(value: 'where', child: Text('Where am I?')),
+              const PopupMenuItem(value: 'info', child: Text('Book information')),
               const PopupMenuItem(value: 'add-bookmark', child: Text('Add bookmark')),
               const PopupMenuItem(value: 'bookmarks', child: Text('Bookmarks')),
               if (_backStack.isNotEmpty) const PopupMenuItem(value: 'back', child: Text('Go back')),
@@ -770,7 +844,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
         ],
       ),
-      body: _error != null
+      body: Listener(onPointerDown: (_) => _stats.active(), child: _error != null
           ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
           : Column(
               children: [
@@ -800,7 +874,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
                 if (book != null) _controls(),
               ],
-            ),
+            )),
     );
   }
 

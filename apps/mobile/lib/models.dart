@@ -112,7 +112,18 @@ class OpenedBook {
         modes = [for (final m in json['modes'] as List) ModeOption.fromJson(m as Map<String, dynamic>)],
         defaultMode = ReadingMode.values.byName(json['defaultMode'] as String),
         clipStarts = [for (final s in json['clipStarts'] as List) (s as num).toDouble()],
-        duration = (json['duration'] as num).toDouble();
+        duration = (json['duration'] as num).toDouble(),
+        format = json['publication']['format'] as String,
+        narrators = [for (final a in (json['publication']['metadata']['narrators'] as List?) ?? const []) a as String],
+        language = json['publication']['metadata']['language'] as String?,
+        publisher = json['publication']['metadata']['publisher'] as String?,
+        declaredDuration = (json['publication']['metadata']['duration'] as num?)?.toDouble(),
+        multimediaType = json['publication']['metadata']['multimediaType'] as String?,
+        entries = [
+          for (final e in (json['publication']['metadata']['entries'] as List?) ?? const [])
+            (name: (e as Map<String, dynamic>)['name'] as String, value: e['value'] as String)
+        ],
+        pageLabels = [for (final pg in json['publication']['pageList'] as List) (pg as Map<String, dynamic>)['label'] as String];
 
   final String title;
   final List<String> authors;
@@ -127,6 +138,19 @@ class OpenedBook {
   final ReadingMode defaultMode;
   final List<double> clipStarts;
   final double duration;
+
+  /// For Book information: what the book says about itself (see the engine's Metadata).
+  final String format;
+  final List<String> narrators;
+  final String? language;
+  final String? publisher;
+  /// The narration length the book declares, in seconds.
+  final double? declaredDuration;
+  final String? multimediaType;
+  /// Every metadata entry, by the book's own names (dc:subject, schema:accessMode…).
+  final List<({String name, String value})> entries;
+  /// The printed pages' labels, in book order.
+  final List<String> pageLabels;
 
   ModeOption option(ReadingMode mode) => modes.firstWhere((m) => m.mode == mode);
 }

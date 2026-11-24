@@ -32,6 +32,8 @@ class HelpScreen extends StatelessWidget {
       [
         ('Contents', 'Lists the book\'s chapters and sections. Choose one to go there.'),
         ('Go back', 'Appears at the top after you follow a link or footnote, or jump with the contents, Go to page or a bookmark. Takes you back to where you were. Go back and Go forward are also in the More reading options menu.'),
+        ('Where am I?', 'In the More reading options menu. A screen with your place (heading, section, page, how far through the book, time left), the reading mode and speed, your bookmarks, and how long you have read this book.'),
+        ('Book information', 'In the More reading options menu. Everything the book says about itself: title, author, narrator, publisher, subject, description, format, accessibility, and every other metadata entry.'),
         ('Add bookmark', 'In the More reading options menu. Bookmarks your place; keep the suggested name (the start of the paragraph) or type your own.'),
         ('Bookmarks', 'In the same menu. Lists this book\'s bookmarks in book order. Tap one to go there; its options menu has Rename and Delete.'),
         ('Go to page', 'In the More reading options menu. Type a printed page number to go to that page.'),
