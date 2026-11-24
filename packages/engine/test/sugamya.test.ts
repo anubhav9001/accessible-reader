@@ -10,6 +10,8 @@ import {
   isSugamyaDownloadUrl,
   sugamyaDownloadLink,
   isSugamyaPath,
+  isInSugamyaFormat,
+  sugamyaFormatSearchQueries,
   parseSugamyaMessage,
   parseSugamyaRequests,
   parseSugamyaUser,
@@ -35,6 +37,13 @@ describe('Sugamya Pustakalaya', () => {
     expect(sugamyaPath({ kind: 'book', id: '5884' })).toBe('id/5884/page/1/limit/1/format/xml');
     expect(sugamyaPath({ kind: 'format', name: 'DAISY Audio Only' })).toBe('bookFormat/DAISY%20Audio%20Only/page/1/limit/20/format/xml');
     expect(isSugamyaPath(sugamyaPath({ kind: 'format', name: 'EPUB Text Only' }))).toBe(true);
+    // Searching within a format: the title and author searches, filtered by format.
+    expect(sugamyaFormatSearchQueries('tagore').map((q) => sugamyaPath(q))).toEqual([
+      'title/tagore/page/1/limit/20/format/xml',
+      'author/tagore/page/1/limit/20/format/xml',
+    ]);
+    expect(isInSugamyaFormat({ format: 'Structured Epub without proofreading' }, 'Structured  EPUB without proofreading')).toBe(true);
+    expect(isInSugamyaFormat({ format: 'EPUB Text Only' }, 'DAISY Audio Only')).toBe(false);
     expect(isSugamyaPath(sugamyaPath({ kind: 'grade', name: 'Grade 10' }))).toBe(true);
     expect(isSugamyaPath('../../evil?x=1/format/xml')).toBe(false);
   });

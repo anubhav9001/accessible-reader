@@ -46,6 +46,8 @@ export type SugamyaQuery =
   | { kind: 'grades' }
   | { kind: 'grade'; name: string }
   | { kind: 'format'; name: string }
+  | { kind: 'title'; terms: string }
+  | { kind: 'author'; terms: string }
   | { kind: 'book'; id: string };
 
 /**
@@ -64,6 +66,24 @@ export const SUGAMYA_BROWSE_FORMATS: readonly { name: string; label: string; abo
   { name: 'Formatted Braille', label: 'Formatted braille', about: "About 1,200 books, for a braille display or embosser. Reader can't open braille files" },
   { name: 'Braille with tactile', label: 'Braille with tactile graphics', about: "About 2 books. Reader can't open braille files" },
 ];
+
+/**
+ * Searching by title or author within one format. The library can't combine bookFormat with a
+ * search (title/…/bookFormat/… ignores the format), so Reader runs the title and the author
+ * searches, which give each book's format, and keeps the books in the chosen format.
+ */
+export function sugamyaFormatSearchQueries(terms: string): SugamyaQuery[] {
+  return [
+    { kind: 'title', terms },
+    { kind: 'author', terms },
+  ];
+}
+
+/** Whether a search result is in a format, by the library's format name (as in SUGAMYA_BROWSE_FORMATS). */
+export function isInSugamyaFormat(book: Pick<SugamyaBook, 'format'>, formatName: string): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  return norm(book.format) === norm(formatName);
+}
 
 /** The request path (after getNALPData/) for a query and page. */
 export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_SIZE): string {
@@ -86,6 +106,10 @@ export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_
       return `grade/${part(query.name)}/${tail}`;
     case 'format':
       return `bookFormat/${part(query.name)}/${tail}`;
+    case 'title':
+      return `title/${part(query.terms)}/${tail}`;
+    case 'author':
+      return `author/${part(query.terms)}/${tail}`;
     case 'book':
       return `id/${part(query.id)}/page/1/limit/1/format/xml`;
   }
@@ -93,7 +117,7 @@ export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_
 
 /** Only these characters may reach the library in a path, so a path can't be redirected elsewhere. */
 export function isSugamyaPath(path: string): boolean {
-  return /^(authortitle|latest|popularbooks|categorylist|category|gradelist|grade|bookFormat|id)\/[A-Za-z0-9%._~\-/]*format\/xml$/.test(path);
+  return /^(authortitle|title|author|latest|popularbooks|categorylist|category|gradelist|grade|bookFormat|id)\/[A-Za-z0-9%._~\-/]*format\/xml$/.test(path);
 }
 
 const text = (el: Element | undefined, name: string): string => {

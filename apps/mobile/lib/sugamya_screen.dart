@@ -173,6 +173,14 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
   String? _error;
 
   bool get _isNames => widget.query is SugamyaNames;
+
+  /// A search within a format (SugamyaInFormat): where each of its searches has got to.
+  late final _sources = [
+    if (widget.query case final SugamyaInFormat q)
+      for (final s in q.sources) (query: s, page: 0, done: false)
+  ];
+  final _seen = <String>{};
+  bool get _moreInFormat => _sources.any((s) => !s.done);
   int get _count => _isNames ? _names.length : _books.length;
 
   @override
@@ -195,7 +203,9 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
     try {
       final page = _page + 1;
       final query = widget.query;
-      if (query is SugamyaNames) {
+      if (query is SugamyaInFormat) {
+        await _loadInFormat(query);
+      } else if (query is SugamyaNames) {
         final result = await widget.client.names(query, page);
         _names.addAll(result.items);
         _total = result.total;
@@ -208,7 +218,13 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
       _page = page;
       if (!mounted) return;
       setState(() => _loading = false);
-      _announcer.say(context, _count == 0 ? _emptyText : '${widget.title}: $_total ${_isNames ? 'items' : 'books'}');
+      _announcer.say(
+          context,
+          _count == 0
+              ? _emptyText
+              : widget.query is SugamyaInFormat
+                  ? '${widget.title}: $_count ${_count == 1 ? 'book' : 'books'}${_moreInFormat ? ', more may follow' : ''}'
+                  : '${widget.title}: $_total ${_isNames ? 'items' : 'books'}');
     } catch (e) {
       if (!mounted) return;
       final message = e is CatalogException ? e.message : 'Could not load the library: $e';
@@ -218,6 +234,27 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
       });
       if (_count > 0) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       _announcer.say(context, message);
+    }
+  }
+
+  /// Up to a page of matches, reading at most a few pages of each search, so a rare format doesn't
+  /// mean many calls before anything shows. As on Windows (renderFormatSearch).
+  Future<void> _loadInFormat(SugamyaInFormat query) async {
+    var added = 0;
+    for (var round = 0; round < 5 && added < sugamyaPageSize && _moreInFormat; round++) {
+      for (var i = 0; i < _sources.length; i++) {
+        final s = _sources[i];
+        if (s.done) continue;
+        final page = s.page + 1;
+        final result = await widget.client.books(s.query, page);
+        _sources[i] = (query: s.query, page: page, done: result.items.isEmpty || page * sugamyaPageSize >= result.total);
+        for (final book in result.items.where((b) => isInSugamyaFormat(b, query.format))) {
+          if (_seen.add('${book.id}|${book.format}')) {
+            _books.add(book);
+            added++;
+          }
+        }
+      }
     }
   }
 
@@ -242,15 +279,61 @@ class _SugamyaListScreenState extends State<SugamyaListScreen> {
     await Future.wait([worker(), worker(), worker(), worker()]);
   }
 
-  String get _emptyText => widget.query is SugamyaLatest ? 'No books were added in the last 15 days.' : 'Nothing found.';
+  String get _emptyText => switch (widget.query) {
+        SugamyaLatest() => 'No books were added in the last 15 days.',
+        SugamyaInFormat(:final label, :final terms) => _moreInFormat
+            ? 'No $label books found for $terms yet. Choose More results to look further.'
+            : 'No $label books found for $terms. The search looks in titles and authors.',
+        _ => 'Nothing found.',
+      };
+
+  /// "Search DAISY audio books by title or author": a search within the format on screen.
+  Future<void> _searchInFormat(String format, String label) async {
+    final controller = TextEditingController();
+    final terms = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Search $label books'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(labelText: 'Title or author'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Search')),
+        ],
+      ),
+    );
+    if (terms == null || terms.trim().isEmpty || !mounted) return;
+    _open(SugamyaListScreen(
+      services: widget.services,
+      title: '$label books: ${terms.trim()}',
+      query: SugamyaInFormat(format: format, label: label, terms: terms.trim()),
+    ));
+  }
 
   void _open(Widget screen) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
 
   @override
   Widget build(BuildContext context) {
-    final more = _page * sugamyaPageSize < _total;
+    final query = widget.query;
+    final more = query is SugamyaInFormat ? _moreInFormat : _page * sugamyaPageSize < _total;
+    final format = query is SugamyaFormat ? sugamyaBrowseFormats.where((f) => f.name == query.name).firstOrNull : null;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(
+        title: Text(widget.title, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (format != null)
+            IconButton(
+              tooltip: 'Search ${format.label} books by title or author',
+              icon: const Icon(Icons.search),
+              onPressed: () => _searchInFormat(format.name, format.label),
+            ),
+        ],
+      ),
       bottomNavigationBar: SafeArea(child: AnnouncementRegion(announcer: _announcer)),
       body: _error != null
           ? Center(

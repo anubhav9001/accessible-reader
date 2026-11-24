@@ -22,6 +22,9 @@ import {
   isSugamyaInstantFormat,
   SUGAMYA_LINK_DAYS,
   SUGAMYA_BROWSE_FORMATS,
+  sugamyaFormatSearchQueries,
+  isInSugamyaFormat,
+  type SugamyaBook,
   type SugamyaQuery,
   type SugamyaRequest,
 } from '@accessible-reader/engine';
@@ -47,6 +50,7 @@ interface Elements {
 type View =
   | { kind: 'start' }
   | { kind: 'formats' }
+  | { kind: 'formatSearch'; format: { name: string; label: string }; terms: string }
   | { kind: 'list'; title: string; query: SugamyaQuery }
   | { kind: 'book'; id: string }
   | { kind: 'account' }
@@ -120,6 +124,7 @@ export class SugamyaBrowser {
     try {
       if (view.kind === 'start') this.renderStart();
       else if (view.kind === 'formats') this.renderFormats();
+      else if (view.kind === 'formatSearch') await this.renderFormatSearch(view.format, view.terms);
       else if (view.kind === 'book') await this.renderBook(view.id);
       else if (view.kind === 'account') this.renderAccount();
       else if (view.kind === 'requests') await this.renderRequests();
@@ -235,8 +240,94 @@ export class SugamyaBrowser {
       }
       more.disabled = false;
     });
-    this.el.results.replaceChildren(list, more);
+    // A format's books can be searched by title or author within that format.
+    const format = query.kind === 'format' ? SUGAMYA_BROWSE_FORMATS.find((f) => f.name === query.name) : undefined;
+    this.el.results.replaceChildren(...(format ? [this.formatSearchForm(format)] : []), list, more);
     this.setStatus(`${title}: ${total} ${names ? 'items' : total === 1 ? 'book' : 'books'}`);
+  }
+
+  /** "Search DAISY audio books by title or author": a search within one format. */
+  private formatSearchForm(format: { name: string; label: string }, terms = ''): HTMLFormElement {
+    const form = document.createElement('form');
+    form.className = 'catalog-format-search';
+    form.setAttribute('role', 'search');
+    const id = `ui-format-search-${this.shown}`;
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = `Search ${format.label} books by title or author`;
+    const input = document.createElement('input');
+    input.id = id;
+    input.type = 'search';
+    input.value = terms;
+    input.autocomplete = 'off';
+    const go = document.createElement('button');
+    go.type = 'submit';
+    go.textContent = 'Search';
+    form.append(label, input, go);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const t = input.value.trim();
+      if (t) void this.show({ kind: 'formatSearch', format, terms: t });
+    });
+    return form;
+  }
+
+  /**
+   * Books in one format whose title or author matches: the title and author searches, keeping
+   * the books in that format (see sugamyaFormatSearchQueries), a page at a time.
+   */
+  private async renderFormatSearch(format: { name: string; label: string }, terms: string): Promise<void> {
+    const sources = sugamyaFormatSearchQueries(terms).map((query) => ({ query, page: 0, done: false }));
+    const seen = new Set<string>();
+    const list = document.createElement('ul');
+    list.className = 'catalog-list';
+    const more = this.button('More results', async () => {
+      const before = list.children.length;
+      more.disabled = true;
+      this.setStatus('Loading more…');
+      try {
+        const added = await loadMore();
+        this.setStatus(added ? `${list.children.length} books` : 'No more books found.');
+        list.children[before]?.querySelector('button')?.focus();
+      } catch (err) {
+        this.setStatus(errorMessage(err));
+      }
+      more.disabled = false;
+    });
+    // Up to a page of matches, reading at most a few pages of each search, so a rare format
+    // doesn't mean many calls before anything shows.
+    const loadMore = async (): Promise<number> => {
+      let added = 0;
+      for (let round = 0; round < 5 && added < SUGAMYA_PAGE_SIZE && sources.some((s) => !s.done); round++) {
+        for (const s of sources.filter((x) => !x.done)) {
+          s.page++;
+          const result = parseSugamyaBooks(browserPlatform, await this.fetch(sugamyaPath(s.query, s.page)));
+          if (!result.items.length || s.page * SUGAMYA_PAGE_SIZE >= result.total) s.done = true;
+          for (const book of result.items.filter((b: SugamyaBook) => isInSugamyaFormat(b, format.name))) {
+            const key = `${book.id}|${book.format}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            list.append(this.entry(book.title, sugamyaBookSummary(book), () => this.show({ kind: 'book', id: book.id })));
+            added++;
+          }
+        }
+      }
+      more.hidden = sources.every((s) => s.done);
+      return added;
+    };
+    await loadMore();
+    this.el.heading.textContent = `${format.label} books: ${terms}`;
+    const form = this.formatSearchForm(format, terms);
+    if (!list.children.length) {
+      const nothing = more.hidden
+        ? `No ${format.label} books found for ${terms}. The search looks in titles and authors.`
+        : `No ${format.label} books found for ${terms} yet. Choose More results to look further.`;
+      this.el.results.replaceChildren(form, paragraph(nothing), more);
+      this.setStatus(nothing);
+      return;
+    }
+    this.el.results.replaceChildren(form, list, more);
+    this.setStatus(`${list.children.length} ${format.label} ${list.children.length === 1 ? 'book' : 'books'} for ${terms}${more.hidden ? '' : ', more may follow'}.`);
   }
 
   private async renderBook(id: string): Promise<void> {

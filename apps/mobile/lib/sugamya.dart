@@ -119,6 +119,41 @@ class SugamyaFormat extends SugamyaQuery {
   String path(int page) => 'bookFormat/${Uri.encodeComponent(name.trim())}/${_tail(page)}';
 }
 
+/// A title search: its results give each book's format and language.
+class SugamyaTitleSearch extends SugamyaQuery {
+  const SugamyaTitleSearch(this.terms);
+  final String terms;
+  @override
+  String path(int page) => 'title/${Uri.encodeComponent(terms.trim())}/${_tail(page)}';
+}
+
+/// An author search: its results give each book's format and language.
+class SugamyaAuthorSearch extends SugamyaQuery {
+  const SugamyaAuthorSearch(this.terms);
+  final String terms;
+  @override
+  String path(int page) => 'author/${Uri.encodeComponent(terms.trim())}/${_tail(page)}';
+}
+
+/// Books in one format whose title or author matches. The library can't combine bookFormat with
+/// a search (title/…/bookFormat/… ignores the format), so Reader runs [sources], the title and the
+/// author searches, and keeps the books in the format ([isInSugamyaFormat]). As in the engine.
+class SugamyaInFormat extends SugamyaQuery {
+  const SugamyaInFormat({required this.format, required this.label, required this.terms});
+  final String format;
+  final String label;
+  final String terms;
+  List<SugamyaQuery> get sources => [SugamyaTitleSearch(terms), SugamyaAuthorSearch(terms)];
+  @override
+  String path(int page) => throw UnsupportedError('A search within a format is several searches; see sources.');
+}
+
+/// Whether a search result is in a format, by the library's format name.
+bool isInSugamyaFormat(SugamyaBook book, String format) {
+  String norm(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+  return norm(book.format) == norm(format);
+}
+
 /// Formats to browse by, as the library's Advanced search lists them (bookFormat finds books by
 /// that name, not by format ID or short name): every one, the formats Reader can open first, most
 /// books first, then braille, which Reader lists but can't open. The counts are from November 2026. As in the engine's
