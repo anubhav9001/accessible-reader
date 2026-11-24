@@ -371,7 +371,7 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
       case SugamyaRequestState.renew:
         return _renew(r);
       case SugamyaRequestState.preparing:
-        _announcer.say(context, '${r.title}: being prepared. This can take a few hours; choose Refresh later.');
+        return _checkAgain(r);
       case SugamyaRequestState.expired:
         return _askAgain(r);
       case SugamyaRequestState.unknown:
@@ -381,6 +381,28 @@ class _SugamyaRequestsScreenState extends State<SugamyaRequestsScreen> {
             '${r.title}: no download link yet. If you asked for it more than $sugamyaLinkDays days ago, the link has expired: '
             'find the book and choose Ask for this book again.');
     }
+  }
+
+  /// A request still being prepared: asks the library for its status now (DFI: Reader should check
+  /// whenever the reader chooses a request), and downloads the book if it has become ready.
+  Future<void> _checkAgain(SugamyaRequest r) async {
+    _announcer.say(context, '${r.title}: checking with Sugamya Pustakalaya…');
+    List<SugamyaRequest> fresh;
+    try {
+      fresh = await widget.services.account.requests();
+    } catch (e) {
+      if (!mounted) return;
+      _announcer.say(context, _message(e));
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _requests = fresh);
+    final same = fresh.where((x) => _same(x, r)).toList();
+    final now = same.where((x) => x.ready).firstOrNull ?? same.firstOrNull;
+    if (now != null && now.ready) return _download(now);
+    final status = now?.status.trim() ?? '';
+    _announcer.say(context,
+        '${r.title}: still being prepared${status.isEmpty ? '' : ' ($status)'}. Books with audio can take a few hours; choose it again later to check.');
   }
 
   /// The book's ID: remembered when Reader asked for it, or found by its exact title.

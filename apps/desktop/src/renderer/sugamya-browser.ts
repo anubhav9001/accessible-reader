@@ -411,7 +411,7 @@ export class SugamyaBrowser {
       case 'renew':
         return this.renew(r);
       case 'preparing':
-        return this.setStatus(`${r.title}: being prepared. This can take a few hours; choose Refresh later.`);
+        return this.checkAgain(r);
       case 'expired':
         return this.askAgain(r);
       default:
@@ -421,6 +421,28 @@ export class SugamyaBrowser {
             'find the book and choose Ask for this book again.',
         );
     }
+  }
+
+  /**
+   * A request still being prepared: asks the library for its status now (DFI: Reader should check
+   * whenever the reader chooses a request), and downloads the book if it has become ready.
+   */
+  private async checkAgain(r: SugamyaRequest): Promise<void> {
+    if (this.downloading) return this.setStatus(`Still downloading ${this.downloading}.`);
+    this.setStatus(`${r.title}: checking with Sugamya Pustakalaya…`);
+    const same = (x: SugamyaRequest) => norm(x.title) === norm(r.title) && norm(x.format) === norm(r.format);
+    let now: SugamyaRequest | undefined;
+    try {
+      const fresh = (await this.api.sugamya.requests()).filter(same);
+      now = fresh.find((x) => x.ready) ?? fresh[0];
+    } catch (err) {
+      return this.setStatus(err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(err));
+    }
+    if (now?.ready) return this.download(now.url, now.title);
+    const status = now?.status.trim();
+    this.setStatus(
+      `${r.title}: still being prepared${status ? ` (${status})` : ''}. Books with audio can take a few hours; choose it again later to check.`,
+    );
   }
 
   /** The book's ID: remembered when Reader asked for it, or found by its exact title. */

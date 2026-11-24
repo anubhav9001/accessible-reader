@@ -174,6 +174,12 @@ describe('download request states', () => {
   it('knows which formats the library makes at once', () => {
     expect(isSugamyaInstantFormat(epub)).toBe(true);
     expect(isSugamyaInstantFormat(audio)).toBe(false);
+    // DFI: every text-only format at once, anything with audio takes time.
+    expect(isSugamyaInstantFormat('DAISY Text Only')).toBe(true);
+    expect(isSugamyaInstantFormat('Structured Epub without proofreading')).toBe(true);
+    expect(isSugamyaInstantFormat('DAISY Multimedia')).toBe(false);
+    expect(isSugamyaInstantFormat('EPUB with Media Overlay')).toBe(false);
+    expect(isSugamyaInstantFormat('daisy3')).toBe(false);
   });
 
   it('says ready, renew, preparing, expired or unknown', () => {

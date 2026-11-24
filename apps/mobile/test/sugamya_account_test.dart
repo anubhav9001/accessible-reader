@@ -193,6 +193,10 @@ void main() {
     test('knows which formats the library makes at once', () {
       expect(isSugamyaInstantFormat(epub), isTrue);
       expect(isSugamyaInstantFormat(audio), isFalse);
+      // DFI: every text-only format at once, anything with audio takes time.
+      expect(isSugamyaInstantFormat('DAISY Text Only'), isTrue);
+      expect(isSugamyaInstantFormat('DAISY Multimedia'), isFalse);
+      expect(isSugamyaInstantFormat('EPUB with Media Overlay'), isFalse);
     });
 
     test('says ready, renew, preparing, expired or unknown', () {

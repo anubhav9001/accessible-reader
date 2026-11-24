@@ -337,11 +337,13 @@ export interface SugamyaRequest {
 export const SUGAMYA_LINK_DAYS = 7;
 
 /**
- * Formats the library makes as soon as it's asked (seconds, not hours), so an expired link is
- * simply asked for again. Seen ready within seconds: EPUB Text Only (22), Structured EPUB without
- * proofreading (24).
+ * Formats the library makes as soon as it's asked (seconds, not hours), so Reader downloads the
+ * book at once and asks again by itself when a link has expired. DFI confirmed (November 2026):
+ * every text-only format is ready at once; any format with audio (DAISY Audio Only 6, DAISY
+ * Multimedia 20, EPUB Audio 21, EPUB with Media Overlay 23) takes time. DAISY 2.02 (4) and DAISY 3
+ * (5) may hold audio, so they count as taking time too.
  */
-const INSTANT_FORMAT_IDS = new Set([22, 24]);
+const INSTANT_FORMAT_IDS = new Set([1, 2, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 22, 24, 25]);
 
 export function isSugamyaInstantFormat(format: string): boolean {
   const id = sugamyaFormatId(format);
