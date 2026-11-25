@@ -48,7 +48,7 @@ export class Library {
       return [];
     }
     const entries: StoredEntry[] = [];
-    for (const name of names.filter((n) => /\.(epub|zip)$/i.test(n))) {
+    for (const name of names.filter((n) => /\.(epub|ebrl|zip)$/i.test(n))) {
       const file = path.join(this.booksDir, name);
       const { mtimeMs } = await stat(file);
       entries.push({
