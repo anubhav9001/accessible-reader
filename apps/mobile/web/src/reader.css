@@ -19,6 +19,14 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
+  /* The text wraps to the screen, so the page never scrolls sideways: after turning the phone,
+     or with large text (Settings, Display), it slid left and cut off the start of each line. */
+  overflow-x: hidden;
+}
+
+#text {
+  max-width: 100vw;
+  box-sizing: border-box;
 }
 
 #text {
