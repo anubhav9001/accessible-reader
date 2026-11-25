@@ -32,7 +32,9 @@ import { PlainReader } from './plain-reader';
 import { RecordedPlayer } from './recorded-player';
 import { SpeechPlayer } from './speech-player';
 import { bookInfoSections, showInfo, type InfoSection } from './info-dialog';
+import { DisplaySettingsView } from './display-settings';
 import { keepSaved } from './keep-saved';
+import { usePictureViewer } from './picture-viewer';
 import { ReadingStats } from './reading-stats';
 import { sayStatus, useSpeech } from './status-speech';
 
@@ -99,6 +101,8 @@ interface Settings {
   openLast: boolean;
   /** Screen reader mode uses the native Windows text box (when available). */
   nativeBox: boolean;
+  /** How the book's text looks (display-settings.ts); checked when read. */
+  display?: unknown;
 }
 const settings: Settings = (() => {
   const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false, openLast: false, nativeBox: true };
@@ -115,6 +119,10 @@ function saveSettings(): void {
     // Not saved; the choice still holds until Reader closes.
   }
 }
+const display = new DisplaySettingsView($('ui-set-display'), settings.display, (d) => {
+  settings.display = d;
+  saveSettings();
+});
 let headingLevel = settings.headingLevel;
 let rate = RATES.includes(settings.rate) ? settings.rate : 1;
 let recorded: RecordedPlayer | undefined;
@@ -214,6 +222,7 @@ let srMode = (() => {
 })();
 useSpeech(window.reader);
 keepSaved(window.reader);
+usePictureViewer(ui.text);
 const readingStats = new ReadingStats(() => isPlaying());
 const plain = new PlainReader(ui.plain, {
   caret: (offset, block) => void onPlainCaret(offset, block),
@@ -1640,6 +1649,7 @@ function showSettings(): void {
   $<HTMLInputElement>('ui-set-toolbar-text').checked = settings.toolbarText;
   $<HTMLInputElement>('ui-set-open-last').checked = settings.openLast;
   $<HTMLInputElement>('ui-set-native').checked = settings.nativeBox;
+  display.refresh();
   openDialog(dialog, () => $('ui-settings-title'));
 }
 

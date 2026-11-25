@@ -132,6 +132,8 @@
           <tr><th scope="row">Add bookmark</th><td>Ctrl+D</td><td>Bookmarks your place. Type a name or keep the suggested one (the start of the paragraph), then press Enter.</td></tr>
           <tr><th scope="row">Bookmarks</th><td>Ctrl+Shift+B</td><td>Lists this book's bookmarks in book order. Enter goes to one, F2 renames it, Delete removes it.</td></tr>
           <tr><th scope="row">Heading depth</th><td>Settings, or Navigate menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
+          <tr><th scope="row">Display</th><td>Settings (Ctrl+,), Display</td><td>How the book's text looks: typeface, text size, bold, line, word and letter spacing, line length and margins, justified text, text and background colours (or your own), and hiding printed page numbers. Changes show at once and are remembered; Reset display settings goes back to the start.</td></tr>
+          <tr><th scope="row">Enlarge a picture</th><td>Click the picture</td><td>Opens it as large as fits the window, with its description. Ctrl+= and Ctrl+- make it larger and smaller, Ctrl+0 fits it to the window again; Escape closes it.</td></tr>
         </tbody>
       </table>
       <table>
@@ -185,6 +187,9 @@
         <label for="ui-set-voice">Voice for reading aloud (books without narration)</label>
         <select id="ui-set-voice"></select>
       </fieldset>
+      <fieldset id="ui-set-display">
+        <legend>Display (how the book's text looks)</legend>
+      </fieldset>
       <fieldset>
         <legend>Navigation</legend>
         <label for="ui-set-depth">Heading depth: which headings next and previous heading stop at</label>
@@ -224,6 +229,17 @@
       <h2 id="ui-info-title" tabindex="-1">Book information</h2>
       <div class="ui-info-body"></div>
       <form method="dialog"><button value="close">Close</button></form>
+    </dialog>
+    <dialog id="ui-picture" class="ui-help ui-picture" aria-labelledby="ui-picture-title">
+      <h2 id="ui-picture-title" tabindex="-1">Picture</h2>
+      <p id="ui-picture-caption"></p>
+      <div class="ui-dialog-buttons">
+        <button id="ui-picture-in" type="button" aria-keyshortcuts="Control+=">Larger</button>
+        <button id="ui-picture-out" type="button" aria-keyshortcuts="Control+-">Smaller</button>
+        <button id="ui-picture-fit" type="button" aria-keyshortcuts="Control+0">Fit the window</button>
+        <form method="dialog"><button value="close">Close</button></form>
+      </div>
+      <div id="ui-picture-frame" class="ui-picture-frame"><img id="ui-picture-img" alt="" /></div>
     </dialog>
     <dialog id="ui-table-dialog" class="ui-help ui-table-dialog" aria-labelledby="ui-table-title">
       <h2 id="ui-table-title" tabindex="-1">Table</h2>

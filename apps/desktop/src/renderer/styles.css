@@ -676,3 +676,43 @@ dialog input {
   z-index: 1000;
   box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
 }
+
+/* Settings, Display: the two colour pickers show only for "Your own colours". */
+.ui-display-custom {
+  display: contents;
+}
+
+.ui-display-custom[hidden] {
+  display: none;
+}
+
+/* The picture window (picture-viewer.ts): the picture fits the window, or scrolls when enlarged. */
+.ui-picture {
+  width: min(96vw, 1400px);
+  height: 92vh;
+  display: none;
+  flex-direction: column;
+}
+
+.ui-picture[open] {
+  display: flex;
+}
+
+.ui-picture-frame {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  /* Safe: a picture larger than the window scrolls from its edge instead of being cut off. */
+  align-items: safe center;
+  justify-content: safe center;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.ui-picture-frame img {
+  object-fit: contain;
+}
+
+#ui-text img {
+  cursor: zoom-in;
+}
