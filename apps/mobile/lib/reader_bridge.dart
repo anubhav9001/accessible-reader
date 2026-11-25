@@ -8,7 +8,7 @@ import 'models.dart';
 
 /// Request/reply link to the reader page in the WebView (web/src/reader.ts).
 class ReaderBridge {
-  ReaderBridge({required this.onLink, required this.onPlace}) {
+  ReaderBridge({required this.onLink, required this.onPlace, this.onPicture}) {
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..addJavaScriptChannel('ReaderChannel', onMessageReceived: _onMessage)
@@ -25,6 +25,9 @@ class ReaderBridge {
 
   /// The screen reader moved to block [index] of the document at [path]; [clip] narrates it.
   final void Function(String path, int index, int? clip) onPlace;
+
+  /// A picture in the text was tapped: its address and description, to show it enlarged.
+  final void Function(String src, String alt)? onPicture;
   final _pending = <int, Completer<Object?>>{};
   Completer<void> _ready = Completer<void>();
   int _nextId = 0;
@@ -65,6 +68,8 @@ class ReaderBridge {
         AppLog.write(msg['level'] as String? ?? 'info', 'web', msg['message'] as String? ?? '');
       case 'place':
         onPlace(msg['path'] as String, msg['index'] as int, msg['clip'] as int?);
+      case 'picture':
+        onPicture?.call(msg['src'] as String, msg['alt'] as String? ?? '');
     }
   }
 }

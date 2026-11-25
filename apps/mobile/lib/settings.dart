@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'display_settings.dart';
 
 /// Choices that hold for every book, kept on the phone between sessions.
 class AppSettings {
@@ -56,6 +60,18 @@ class AppSettings {
   /// The book opened most recently, for [openLastBook].
   String? get lastBookId => _prefs.getString('lastBookId');
   set lastBookId(String? value) => value == null ? _prefs.remove('lastBookId') : _prefs.setString('lastBookId', value);
+
+  /// How the book's text looks (display_settings.dart), as the shared rules read it.
+  Map<String, Object?> get display {
+    try {
+      final raw = jsonDecode(_prefs.getString('display') ?? '{}');
+      return raw is Map<String, dynamic> ? raw : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  set display(Map<String, Object?> value) => _prefs.setString('display', jsonEncode(value));
 
   static String speedLabel(double r) => r == 1.0 ? 'Normal (1×)' : '$r×';
 
@@ -172,6 +188,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Voice for reading aloud'),
             subtitle: Text(voice == null ? "Automatic (matches the book's language)" : '${voice['locale']}: ${voice['name']}'),
             onTap: _chooseVoice,
+          ),
+          section('Display'),
+          ListTile(
+            title: const Text('Display'),
+            subtitle: const Text('Typeface, text size, spacing, margins, colours and page numbers'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DisplaySettingsScreen(settings: _s))),
           ),
           section('Navigation'),
           ListTile(

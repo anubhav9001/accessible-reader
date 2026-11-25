@@ -16,7 +16,7 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
-import { BookPageView, DocumentView, headingLevelOf, setBookContents, speakableText } from '@accessible-reader/web-view';
+import { BookPageView, displayCss, DocumentView, headingLevelOf, normalizeDisplay, setBookContents, speakableText } from '@accessible-reader/web-view';
 
 /**
  * The reader page inside the mobile app's WebView. The Flutter side owns playback and
@@ -48,6 +48,24 @@ window.addEventListener('unhandledrejection', (e) =>
   post({ type: 'log', level: 'error', message: `Unhandled rejection: ${e.reason instanceof Error ? (e.reason.stack ?? e.reason.message) : String(e.reason)}` }),
 );
 const textEl = document.getElementById('text')!;
+
+// Display settings: the app's normal text is 19px times the phone's font scale (reader.css).
+let fontScale = 1;
+let displaySettings = normalizeDisplay(undefined);
+const displayStyle = document.createElement('style');
+document.head.append(displayStyle);
+function showDisplay(): void {
+  displayStyle.textContent = displayCss('#text', displaySettings, 19 * fontScale, '18px', '46em');
+}
+showDisplay();
+
+// Tapping a picture opens it on a screen of its own, to enlarge (DAISY Must-have "enlarge images").
+textEl.addEventListener('click', (event) => {
+  const picture = (event.target as Element).closest('img');
+  if (!picture || picture.closest('a[href]') || !picture.currentSrc) return;
+  event.preventDefault();
+  post({ type: 'picture', src: picture.currentSrc, alt: picture.getAttribute('alt')?.trim() ?? '' });
+});
 
 let book: PublicationData | undefined;
 /** One document at a time, or (screen reader mode) the whole book as one text-only page. */
@@ -452,6 +470,14 @@ const methods = {
 
   setFontScale(scale: number) {
     document.documentElement.style.setProperty('--font-scale', String(scale));
+    fontScale = scale;
+    showDisplay();
+  },
+
+  /** How the book's text looks (Settings, Display; shared rules in web-view, display.ts). */
+  display(value: unknown) {
+    displaySettings = normalizeDisplay(value);
+    showDisplay();
   },
 };
 

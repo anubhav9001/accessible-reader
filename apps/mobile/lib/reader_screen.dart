@@ -14,6 +14,7 @@ import 'announcer.dart';
 import 'book_server.dart';
 import 'book_store.dart';
 import 'bookmarks.dart';
+import 'display_settings.dart';
 import 'help_screen.dart';
 import 'info_screen.dart';
 import 'models.dart';
@@ -34,7 +35,12 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  late final ReaderBridge _bridge = ReaderBridge(onLink: _followLink, onPlace: _onPlace);
+  late final ReaderBridge _bridge = ReaderBridge(
+    onLink: _followLink,
+    onPlace: _onPlace,
+    onPicture: (src, alt) =>
+        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PictureScreen(src: src, alt: alt))),
+  );
   late final SpeechReader _speech =
       SpeechReader(
       onBlock: _onBlock,
@@ -92,6 +98,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _rate = settings.rate;
       _speech.voice = settings.voice;
       await _speech.setRate(_rate);
+      await _bridge.call('display', [settings.display]);
       final opened =
           await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files, _textOnly]);
       final book = OpenedBook.fromJson(opened!);
@@ -571,6 +578,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       await _speech.setRate(_rate);
     }
     _speech.voice = settings.voice;
+    await _bridge.call('display', [settings.display]);
     setState(() {
       _headingLevel = settings.headingDepth;
       _contentsDepth = settings.contentsDepth;
