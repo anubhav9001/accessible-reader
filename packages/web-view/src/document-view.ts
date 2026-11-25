@@ -1,4 +1,5 @@
 import { dtbookToHtml, resolveHref, resolvePath, type TextRef } from '@accessible-reader/engine';
+import { printLanguage, showingBrailleAsPrint, translateBrailleDocument } from './braille.js';
 import { markContentsHeadings } from './contents-headings.js';
 import { prepareMath } from './math.js';
 
@@ -22,6 +23,11 @@ export function parseBookDocument(text: string, path: string, mediaType: string)
   const body = source.getElementsByTagName('body')[0] ?? source.documentElement;
   // Headings from the table of contents, where the book styled them as plain paragraphs.
   markContentsHeadings(body, path);
+  // eBraille shown as print text: its braille translated back to print (braille.ts).
+  if (showingBrailleAsPrint()) {
+    translateBrailleDocument(body);
+    return { body, lang: printLanguage(lang) };
+  }
   return { body, lang };
 }
 

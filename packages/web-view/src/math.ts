@@ -34,6 +34,11 @@ export function configureMath(base: string): void {
   assets = base && !base.endsWith('/') ? `${base}/` : base;
 }
 
+/** Where the app's script assets are (sre.js, liblouis.js), relative to the page. */
+export function assetsBase(): string {
+  return assets;
+}
+
 let engine: Promise<Sre | undefined> | undefined;
 function loadEngine(): Promise<Sre | undefined> {
   engine ??= new Promise((resolve) => {

@@ -319,6 +319,7 @@ function buildMenu(): void {
       label: '&View',
       submenu: [
         { id: 'sr-mode', type: 'checkbox', label: '&Screen reader mode', accelerator: 'CmdOrCtrl+Shift+R', click: send('sr-mode') },
+        item('eBraille: switch &braille or print text', 'braille-print', 'CmdOrCtrl+Shift+T'),
         { type: 'separator' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },

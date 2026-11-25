@@ -44,6 +44,8 @@ await Promise.all([
   cp('src/renderer/styles.css', 'dist/renderer/styles.css'),
   // Maths in words (packages/web-view/src/math.ts): Speech Rule Engine and its rule files.
   cp('../../node_modules/speech-rule-engine/lib/sre.js', 'dist/renderer/sre.js'),
+  // liblouis (WebAssembly), for eBraille as print text (web-view, braille.ts).
+  cp('../../packages/web-view/vendor/liblouis/liblouis.js', 'dist/renderer/liblouis.js'),
   ...['base', 'en', 'hi'].map((l) => cp(`../../node_modules/speech-rule-engine/lib/mathmaps/${l}.json`, `dist/renderer/mathmaps/${l}.json`)),
 ]);
 console.log('Desktop build complete');

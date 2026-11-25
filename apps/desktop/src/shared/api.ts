@@ -40,6 +40,7 @@ export const COMMANDS = [
   'where-am-i',
   'book-info',
   'sr-mode',
+  'braille-print',
   'settings',
   'help',
 ] as const;

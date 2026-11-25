@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' reader: data:; media-src reader:; connect-src reader:; font-src 'self' reader: data:"    />
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' reader: data:; media-src reader:; connect-src reader:; font-src 'self' reader: data:"    />
     <title>Reader</title>
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="renderer.js"></script>
@@ -133,6 +133,7 @@
           <tr><th scope="row">Bookmarks</th><td>Ctrl+Shift+B</td><td>Lists this book's bookmarks in book order. Enter goes to one, F2 renames it, Delete removes it.</td></tr>
           <tr><th scope="row">Heading depth</th><td>Settings, or Navigate menu</td><td>Chooses which heading levels next and previous heading stop at.</td></tr>
           <tr><th scope="row">Display</th><td>Settings (Ctrl+,), Display</td><td>How the book's text looks: typeface, text size, bold, line, word and letter spacing, line length and margins, justified text, text and background colours (or your own), and hiding printed page numbers. Changes show at once and are remembered; Reset display settings goes back to the start.</td></tr>
+          <tr><th scope="row">eBraille: braille or print text</th><td>Ctrl+Shift+T, or View menu</td><td>eBraille books open as print text, translated back from braille, so they can be read aloud like any book. This switches to the braille itself (for a braille display) and back; Reader remembers the choice.</td></tr>
           <tr><th scope="row">Enlarge a picture</th><td>Click the picture</td><td>Opens it as large as fits the window, with its description. Ctrl+= and Ctrl+- make it larger and smaller, Ctrl+0 fits it to the window again; Escape closes it.</td></tr>
         </tbody>
       </table>

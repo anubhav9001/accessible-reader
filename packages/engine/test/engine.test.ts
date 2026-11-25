@@ -230,6 +230,13 @@ describe('eBraille', () => {
     expect(modes.find((m) => m.mode === 'textAudio')).toMatchObject({ available: false });
   });
 
+  it('shown as print text (translated by liblouis), it is read like any other book', async () => {
+    const pub = await open(ebraille());
+    const modes = readingModes(pub, { brailleAsPrint: true });
+    expect(modes.find((m) => m.mode === 'audio')).toMatchObject({ available: true, audioSource: 'tts' });
+    expect(modes.find((m) => m.mode === 'textAudio')).toMatchObject({ available: true, audioSource: 'tts' });
+  });
+
   it('an ordinary EPUB 3 is still EPUB', async () => {
     expect((await open(epub3())).format).toBe('epub');
   });

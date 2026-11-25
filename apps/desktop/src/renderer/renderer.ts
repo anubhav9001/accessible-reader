@@ -19,7 +19,16 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
-import { blockAt, DocumentView, headingLevelOf as contentsHeadingLevel, setBookContents } from '@accessible-reader/web-view';
+import {
+  blockAt,
+  clearBrailleToPrint,
+  DocumentView,
+  headingLevelOf as contentsHeadingLevel,
+  prepareBrailleToPrint,
+  setBookContents,
+  showingBrailleAsPrint,
+  translateNavLabels,
+} from '@accessible-reader/web-view';
 import { Bookmarks, type Spot } from './bookmarks';
 import { CatalogBrowser } from './catalog-browser';
 import { DownloadProgress } from './download-progress';
@@ -104,6 +113,8 @@ interface Settings {
   nativeBox: boolean;
   /** How the book's text looks (display-settings.ts); checked when read. */
   display?: unknown;
+  /** eBraille books show as print text (translated back from braille); false shows the braille. */
+  brailleAsPrint?: boolean;
 }
 const settings: Settings = (() => {
   const defaults: Settings = { rate: 1, headingLevel: 0, voice: '', tocDepth: 0, toolbarText: false, openLast: false, nativeBox: true };
@@ -575,12 +586,15 @@ async function openBook(info: BookInfo, note?: string): Promise<void> {
   book = info;
   // Headings from the contents, for books that style theirs as plain paragraphs (issue 8).
   setBookContents(info.toc);
-  // eBraille: braille cells, in a font that has them (styles.css).
-  document.body.classList.toggle('book-ebraille', info.format === 'ebraille');
+  // eBraille: shown as print text, translated back from braille by liblouis (web-view, braille.ts),
+  // unless the reader chose to see the braille; then the cells, in a font that has them (styles.css).
+  const asPrint = info.format === 'ebraille' && settings.brailleAsPrint !== false && (await prepareBrailleToPrint(info.metadata));
+  if (!asPrint) clearBrailleToPrint();
+  document.body.classList.toggle('book-ebraille', info.format === 'ebraille' && !asPrint);
   readingStats.open(positionKey().replace(/^position:/, ''));
   clearHistory();
   timeline = new NarrationTimeline(info.narration);
-  modes = readingModes(info);
+  modes = readingModes(info, { brailleAsPrint: asPrint });
   recorded = new RecordedPlayer(info.narration, timeline, bookUrl, {
     clip: onClip,
     state: onPlayState,
@@ -605,7 +619,7 @@ async function openBook(info: BookInfo, note?: string): Promise<void> {
   renderToc();
 
   const savedOk = saved && modes.find((m) => m.mode === saved.mode)?.available;
-  await setMode(savedOk ? saved.mode : defaultReadingMode(info), true);
+  await setMode(savedOk ? saved.mode : defaultReadingMode(info, { brailleAsPrint: asPrint }), true);
   if (saved?.docPath && textResource(saved.docPath) && !usesClips()) {
     await showText({ path: saved.docPath, fragment: saved.fragment }, false);
     const el = saved.block === undefined ? undefined : docBlocks()[saved.block];
@@ -666,7 +680,7 @@ function renderToc(): void {
       add(item.children, level + 1);
     });
   };
-  add(book.toc, 1);
+  add(showingBrailleAsPrint() ? translateNavLabels(book.toc) : book.toc, 1);
   tree.addEventListener('keydown', onTocKey);
   tocItems[0]!.el.tabIndex = 0;
   ui.tocTree.replaceChildren(tree);
@@ -1513,6 +1527,15 @@ function updateNow(): void {
   }
 }
 
+/** eBraille: switches between print text (translated) and the braille itself, and reopens the book. */
+async function toggleBraillePrint(): Promise<void> {
+  settings.brailleAsPrint = settings.brailleAsPrint === false;
+  saveSettings();
+  const now = settings.brailleAsPrint ? 'print text' : 'braille';
+  if (!book || book.format !== 'ebraille') return announce(`eBraille books will show as ${now}.`);
+  await openBook(book, `Showing ${now}.`);
+}
+
 function whereAmI(): void {
   if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
   showInfo($<HTMLDialogElement>('ui-info'), 'Where am I?', whereAmISections());
@@ -1691,6 +1714,7 @@ function handle(command: Command): void {
   if (command === 'catalogs') return openLibrary();
   if (command === 'help') return showHelp();
   if (command === 'sr-mode') return void toggleScreenReaderMode();
+  if (command === 'braille-print') return void toggleBraillePrint();
   if (!book) return announce('No book open. Press Control B for My books, or Control O to open a book.');
   // In screen reader mode, headings and pages move the text cursor through the whole book.
   if (showingPlain() && plain.ready && !isPlaying()) {
