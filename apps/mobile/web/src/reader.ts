@@ -16,7 +16,7 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
-import { BookPageView, DocumentView, speakableText } from '@accessible-reader/web-view';
+import { BookPageView, DocumentView, headingLevelOf, setBookContents, speakableText } from '@accessible-reader/web-view';
 
 /**
  * The reader page inside the mobile app's WebView. The Flutter side owns playback and
@@ -76,9 +76,9 @@ function textForClip(index: number | null | undefined): TextRef | undefined {
   return text && resource(text.path) ? text : undefined;
 }
 
+/** An h1–h6, or a heading made from the table of contents (web-view, contents-headings.ts). */
 function headingLevel(el: Element): number | null {
-  const m = /^h([1-6])$/i.exec(el.tagName);
-  return m ? Number(m[1]) : null;
+  return headingLevelOf(el) ?? null;
 }
 
 function blockIndexFor(el: Element | undefined): number {
@@ -262,6 +262,8 @@ const methods = {
     const container = new HttpContainer(baseUrl, paths);
     const { container: _files, ...data } = await openPublication(container, browserPlatform);
     book = data;
+    // Headings from the contents, for books that style theirs as plain paragraphs (issue 8).
+    setBookContents(data.toc);
     bookUrl = (p) => container.url(p);
     await useView(textOnly);
     const timeline = new NarrationTimeline(book.narration);

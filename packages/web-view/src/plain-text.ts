@@ -1,5 +1,6 @@
 import { resolveHref, type TextRef } from '@accessible-reader/engine';
 import { innermostBlocks, PAGE_MARKERS, parseBookDocument, REMOVED } from './document-view.js';
+import { headingLevelOf } from './contents-headings.js';
 import { isDisplayMath, mathDescription, mathSymbols, prepareMath, safeMathMarkup } from './math.js';
 
 /** What the structural navigation keys move between. */
@@ -245,8 +246,9 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
       return;
     }
 
-    const heading = /^h([1-6])$/.exec(tag);
-    const line = LINE_ELEMENTS.has(tag);
+    // An h1–h6, or a heading made from the table of contents (contents-headings.ts).
+    const level = headingLevelOf(el);
+    const line = LINE_ELEMENTS.has(tag) || level !== undefined;
     if (line) w.newline();
 
     // Cells of a row stay on one line, divided by a bar; in a table with a header row, each
@@ -281,7 +283,7 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     }
     // The level as part of the line, so every screen reader says it whenever it reads the line:
     // Narrator reads only the line after a heading key, none of Reader's messages (issue 7).
-    if (heading) w.marker(`Heading level ${heading[1]}: `);
+    if (level !== undefined) w.marker(`Heading level ${level}: `);
 
     const start = w.here;
     const cell = tag === 'td' || tag === 'th' || tag === 'caption';
@@ -295,9 +297,9 @@ function addDocument(path: string, body: Element, w: TextWriter, book: Omit<Plai
     const block = blockIndex.get(el);
     if (block !== undefined) book.blocks.push({ path, index: block, start, end });
 
-    if (heading) {
+    if (level !== undefined) {
       // From the start of the line, marker included, so arriving there reads it all.
-      book.items.push({ kind: 'heading', start: introAt, end, level: Number(heading[1]), label: clean(el.textContent) });
+      book.items.push({ kind: 'heading', start: introAt, end, level, label: clean(el.textContent) });
     } else if (tag === 'a' && el.getAttribute('href')) {
       const href = el.getAttribute('href')!;
       const target = href.startsWith('#')

@@ -1,4 +1,5 @@
 import { dtbookToHtml, resolveHref, resolvePath, type TextRef } from '@accessible-reader/engine';
+import { markContentsHeadings } from './contents-headings.js';
 import { prepareMath } from './math.js';
 
 /** Elements read as one unit by the device voice, and stepped through as "phrases" in text mode. */
@@ -18,7 +19,10 @@ export function parseBookDocument(text: string, path: string, mediaType: string)
   if (root.localName.toLowerCase() === 'dtbook') {
     source = parser.parseFromString(`<body>${dtbookToHtml(source)}</body>`, 'text/html');
   }
-  return { body: source.getElementsByTagName('body')[0] ?? source.documentElement, lang };
+  const body = source.getElementsByTagName('body')[0] ?? source.documentElement;
+  // Headings from the table of contents, where the book styled them as plain paragraphs.
+  markContentsHeadings(body, path);
+  return { body, lang };
 }
 
 /** The innermost readable blocks under `root`, in document order. */

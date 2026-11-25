@@ -241,6 +241,11 @@ export class BookPageView {
       const kept = KEPT.has(tag) && !(tag === 'a' && !src.hasAttribute('href'));
       const out: Node = kept ? document.createElement(tag) : document.createDocumentFragment();
       if (out instanceof HTMLElement) {
+        // A heading made from the table of contents stays one (contents-headings.ts).
+        if (src.getAttribute('role') === 'heading') {
+          out.setAttribute('role', 'heading');
+          out.setAttribute('aria-level', src.getAttribute('aria-level') ?? '2');
+        }
         for (const name of KEPT_ATTRIBUTES) {
           const value = src.getAttribute(name);
           if (value !== null) out.setAttribute(name, value);

@@ -18,7 +18,7 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import type { BookInfo, Command, ReaderApi } from '../shared/api';
-import { blockAt, DocumentView } from '@accessible-reader/web-view';
+import { blockAt, DocumentView, headingLevelOf as contentsHeadingLevel, setBookContents } from '@accessible-reader/web-view';
 import { Bookmarks, type Spot } from './bookmarks';
 import { CatalogBrowser } from './catalog-browser';
 import { DownloadProgress } from './download-progress';
@@ -532,6 +532,7 @@ async function closeBook(): Promise<void> {
   view.clear();
   plain.clear();
   book = undefined;
+  setBookContents([]);
   readingStats.close();
   timeline = new NarrationTimeline([]);
   modes = [];
@@ -561,6 +562,8 @@ async function openBook(info: BookInfo, note?: string): Promise<void> {
   plain.clear();
 
   book = info;
+  // Headings from the contents, for books that style theirs as plain paragraphs (issue 8).
+  setBookContents(info.toc);
   readingStats.open(positionKey().replace(/^position:/, ''));
   clearHistory();
   timeline = new NarrationTimeline(info.narration);
@@ -1183,9 +1186,9 @@ function stepPhrase(direction: 1 | -1): void {
   speech.jump(target);
 }
 
+/** An h1–h6, or a heading made from the table of contents (web-view, contents-headings.ts). */
 function headingLevelOf(el: HTMLElement): number | undefined {
-  const m = /^h([1-6])$/i.exec(el.tagName);
-  return m ? Number(m[1]) : undefined;
+  return contentsHeadingLevel(el);
 }
 
 async function stepHeading(direction: 1 | -1): Promise<void> {
