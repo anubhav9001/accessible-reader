@@ -282,6 +282,7 @@ const methods = {
     book = data;
     // Headings from the contents, for books that style theirs as plain paragraphs (issue 8).
     setBookContents(data.toc);
+    document.body.classList.toggle('ebraille', data.format === 'ebraille');
     bookUrl = (p) => container.url(p);
     await useView(textOnly);
     const timeline = new NarrationTimeline(book.narration);

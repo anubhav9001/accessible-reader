@@ -128,7 +128,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _addBook() async {
-    final file = await FilePicker.pickFile(dialogTitle: 'Choose an EPUB or zipped DAISY book');
+    final file = await FilePicker.pickFile(dialogTitle: 'Choose an EPUB, eBraille or zipped DAISY book');
     if (file?.path == null) return;
     setState(() => _importing = true);
     try {

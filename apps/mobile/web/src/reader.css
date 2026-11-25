@@ -82,3 +82,8 @@ body {
   outline: 2px solid var(--highlight-bg);
   border-radius: 2px;
 }
+
+/* eBraille: Unicode braille cells, in fonts that have them (Android's symbols font). */
+.ebraille #text {
+  font-family: 'Noto Sans Symbols 2', 'Noto Sans Symbols', sans-serif;
+}

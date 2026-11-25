@@ -122,7 +122,7 @@ String? wrappedBookPath(List<String> files) {
   final inner = files.where((f) {
     final lower = f.toLowerCase();
     final name = p.posix.basename(lower);
-    return !lower.startsWith('__macosx/') && !name.startsWith('.') && (name.endsWith('.epub') || name.endsWith('.zip'));
+    return !lower.startsWith('__macosx/') && !name.startsWith('.') && (name.endsWith('.epub') || name.endsWith('.ebrl') || name.endsWith('.zip'));
   }).toList();
   return inner.length == 1 ? inner.single : null;
 }

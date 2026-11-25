@@ -51,7 +51,7 @@ class InfoScreen extends StatelessWidget {
   }
 }
 
-const _formats = {'epub': 'EPUB', 'daisy202': 'DAISY 2.02', 'daisy3': 'DAISY 3'};
+const _formats = {'epub': 'EPUB', 'daisy202': 'DAISY 2.02', 'daisy3': 'DAISY 3', 'ebraille': 'eBraille (braille, already formatted)'};
 
 /// What a DAISY multimedia type means, in words.
 const _multimedia = {

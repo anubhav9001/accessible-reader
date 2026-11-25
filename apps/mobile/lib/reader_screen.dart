@@ -304,7 +304,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
     } else if (_source == 'tts') {
       _speech.play();
     } else {
-      _announce('There is nothing to play in this mode.');
+      // As the engine's BRAILLE_NOT_SPOKEN: the device voice can't read braille cells.
+      _announce(_book?.format == 'ebraille'
+          ? "This is a braille book (eBraille): its text is braille cells, which the device voice can't read aloud. Read it on screen or on a braille display."
+          : 'There is nothing to play in this mode.');
     }
   }
 
