@@ -16,7 +16,18 @@ import {
   type TextRef,
 } from '@accessible-reader/engine';
 import { browserPlatform } from '@accessible-reader/engine/browser';
-import { BookPageView, displayCss, DocumentView, headingLevelOf, normalizeDisplay, setBookContents, speakableText } from '@accessible-reader/web-view';
+import {
+  BookPageView,
+  clearBrailleToPrint,
+  displayCss,
+  DocumentView,
+  headingLevelOf,
+  normalizeDisplay,
+  prepareBrailleToPrint,
+  setBookContents,
+  speakableText,
+  translateNavLabels,
+} from '@accessible-reader/web-view';
 
 /**
  * The reader page inside the mobile app's WebView. The Flutter side owns playback and
@@ -275,21 +286,28 @@ function trackPlace() {
 }
 
 const methods = {
-  /** Opens the book served at `baseUrl`, whose files are `paths`; `textOnly` is screen reader mode. */
-  async open(baseUrl: string, paths: string[], textOnly = false) {
+  /**
+   * Opens the book served at `baseUrl`, whose files are `paths`; `textOnly` is screen reader mode;
+   * `brailleAsPrint` shows an eBraille book as print text (translated back from braille).
+   */
+  async open(baseUrl: string, paths: string[], textOnly = false, brailleAsPrint = true) {
     const container = new HttpContainer(baseUrl, paths);
     const { container: _files, ...data } = await openPublication(container, browserPlatform);
     book = data;
     // Headings from the contents, for books that style theirs as plain paragraphs (issue 8).
     setBookContents(data.toc);
-    document.body.classList.toggle('ebraille', data.format === 'ebraille');
+    // eBraille as print text, translated by liblouis (web-view, braille.ts), or as braille cells.
+    const asPrint = data.format === 'ebraille' && brailleAsPrint && (await prepareBrailleToPrint(data.metadata));
+    if (!asPrint) clearBrailleToPrint();
+    document.body.classList.toggle('ebraille', data.format === 'ebraille' && !asPrint);
     bookUrl = (p) => container.url(p);
     await useView(textOnly);
     const timeline = new NarrationTimeline(book.narration);
     return {
-      publication: book,
-      modes: readingModes(book),
-      defaultMode: defaultReadingMode(book),
+      publication: asPrint ? { ...book, toc: translateNavLabels(book.toc) } : book,
+      brailleAsPrint: asPrint,
+      modes: readingModes(book, { brailleAsPrint: asPrint }),
+      defaultMode: defaultReadingMode(book, { brailleAsPrint: asPrint }),
       clipStarts: book.narration.map((c) => timeline.startOf(c.index)),
       duration: timeline.duration,
     };

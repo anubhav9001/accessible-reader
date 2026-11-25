@@ -61,6 +61,10 @@ class AppSettings {
   String? get lastBookId => _prefs.getString('lastBookId');
   set lastBookId(String? value) => value == null ? _prefs.remove('lastBookId') : _prefs.setString('lastBookId', value);
 
+  /// eBraille books show as print text (translated back from braille); false shows the braille.
+  bool get brailleAsPrint => _prefs.getBool('brailleAsPrint') ?? true;
+  set brailleAsPrint(bool value) => _prefs.setBool('brailleAsPrint', value);
+
   /// How the book's text looks (display_settings.dart), as the shared rules read it.
   Map<String, Object?> get display {
     try {

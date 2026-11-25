@@ -100,7 +100,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       await _speech.setRate(_rate);
       await _bridge.call('display', [settings.display]);
       final opened =
-          await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files, _textOnly]);
+          await _bridge.call<Map<String, dynamic>>('open', [widget.server.bookUrl(widget.book.id), files, _textOnly, settings.brailleAsPrint]);
       final book = OpenedBook.fromJson(opened!);
       AppLog.info('book',
           'Opened "${book.title}": ${book.narration.length} narration clips, ${book.toc.length} top contents entries, screen reader mode ${_textOnly ? 'on' : 'off'}.');
@@ -709,6 +709,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   // ---- Where am I, and Book information ----------------------------------------------
 
+  /// eBraille: print text (translated back from braille) or the braille itself; opens the book again.
+  Future<void> _toggleBraillePrint() async {
+    final settings = await AppSettings.load();
+    settings.brailleAsPrint = !(_book?.brailleAsPrint ?? true);
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+        builder: (_) => ReaderScreen(store: widget.store, server: widget.server, book: widget.book)));
+  }
+
   void _showBookInfo() {
     final book = _book;
     if (book == null) return;
@@ -821,6 +830,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             enabled: book != null,
             onSelected: (choice) => switch (_logged(choice)) {
               'where' => _showWhereAmI(),
+              'braille' => _toggleBraillePrint(),
               'info' => _showBookInfo(),
               'page' => _goToPage(),
               'back' => _stepHistory(-1),
@@ -839,6 +849,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'where', child: Text('Where am I?')),
               const PopupMenuItem(value: 'info', child: Text('Book information')),
+              if (book?.format == 'ebraille')
+                PopupMenuItem(value: 'braille', child: Text(book!.brailleAsPrint ? 'Show braille' : 'Show print text')),
               const PopupMenuItem(value: 'add-bookmark', child: Text('Add bookmark')),
               const PopupMenuItem(value: 'bookmarks', child: Text('Bookmarks')),
               if (_backStack.isNotEmpty) const PopupMenuItem(value: 'back', child: Text('Go back')),

@@ -33,6 +33,7 @@ class HelpScreen extends StatelessWidget {
         ('Contents', 'Lists the book\'s chapters and sections. Choose one to go there.'),
         ('Go back', 'Appears at the top after you follow a link or footnote, or jump with the contents, Go to page or a bookmark. Takes you back to where you were. Go back and Go forward are also in the More reading options menu.'),
         ('Display', "In Settings, Display. How the book's text looks: typeface, text size, bold, line, word and letter spacing, line length and margins, justified text, text and background colours (or your own), and hiding printed page numbers."),
+        ('eBraille books', "Open as print text, translated back from braille, so they can be read aloud like any book. More reading options, Show braille, shows the braille itself (for a braille display); Show print text goes back. Remembered for all eBraille books."),
         ('Enlarge a picture', 'Tap a picture in the book. It opens on its own screen with its description; pinch to zoom, or use Larger and Smaller at the top.'),
         ('Where am I?', 'In the More reading options menu. A screen with your place (heading, section, page, how far through the book, time left), the reading mode and speed, your bookmarks, and how long you have read this book.'),
         ('Book information', 'In the More reading options menu. Everything the book says about itself: title, author, narrator, publisher, subject, description, format, accessibility, and every other metadata entry.'),

@@ -114,6 +114,7 @@ class OpenedBook {
         clipStarts = [for (final s in json['clipStarts'] as List) (s as num).toDouble()],
         duration = (json['duration'] as num).toDouble(),
         format = json['publication']['format'] as String,
+        brailleAsPrint = json['brailleAsPrint'] == true,
         narrators = [for (final a in (json['publication']['metadata']['narrators'] as List?) ?? const []) a as String],
         language = json['publication']['metadata']['language'] as String?,
         publisher = json['publication']['metadata']['publisher'] as String?,
@@ -141,6 +142,9 @@ class OpenedBook {
 
   /// For Book information: what the book says about itself (see the engine's Metadata).
   final String format;
+
+  /// An eBraille book shown as print text (translated back from braille).
+  final bool brailleAsPrint;
   final List<String> narrators;
   final String? language;
   final String? publisher;

@@ -18,6 +18,8 @@ await Promise.all([
   cp('src/reader.css', `${out}/reader.css`),
   // Maths in words (packages/web-view/src/math.ts): Speech Rule Engine and its rule files.
   cp('../../../node_modules/speech-rule-engine/lib/sre.js', `${out}/sre.js`),
+  // liblouis (WebAssembly), for eBraille as print text (web-view, braille.ts).
+  cp('../../../packages/web-view/vendor/liblouis/liblouis.js', `${out}/liblouis.js`),
   ...['base', 'en', 'hi'].map((l) => cp(`../../../node_modules/speech-rule-engine/lib/mathmaps/${l}.json`, `${out}/mathmaps/${l}.json`)),
 ]);
 console.log('Mobile web reader built into assets/web');
