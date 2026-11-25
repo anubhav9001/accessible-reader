@@ -35,6 +35,9 @@ describe('Sugamya Pustakalaya', () => {
     expect(sugamyaPath({ kind: 'search', terms: ' tagore ' })).toBe('authortitle/tagore/page/1/limit/20/format/xml');
     expect(sugamyaPath({ kind: 'category', name: 'Art and Architecture' }, 2)).toBe('category/Art%20and%20Architecture/page/2/limit/20/format/xml');
     expect(sugamyaPath({ kind: 'book', id: '5884' })).toBe('id/5884/page/1/limit/1/format/xml');
+    // An apostrophe is encoded, so the path passes isSugamyaPath.
+    expect(sugamyaPath({ kind: 'search', terms: "NSB's (2nd)" })).toBe('authortitle/NSB%27s%20%282nd%29/page/1/limit/20/format/xml');
+    expect(isSugamyaPath(sugamyaPath({ kind: 'search', terms: "NSB's Banking Basics" }))).toBe(true);
     expect(sugamyaPath({ kind: 'format', name: 'DAISY Audio Only' })).toBe('bookFormat/DAISY%20Audio%20Only/page/1/limit/20/format/xml');
     expect(isSugamyaPath(sugamyaPath({ kind: 'format', name: 'EPUB Text Only' }))).toBe(true);
     // Searching within a format: the title and author searches, filtered by format.

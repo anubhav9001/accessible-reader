@@ -88,7 +88,9 @@ export function isInSugamyaFormat(book: Pick<SugamyaBook, 'format'>, formatName:
 /** The request path (after getNALPData/) for a query and page. */
 export function sugamyaPath(query: SugamyaQuery, page = 1, limit = SUGAMYA_PAGE_SIZE): string {
   const tail = `page/${page}/limit/${limit}/format/xml`;
-  const part = (s: string) => encodeURIComponent(s.trim());
+  // encodeURIComponent leaves ! ' ( ) * as they are, and isSugamyaPath refuses them: a search for
+  // "NSB's Banking Basics" said "That is not a Sugamya Pustakalaya request". The library reads %27.
+  const part = (s: string) => encodeURIComponent(s.trim()).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   switch (query.kind) {
     case 'search':
       return `authortitle/${part(query.terms)}/${tail}`;
