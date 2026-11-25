@@ -57,6 +57,11 @@
         "ext": "epub",
         "name": "EPUB book",
         "role": "Viewer"
+      },
+      {
+        "ext": "ebrl",
+        "name": "eBraille book",
+        "role": "Viewer"
       }
     ],
     "electronVersion": "45.2.1",

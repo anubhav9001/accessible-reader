@@ -1,7 +1,8 @@
 import type { Container } from './container.js';
 
 /** The source format a publication was opened from. */
-export type BookFormat = 'epub' | 'daisy3' | 'daisy202';
+/** 'ebraille': DAISY eBraille 1.0, an EPUB 3 file set of braille already formatted in Unicode braille cells. */
+export type BookFormat = 'epub' | 'daisy3' | 'daisy202' | 'ebraille';
 
 export interface Metadata {
   title: string;

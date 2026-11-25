@@ -38,8 +38,30 @@ export function bookContent(pub: PublicationData): BookContent {
   };
 }
 
+/** Why an eBraille book without recorded narration can't be read aloud: the device voice would read braille cells by their dot numbers. */
+export const BRAILLE_NOT_SPOKEN =
+  "This is a braille book (eBraille): its text is braille cells, which the device voice can't read aloud. Read it on screen or on a braille display.";
+
 export function readingModes(pub: PublicationData): ModeOption[] {
   const { hasFullText, hasRecordedAudio, hasSyncedAudio } = bookContent(pub);
+  // eBraille: shown and read on a braille display as it is; only recorded narration can be heard.
+  if (pub.format === 'ebraille') {
+    return [
+      { mode: 'text', available: hasFullText, audioSource: 'none', reason: hasFullText ? undefined : 'This book has no text.' },
+      {
+        mode: 'audio',
+        available: hasRecordedAudio,
+        audioSource: hasRecordedAudio ? 'recorded' : 'none',
+        reason: hasRecordedAudio ? undefined : BRAILLE_NOT_SPOKEN,
+      },
+      {
+        mode: 'textAudio',
+        available: hasSyncedAudio,
+        audioSource: hasSyncedAudio ? 'recorded' : 'none',
+        reason: hasSyncedAudio ? undefined : BRAILLE_NOT_SPOKEN,
+      },
+    ];
+  }
   const noText = 'This book has no full text, only audio.';
   return [
     {
@@ -66,6 +88,7 @@ export function readingModes(pub: PublicationData): ModeOption[] {
 /** The mode a book should open in, following its declared DAISY multimedia type when there is one. */
 export function defaultReadingMode(pub: PublicationData): ReadingMode {
   const { hasFullText, hasRecordedAudio, hasSyncedAudio } = bookContent(pub);
+  if (pub.format === 'ebraille') return hasFullText ? 'text' : 'audio';
   const type = pub.metadata.multimediaType?.toLowerCase().replace(/[\s_-]/g, '');
   if (type === 'audioonly' || type === 'audioncc' || type === 'audioncx' || !hasFullText) return 'audio';
   if (type === 'textncx' || type === 'textncc' || !hasRecordedAudio) return 'text';

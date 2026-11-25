@@ -27,7 +27,7 @@ export class DirectoryContainer extends BaseContainer {
 /** Opens a book from a .epub/.zip file, or from a DAISY ncc.html / .opf inside a book folder. */
 export async function openContainer(file: string): Promise<Container> {
   const ext = path.extname(file).toLowerCase();
-  if (ext === '.epub' || ext === '.zip') return ZipContainer.fromBytes(await readFile(file));
+  if (ext === '.epub' || ext === '.ebrl' || ext === '.zip') return ZipContainer.fromBytes(await readFile(file));
   return DirectoryContainer.open(path.dirname(file));
 }
 

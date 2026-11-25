@@ -1,4 +1,5 @@
 import {
+  BRAILLE_NOT_SPOKEN,
   NarrationTimeline,
   currentHeading,
   currentPage,
@@ -81,7 +82,7 @@ const ui = {
 
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const MODE_LABELS: Record<ReadingMode, string> = { text: 'Text only', audio: 'Audio only', textAudio: 'Text and audio' };
-const FORMAT_LABELS = { epub: 'EPUB', daisy3: 'DAISY 3', daisy202: 'DAISY 2.02' };
+const FORMAT_LABELS = { epub: 'EPUB', daisy3: 'DAISY 3', daisy202: 'DAISY 2.02', ebraille: 'eBraille' };
 
 const bookUrl = (path: string) => `reader://book/${path.split('/').map(encodeURIComponent).join('/')}`;
 
@@ -542,6 +543,7 @@ async function closeBook(): Promise<void> {
   plain.clear();
   book = undefined;
   setBookContents([]);
+  document.body.classList.remove('book-ebraille');
   readingStats.close();
   timeline = new NarrationTimeline([]);
   modes = [];
@@ -573,6 +575,8 @@ async function openBook(info: BookInfo, note?: string): Promise<void> {
   book = info;
   // Headings from the contents, for books that style theirs as plain paragraphs (issue 8).
   setBookContents(info.toc);
+  // eBraille: braille cells, in a font that has them (styles.css).
+  document.body.classList.toggle('book-ebraille', info.format === 'ebraille');
   readingStats.open(positionKey().replace(/^position:/, ''));
   clearHistory();
   timeline = new NarrationTimeline(info.narration);
@@ -1113,7 +1117,7 @@ async function play(): Promise<void> {
     speech.jump(blockIndexFor(speech.elements, place ?? view.current));
     speech.play();
   } else {
-    announce('There is nothing to play in this mode.');
+    announce(book.format === 'ebraille' ? BRAILLE_NOT_SPOKEN : 'There is nothing to play in this mode.');
   }
 }
 

@@ -1,12 +1,14 @@
 import { ZipContainer, type Container } from './container.js';
 import { findPackage, parseDaisy3 } from './daisy3.js';
 import { findNcc, parseDaisy202 } from './daisy202.js';
-import { parseEpub } from './epub.js';
+import { EBRAILLE_INDEX, EBRAILLE_PACKAGE, parseEpub } from './epub.js';
 import type { BookFormat, Publication } from './model.js';
 import type { XmlPlatform } from './xml.js';
 
 export function detectFormat(container: Container): BookFormat | undefined {
   if (container.has('META-INF/container.xml')) return 'epub';
+  // An unpackaged eBraille file set: no container needed (it opens through parseEpub).
+  if (container.has(EBRAILLE_PACKAGE) && container.has(EBRAILLE_INDEX)) return 'ebraille';
   if (findPackage(container)) return 'daisy3';
   if (findNcc(container)) return 'daisy202';
   return undefined;
@@ -22,7 +24,7 @@ export function wrappedBookPath(container: Container): string | undefined {
   const inner = container.paths.filter((path) => {
     const lower = path.toLowerCase();
     const name = lower.split('/').pop() ?? '';
-    return !lower.startsWith('__macosx/') && !name.startsWith('.') && /\.(epub|zip)$/.test(name);
+    return !lower.startsWith('__macosx/') && !name.startsWith('.') && /\.(epub|ebrl|zip)$/.test(name);
   });
   return inner.length === 1 ? inner[0] : undefined;
 }
@@ -32,6 +34,7 @@ export async function openPublication(container: Container, xml: XmlPlatform, de
   if (inner) return openPublication(ZipContainer.fromBytes(await container.readBytes(inner)), xml, depth + 1);
   switch (detectFormat(container)) {
     case 'epub':
+    case 'ebraille':
       return parseEpub(container, xml);
     case 'daisy3':
       return parseDaisy3(container, xml);

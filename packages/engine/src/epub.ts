@@ -1,17 +1,35 @@
 import type { Container } from './container.js';
 import { linkNavigation } from './link.js';
-import type { NarrationClip, NavItem, PageTarget, Publication } from './model.js';
+import type { Metadata, NarrationClip, NavItem, PageTarget, Publication } from './model.js';
 import { parseNcx, pageKind } from './ncx.js';
 import { parsePackage } from './opf.js';
 import { resolveHref } from './paths.js';
 import { parseSmil } from './smil.js';
 import { attr, children, descendants, first, parseDocument, text, tokens, type XmlPlatform } from './xml.js';
 
-/** Opens an EPUB 2 or EPUB 3 publication, including EPUB 3 media overlays (synced narration). */
+/** eBraille's package document and entry page, which must sit at the root of the file set. */
+export const EBRAILLE_PACKAGE = 'package.opf';
+export const EBRAILLE_INDEX = 'index.html';
+
+/** An eBraille publication says so in dc:format ("eBraille 1.0") or with its braille metadata. */
+export function isEbraille(metadata: Metadata): boolean {
+  return (metadata.entries ?? []).some(
+    (e) => (e.name === 'dc:format' && /^ebraille(\s|$)/i.test(e.value)) || /^a11y:braille(CellType|System)$/i.test(e.name),
+  );
+}
+
+/**
+ * Opens an EPUB 2 or EPUB 3 publication, including EPUB 3 media overlays (synced narration), and
+ * eBraille, which is built on EPUB 3: a packaged .ebrl has the EPUB container; an unpackaged file
+ * set has package.opf and index.html at its root, and META-INF only if it likes.
+ */
 export async function parseEpub(container: Container, xml: XmlPlatform): Promise<Publication> {
-  const containerDoc = xml.parseXml(await container.readText('META-INF/container.xml'));
-  const opfPath = attr(first(containerDoc, 'rootfile') ?? containerDoc.documentElement, 'full-path');
-  if (!opfPath) throw new Error('EPUB has no package document listed in META-INF/container.xml');
+  let opfPath: string | undefined = EBRAILLE_PACKAGE;
+  if (container.has('META-INF/container.xml')) {
+    const containerDoc = xml.parseXml(await container.readText('META-INF/container.xml'));
+    opfPath = attr(first(containerDoc, 'rootfile') ?? containerDoc.documentElement, 'full-path');
+  }
+  if (!opfPath || !container.has(opfPath)) throw new Error('EPUB has no package document listed in META-INF/container.xml');
 
   const pkg = parsePackage(xml.parseXml(await container.readText(opfPath)), opfPath);
 
@@ -37,7 +55,7 @@ export async function parseEpub(container: Container, xml: XmlPlatform): Promise
   }
 
   const publication: Publication = {
-    format: 'epub',
+    format: isEbraille(pkg.metadata) ? 'ebraille' : 'epub',
     metadata: pkg.metadata,
     readingOrder: pkg.spine.map((i) => ({ path: i.path, mediaType: i.mediaType })),
     toc,

@@ -74,7 +74,7 @@ export {
   type SugamyaUser,
 } from './sugamya.js';
 export { resolveHref, resolvePath } from './paths.js';
-export { bookContent, defaultReadingMode, readingModes } from './modes.js';
+export { BRAILLE_NOT_SPOKEN, bookContent, defaultReadingMode, readingModes } from './modes.js';
 export type { AudioSource, BookContent, ModeOption, ReadingMode } from './modes.js';
 export { NarrationTimeline } from './timeline.js';
 export {

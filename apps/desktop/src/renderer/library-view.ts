@@ -9,7 +9,7 @@ interface Elements {
   list: HTMLElement;
 }
 
-const FORMAT_LABELS: Record<LibraryEntry['format'], string> = { epub: 'EPUB', daisy3: 'DAISY 3', daisy202: 'DAISY 2.02' };
+const FORMAT_LABELS: Record<LibraryEntry['format'], string> = { epub: 'EPUB', daisy3: 'DAISY 3', daisy202: 'DAISY 2.02', ebraille: 'eBraille' };
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 
 /** "My books": every book opened or downloaded, most recently read first. */

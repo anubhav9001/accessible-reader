@@ -537,7 +537,7 @@ ipcMain.handle('open-book-dialog', async () => {
     title: 'Open book',
     properties: ['openFile'],
     filters: [
-      { name: 'Books (EPUB, DAISY)', extensions: ['epub', 'zip', 'html', 'htm', 'opf'] },
+      { name: 'Books (EPUB, DAISY, eBraille)', extensions: ['epub', 'ebrl', 'zip', 'html', 'htm', 'opf'] },
       { name: 'All files', extensions: ['*'] },
     ],
   });

@@ -166,3 +166,68 @@ export function daisy202FullText(): Record<string, string | Uint8Array> {
     'c.mp3': fakeAudio,
   };
 }
+
+/**
+ * A small eBraille 1.0 book: package.opf and index.html at the root (the navigation document, with
+ * a contents list and a page list), braille metadata, and two chapters of Unicode braille cells.
+ * `packaged` adds the EPUB container (a .ebrl file); without it, it is an unpackaged file set.
+ */
+export function ebraille({ packaged = true } = {}): Record<string, string | Uint8Array> {
+  const chapter = (id: string, heading: string, text: string, page: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en-Brai-US" lang="en-Brai-US">
+<head><meta charset="utf-8"/><title>${heading}</title></head>
+<body>
+  <h1 id="${id}">${heading}</h1>
+  <p><span epub:type="pagebreak" role="doc-pagebreak" id="page${page}" aria-label="${page}"></span>${text}</p>
+</body></html>`;
+  return {
+    ...(packaged
+      ? {
+          mimetype: 'application/epub+zip',
+          'META-INF/container.xml': `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles><rootfile full-path="package.opf" media-type="application/oebps-package+xml"/></rootfiles>
+</container>`,
+        }
+      : {}),
+    'package.opf': `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="en-Brai-US">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="uid">urn:uuid:7d1b6b8e-0000-4000-8000-ebraille0001</dc:identifier>
+    <dc:title>Sample eBraille</dc:title>
+    <dc:creator>Reader tests</dc:creator>
+    <dc:language>en-Brai-US</dc:language>
+    <dc:format>eBraille 1.0</dc:format>
+    <dc:date>2026-11-25</dc:date>
+    <meta property="dcterms:modified">2026-11-25T00:00:00Z</meta>
+    <meta property="dcterms:copyrightDate">2026</meta>
+    <meta property="a11y:brailleCellType">6</meta>
+    <meta property="a11y:brailleSystem">UEB</meta>
+    <meta property="a11y:completeTranscription">true</meta>
+    <meta property="a11y:producer">Saksham</meta>
+    <meta property="a11y:tactileGraphics">none</meta>
+  </metadata>
+  <manifest>
+    <item id="nav" href="index.html" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="c1" href="ebraille/chapter1.html" media-type="application/xhtml+xml"/>
+    <item id="c2" href="ebraille/chapter2.html" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine><itemref idref="c1"/><itemref idref="c2"/></spine>
+</package>`,
+    'index.html': `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en-Brai-US" lang="en-Brai-US">
+<head><meta charset="utf-8"/><title>⠠⠎⠁⠍⠏⠇⠑ ⠑⠠⠃⠗⠁⠊⠇⠇⠑</title><link rel="publication" href="package.opf"/></head>
+<body>
+  <nav epub:type="toc" role="doc-toc"><h2>⠠⠉⠕⠝⠞⠑⠝⠞⠎</h2><ol>
+    <li><a href="ebraille/chapter1.html#c1">⠠⠉⠓⠁⠏⠞⠑⠗ ⠼⠁</a></li>
+    <li><a href="ebraille/chapter2.html#c2">⠠⠉⠓⠁⠏⠞⠑⠗ ⠼⠃</a></li>
+  </ol></nav>
+  <nav epub:type="page-list" role="doc-pagelist" hidden="hidden"><ol>
+    <li><a href="ebraille/chapter1.html#page1" title="1">1</a></li>
+    <li><a href="ebraille/chapter2.html#page2" title="2">2</a></li>
+  </ol></nav>
+</body></html>`,
+    'ebraille/chapter1.html': chapter('c1', '⠠⠉⠓⠁⠏⠞⠑⠗ ⠼⠁', '⠠⠞⠓⠑ ⠟⠥⠊⠉⠅ ⠃⠗⠕⠺⠝ ⠋⠕⠭ ⠚⠥⠍⠏⠎ ⠕⠧⠑⠗ ⠞⠓⠑ ⠇⠁⠵⠽ ⠙⠕⠛⠲', '1'),
+    'ebraille/chapter2.html': chapter('c2', '⠠⠉⠓⠁⠏⠞⠑⠗ ⠼⠃', '⠠⠃⠗⠁⠊⠇⠇⠑ ⠊⠎ ⠗⠑⠁⠙ ⠃⠽ ⠞⠕⠥⠉⠓⠲', '2'),
+  };
+}

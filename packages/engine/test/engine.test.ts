@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BRAILLE_NOT_SPOKEN,
   MemoryContainer,
   NarrationTimeline,
   ZipContainer,
@@ -16,7 +17,7 @@ import {
   wrappedBookPath,
 } from '../src/index.js';
 import { xmldomPlatform } from '../src/platform/xmldom.js';
-import { daisy202AudioOnly, daisy202FullText, daisy3, epub3, zip } from './fixtures.js';
+import { daisy202AudioOnly, daisy202FullText, daisy3, ebraille, epub3, zip } from './fixtures.js';
 
 const open = (files: Record<string, string | Uint8Array>) =>
   openPublication(ZipContainer.fromBytes(zip(files)), xmldomPlatform);
@@ -195,5 +196,41 @@ describe('a book inside a zip of its own', () => {
 
   it('still says when there is no book', async () => {
     await expect(open({ 'notes.txt': 'x' })).rejects.toThrow('Not a supported book');
+  });
+});
+
+describe('eBraille', () => {
+  it('opens a packaged .ebrl as eBraille, with its contents, pages and braille metadata', async () => {
+    const pub = await open(ebraille());
+    expect(pub.format).toBe('ebraille');
+    expect(pub.metadata.title).toBe('Sample eBraille');
+    expect(pub.readingOrder.map((r) => r.path)).toEqual(['ebraille/chapter1.html', 'ebraille/chapter2.html']);
+    expect(pub.toc.map((t) => t.label)).toEqual(['⠠⠉⠓⠁⠏⠞⠑⠗ ⠼⠁', '⠠⠉⠓⠁⠏⠞⠑⠗ ⠼⠃']);
+    expect(pub.pageList.map((p) => p.label)).toEqual(['1', '2']);
+    expect(pub.metadata.entries).toEqual(expect.arrayContaining([{ name: 'a11y:brailleSystem', value: 'UEB' }]));
+  });
+
+  it('opens an unpackaged file set (package.opf and index.html at the root, no container)', async () => {
+    const pub = await open(ebraille({ packaged: false }));
+    expect(pub.format).toBe('ebraille');
+    expect(pub.readingOrder).toHaveLength(2);
+  });
+
+  it('opens a .ebrl inside a .zip', async () => {
+    const pub = await open({ 'Sample.ebrl': zip(ebraille()) });
+    expect(pub.format).toBe('ebraille');
+  });
+
+  it('offers Text only: the device voice cannot read braille cells', async () => {
+    const pub = await open(ebraille());
+    expect(defaultReadingMode(pub)).toBe('text');
+    const modes = readingModes(pub);
+    expect(modes.find((m) => m.mode === 'text')).toMatchObject({ available: true, audioSource: 'none' });
+    expect(modes.find((m) => m.mode === 'audio')).toMatchObject({ available: false, reason: BRAILLE_NOT_SPOKEN });
+    expect(modes.find((m) => m.mode === 'textAudio')).toMatchObject({ available: false });
+  });
+
+  it('an ordinary EPUB 3 is still EPUB', async () => {
+    expect((await open(epub3())).format).toBe('epub');
   });
 });

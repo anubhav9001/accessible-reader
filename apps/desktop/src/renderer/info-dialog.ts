@@ -42,7 +42,7 @@ export function showInfo(dialog: HTMLDialogElement, title: string, sections: Inf
   openDialog(dialog, () => heading);
 }
 
-const FORMATS: Record<BookInfo['format'], string> = { epub: 'EPUB', daisy202: 'DAISY 2.02', daisy3: 'DAISY 3' };
+const FORMATS: Record<BookInfo['format'], string> = { epub: 'EPUB', daisy202: 'DAISY 2.02', daisy3: 'DAISY 3', ebraille: 'eBraille (braille, already formatted)' };
 
 /** What a DAISY multimedia type means, in words. */
 const MULTIMEDIA: Record<string, string> = {

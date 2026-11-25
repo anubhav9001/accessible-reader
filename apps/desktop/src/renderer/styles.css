@@ -716,3 +716,10 @@ dialog input {
 #ui-text img {
   cursor: zoom-in;
 }
+
+/* eBraille: the text is Unicode braille cells (U+2800 to U+28FF), already formatted; a font that
+   has them, and the book's own line breaks and spaces kept. */
+.book-ebraille #ui-text,
+.book-ebraille .ui-plain {
+  font-family: 'Segoe UI Symbol', 'Segoe UI Emoji', 'Segoe UI', sans-serif;
+}
